@@ -16,6 +16,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.pws.primaragagym.screens.ProfileScreen
 import com.pws.primaragagym.screens.SplashScreen
+import com.pws.primaragagym.screens.admin.dashboard.AdminDashboardScreen
 import com.pws.primaragagym.screens.auth.AuthScreen
 import com.pws.primaragagym.screens.auth.ForgotPasswordScreen
 import com.pws.primaragagym.screens.auth.ForgotPasswordState
@@ -42,11 +43,7 @@ class MainActivity : ComponentActivity() {
                     color = LightBackground
                 ) {
                     // Preview Profile Screen
-                    ProfileScreen(
-                        onBackClick = { },
-                        onChangePasswordClick = { },
-                        onLogoutConfirm = { }
-                    )
+                    AdminDashboardScreen {  }
                 }
             }
         }

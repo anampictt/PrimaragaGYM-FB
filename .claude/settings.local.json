@@ -3,7 +3,8 @@
     "allow": [
       "Bash(./gradlew assembleDebug)",
       "Bash(./gradlew assembleDebug --no-daemon)",
-      "Bash(./gradlew assembleDebug --no-daemon --no-configuration-cache)"
+      "Bash(./gradlew assembleDebug --no-daemon --no-configuration-cache)",
+      "Bash(./gradlew :app:compileDebugKotlin)"
     ]
   }
 }
