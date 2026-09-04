@@ -14,6 +14,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.pws.primaragagym.screens.ProfileScreen
 import com.pws.primaragagym.screens.SplashScreen
 import com.pws.primaragagym.screens.auth.AuthScreen
 import com.pws.primaragagym.screens.auth.ForgotPasswordScreen
@@ -21,6 +22,12 @@ import com.pws.primaragagym.screens.auth.ForgotPasswordState
 import com.pws.primaragagym.screens.auth.ForgotPasswordUiState
 import com.pws.primaragagym.screens.auth.LoginScreen
 import com.pws.primaragagym.screens.auth.LoginUiState
+import com.pws.primaragagym.screens.superadmin.dashboard.SuperAdminDashboardScreen
+import com.pws.primaragagym.screens.superadmin.manajemancabang.ManajemenCabangScreen
+import com.pws.primaragagym.screens.superadmin.manajemenpengguna.ManajemenPenggunaScreen
+import com.pws.primaragagym.screens.superadmin.manajemenpengguna.TambahPenggunaScreen
+import com.pws.primaragagym.screens.superadmin.manajemenrole.ManajemenRoleScreen
+import com.pws.primaragagym.screens.superadmin.manajemenrole.TambahRoleScreen
 import com.pws.primaragagym.ui.theme.LightBackground
 import com.pws.primaragagym.ui.theme.PrimaragagymTheme
 
@@ -34,7 +41,12 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = LightBackground
                 ) {
-                    PrimaragaGymAuthApp()
+                    // Preview Profile Screen
+                    ProfileScreen(
+                        onBackClick = { },
+                        onChangePasswordClick = { },
+                        onLogoutConfirm = { }
+                    )
                 }
             }
         }

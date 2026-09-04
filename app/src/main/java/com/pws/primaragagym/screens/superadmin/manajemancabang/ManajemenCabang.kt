@@ -1,4 +1,4 @@
-package com.pws.primaragagym.screens.superadmin.manajemenpengguna
+package com.pws.primaragagym.screens.superadmin.manajemancabang
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -23,8 +23,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -53,12 +55,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 // ============================================================================
-// COLORS - Match design system
+// COLORS - Match ManajemenPengguna & ManajemenRole visual style exactly
 // ============================================================================
 private val BackgroundColor = Color(0xFFF5F7FA)
 private val CardBackground = Color.White
@@ -70,63 +71,43 @@ private val GreenLight = Color(0xFFE8F5E9)
 private val DividerColor = Color(0xFFE8E8E8)
 
 // ============================================================================
-// USER MODEL
+// BRANCH MODEL
 // ============================================================================
-data class UserUiModel(
+data class BranchUiModel(
     val id: String,
     val name: String,
-    val email: String,
-    val role: String,
-    val status: String,
-    val avatarInitial: String
+    val address: String
 )
 
 // ============================================================================
 // MOCK DATA
 // ============================================================================
-private val mockUsers = listOf(
-    UserUiModel(
+private val mockBranches = listOf(
+    BranchUiModel(
         id = "1",
-        name = "Sarah Connor",
-        email = "sarah@kigym.com",
-        role = "Admin",
-        status = "Active",
-        avatarInitial = "SC"
+        name = "Primaraga Gym Jakarta",
+        address = "Jl. Jenderal Sudirman No. 123, Jakarta"
     ),
-    UserUiModel(
+    BranchUiModel(
         id = "2",
-        name = "John Smith",
-        email = "john.s@kigym.com",
-        role = "Admin",
-        status = "Active",
-        avatarInitial = "JS"
+        name = "Primaraga Gym Bekasi",
+        address = "Jl. Ahmad Yani No. 45, Bekasi"
     ),
-    UserUiModel(
+    BranchUiModel(
         id = "3",
-        name = "Sarah Connor",
-        email = "sarah@kigym.com",
-        role = "Admin",
-        status = "Active",
-        avatarInitial = "SC"
+        name = "Primaraga Gym Tangerang",
+        address = "Jl. MH Thamrin No. 78, Tangerang"
     ),
-    UserUiModel(
+    BranchUiModel(
         id = "4",
-        name = "John Smith",
-        email = "john.s@kigym.com",
-        role = "Admin",
-        status = "Active",
-        avatarInitial = "JS"
+        name = "Primaraga Gym Bandung",
+        address = "Jl. Asia Afrika No. 25, Bandung"
+    ),
+    BranchUiModel(
+        id = "5",
+        name = "Primaraga Gym Surabaya",
+        address = "Jl. Basuki Rahmat No. 88, Surabaya"
     )
-)
-
-// ============================================================================
-// UI STATE
-// ============================================================================
-private data class UserManagementUiState(
-    val users: List<UserUiModel> = emptyList(),
-    val searchQuery: String = "",
-    val isLoading: Boolean = false,
-    val errorMessage: String? = null
 )
 
 // ============================================================================
@@ -134,11 +115,11 @@ private data class UserManagementUiState(
 // ============================================================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ManajemenPenggunaScreen(
+fun ManajemenCabangScreen(
     onBackClick: () -> Unit = {},
-    onAddUserClick: () -> Unit = {},
-    onEditUser: (UserUiModel) -> Unit = {},
-    onDeleteUser: (UserUiModel) -> Unit = {}
+    onAddBranchClick: () -> Unit = {},
+    onEditBranch: (BranchUiModel) -> Unit = {},
+    onDeleteBranch: (BranchUiModel) -> Unit = {}
 ) {
     val configuration = LocalConfiguration.current
     val screenWidthDp = configuration.screenWidthDp
@@ -146,14 +127,14 @@ fun ManajemenPenggunaScreen(
 
     var searchQuery by remember { mutableStateOf("") }
 
-    // Filter users based on search query
-    val filteredUsers = remember(searchQuery) {
+    // Filter branches based on search query
+    val filteredBranches = remember(searchQuery) {
         if (searchQuery.isBlank()) {
-            mockUsers
+            mockBranches
         } else {
-            mockUsers.filter { user ->
-                user.name.contains(searchQuery, ignoreCase = true) ||
-                        user.email.contains(searchQuery, ignoreCase = true)
+            mockBranches.filter { branch ->
+                branch.name.contains(searchQuery, ignoreCase = true) ||
+                        branch.address.contains(searchQuery, ignoreCase = true)
             }
         }
     }
@@ -168,20 +149,20 @@ fun ManajemenPenggunaScreen(
     Scaffold(
         containerColor = BackgroundColor,
         topBar = {
-            UserManagementTopBar(
+            BranchManagementTopBar(
                 onBackClick = onBackClick
             )
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = onAddUserClick,
+                onClick = onAddBranchClick,
                 containerColor = GreenAccent,
                 contentColor = Color.White,
                 shape = CircleShape
             ) {
                 Icon(
                     imageVector = Icons.Filled.Add,
-                    contentDescription = "Tambah Pengguna"
+                    contentDescription = "Tambah Cabang"
                 )
             }
         }
@@ -192,21 +173,21 @@ fun ManajemenPenggunaScreen(
                 .padding(paddingValues)
         ) {
             // Search Field
-            SearchField(
+            BranchSearchField(
                 query = searchQuery,
                 onQueryChange = { query -> searchQuery = query },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(
-                        horizontal = if (isTablet) 24.dp else 24.dp,
+                        horizontal = 24.dp,
                         vertical = 16.dp
                     )
             )
 
-            // User List
-            if (filteredUsers.isEmpty()) {
+            // Branch List
+            if (filteredBranches.isEmpty()) {
                 // Empty State
-                EmptyState(
+                BranchEmptyState(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
@@ -223,13 +204,13 @@ fun ManajemenPenggunaScreen(
                     )
                 ) {
                     items(
-                        items = filteredUsers,
+                        items = filteredBranches,
                         key = { it.id }
-                    ) { user ->
-                        UserCard(
-                            user = user,
-                            onEditClick = { onEditUser(user) },
-                            onDeleteClick = { onDeleteUser(user) }
+                    ) { branch ->
+                        BranchCard(
+                            branch = branch,
+                            onEditClick = { onEditBranch(branch) },
+                            onDeleteClick = { onDeleteBranch(branch) }
                         )
                     }
                 }
@@ -243,13 +224,13 @@ fun ManajemenPenggunaScreen(
 // ============================================================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun UserManagementTopBar(
+private fun BranchManagementTopBar(
     onBackClick: () -> Unit
 ) {
     TopAppBar(
         title = {
             Text(
-                text = "Manajemen User",
+                text = "Manajemen Cabang",
                 style = MaterialTheme.typography.titleLarge.copy(
                     fontWeight = FontWeight.SemiBold
                 ),
@@ -278,7 +259,7 @@ private fun UserManagementTopBar(
 // SEARCH FIELD
 // ============================================================================
 @Composable
-private fun SearchField(
+private fun BranchSearchField(
     query: String,
     onQueryChange: (String) -> Unit,
     modifier: Modifier = Modifier
@@ -308,7 +289,7 @@ private fun SearchField(
             Box(modifier = Modifier.weight(1f)) {
                 if (query.isEmpty()) {
                     Text(
-                        text = "Cari pengguna...",
+                        text = "Cari cabang...",
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextMuted
                     )
@@ -337,11 +318,11 @@ private fun SearchField(
 }
 
 // ============================================================================
-// USER CARD
+// BRANCH CARD
 // ============================================================================
 @Composable
-private fun UserCard(
-    user: UserUiModel,
+private fun BranchCard(
+    branch: BranchUiModel,
     onEditClick: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
@@ -361,21 +342,20 @@ private fun UserCard(
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Avatar
-            UserAvatar(
-                initial = user.avatarInitial,
+            // Branch Icon
+            BranchIconContainer(
                 modifier = Modifier.size(48.dp)
             )
 
             Spacer(modifier = Modifier.width(12.dp))
 
-            // User Info
+            // Branch Info
             Column(
                 modifier = Modifier.weight(1f)
             ) {
-                // Name
+                // Branch Name
                 Text(
-                    text = user.name,
+                    text = branch.name,
                     style = MaterialTheme.typography.bodyLarge.copy(
                         fontWeight = FontWeight.SemiBold
                     ),
@@ -384,23 +364,28 @@ private fun UserCard(
                     overflow = TextOverflow.Ellipsis
                 )
 
-                // Email
-                Text(
-                    text = user.email,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = TextSecondary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Spacer(modifier = Modifier.height(4.dp))
 
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Badges
+                // Address with Location Icon
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    RoleBadge(role = user.role)
-                    StatusBadge(status = user.status)
+                    Icon(
+                        imageVector = Icons.Filled.LocationOn,
+                        contentDescription = null,
+                        tint = GreenAccent,
+                        modifier = Modifier.size(16.dp)
+                    )
+
+                    Spacer(modifier = Modifier.width(4.dp))
+
+                    Text(
+                        text = branch.address,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
 
@@ -449,11 +434,10 @@ private fun UserCard(
 }
 
 // ============================================================================
-// USER AVATAR
+// BRANCH ICON CONTAINER
 // ============================================================================
 @Composable
-private fun UserAvatar(
-    initial: String,
+private fun BranchIconContainer(
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -462,68 +446,12 @@ private fun UserAvatar(
             .background(GreenLight),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = initial,
-            style = MaterialTheme.typography.bodyMedium.copy(
-                fontWeight = FontWeight.SemiBold
-            ),
-            color = GreenAccent
+        Icon(
+            imageVector = Icons.Filled.Business,
+            contentDescription = null,
+            tint = GreenAccent,
+            modifier = Modifier.size(24.dp)
         )
-    }
-}
-
-// ============================================================================
-// ROLE BADGE
-// ============================================================================
-@Composable
-private fun RoleBadge(role: String) {
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(6.dp))
-            .background(GreenLight)
-            .padding(horizontal = 8.dp, vertical = 4.dp)
-    ) {
-        Text(
-            text = role,
-            style = MaterialTheme.typography.labelSmall.copy(
-                fontWeight = FontWeight.Medium
-            ),
-            color = GreenAccent
-        )
-    }
-}
-
-// ============================================================================
-// STATUS BADGE
-// ============================================================================
-@Composable
-private fun StatusBadge(status: String) {
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(6.dp))
-            .background(Color.White)
-            .padding(horizontal = 8.dp, vertical = 4.dp)
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            // Status Dot
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .clip(CircleShape)
-                    .background(GreenAccent)
-            )
-
-            Text(
-                text = status,
-                style = MaterialTheme.typography.labelSmall.copy(
-                    fontWeight = FontWeight.Medium
-                ),
-                color = GreenAccent
-            )
-        }
     }
 }
 
@@ -531,7 +459,7 @@ private fun StatusBadge(status: String) {
 // EMPTY STATE
 // ============================================================================
 @Composable
-private fun EmptyState(modifier: Modifier = Modifier) {
+private fun BranchEmptyState(modifier: Modifier = Modifier) {
     Box(
         modifier = modifier,
         contentAlignment = Alignment.Center
@@ -540,7 +468,7 @@ private fun EmptyState(modifier: Modifier = Modifier) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Tidak ada pengguna ditemukan",
+                text = "Cabang tidak ditemukan",
                 style = MaterialTheme.typography.bodyLarge.copy(
                     fontWeight = FontWeight.Medium
                 ),

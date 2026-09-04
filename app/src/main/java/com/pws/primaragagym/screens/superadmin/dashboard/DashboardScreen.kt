@@ -1,2 +1,915 @@
 package com.pws.primaragagym.screens.superadmin.dashboard
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AttachMoney
+import androidx.compose.material.icons.filled.Business
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.pws.primaragagym.ui.theme.GreenPrimary
+import com.pws.primaragagym.ui.theme.GreenPrimaryLight
+
+// ============================================================================
+// COLORS - Match design reference
+// ============================================================================
+private val BackgroundColor = Color(0xFFF5F7FA)
+private val HeaderBackgroundColor = Color(0xFFE8F5E9) // Light green header
+private val CardBackground = Color.White
+private val TextPrimary = Color(0xFF1A1A1A)
+private val TextSecondary = Color(0xFF6B6B6B)
+private val TextMuted = Color(0xFF9E9E9E)
+private val IconBackground = Color(0xFFE8F5E9) // Light green icon container
+private val GreenAccent = Color(0xFF32A060) // Primaraga green
+private val GreenStatus = Color(0xFF4CAF50)
+
+// ============================================================================
+// MOCK DATA - From design reference
+// ============================================================================
+private data class DashboardData(
+    val greeting: String,
+    val title: String,
+    val subtitle: String,
+    val summaryDate: String,
+    val totalPengguna: Int,
+    val totalCabang: Int,
+    val pendapatan: String,
+    val systemStatus: String,
+    val lastLogin: String
+)
+
+private val dashboardData = DashboardData(
+    greeting = "Selamat datang kembali,",
+    title = "Super Admin",
+    subtitle = "Kelola gym Anda dengan mudah dan efisien.",
+    summaryDate = "29 Mei 2025",
+    totalPengguna = 128,
+    totalCabang = 15,
+    pendapatan = "2.6Jt",
+    systemStatus = "Sistem aman dan terproteksi",
+    lastLogin = "29 Mei 2025, 08:30 WIB"
+)
+
+// ============================================================================
+// MENU DATA
+// ============================================================================
+private data class MenuItem(
+    val title: String,
+    val description: String,
+    val icon: ImageVector
+)
+
+private val menuItems = listOf(
+    MenuItem(
+        title = "Manajemen Pengguna",
+        description = "Kelola data pengguna sistem,\nseperti admin, staff, dan trainer.",
+        icon = Icons.Filled.Person
+    ),
+    MenuItem(
+        title = "Manajemen Role",
+        description = "Atur peran dan hak akses\npengguna dalam sistem.",
+        icon = Icons.Filled.Security
+    ),
+    MenuItem(
+        title = "Manajemen Cabang",
+        description = "Kelola data cabang gym yang\ntersedia.",
+        icon = Icons.Filled.Shield
+    ),
+    MenuItem(
+        title = "Pengaturan Akun",
+        description = "Kelola data akun anda",
+        icon = Icons.Filled.Person
+    )
+)
+
+// ============================================================================
+// BOTTOM NAVIGATION DATA
+// ============================================================================
+private enum class BottomNavItem(
+    val label: String,
+    val icon: ImageVector
+) {
+    DASHBOARD("Dashboard", Icons.Filled.Home),
+    KEUANGAN("Keuangan", Icons.Filled.TrendingUp),
+    PENGATURAN("Pengaturan", Icons.Filled.Settings)
+}
+
+// ============================================================================
+// MAIN SCREEN
+// ============================================================================
+@Composable
+fun SuperAdminDashboardScreen(
+    onUserManagementClick: () -> Unit = {},
+    onRoleManagementClick: () -> Unit = {},
+    onBranchManagementClick: () -> Unit = {},
+    onAccountSettingsClick: () -> Unit = {},
+    onDashboardClick: () -> Unit = {},
+    onKeuanganClick: () -> Unit = {},
+    onSettingsClick: () -> Unit = {}
+) {
+    val configuration = LocalConfiguration.current
+    val screenWidthDp = configuration.screenWidthDp
+    val isTablet = screenWidthDp >= 600
+
+    val data = remember { dashboardData }
+    var selectedNavItem by remember { mutableStateOf(BottomNavItem.DASHBOARD) }
+
+    if (isTablet) {
+        // Tablet Layout with Sidebar
+        TabletDashboardLayout(
+            data = data,
+            selectedNavItem = selectedNavItem,
+            onNavItemSelected = { selectedNavItem = it },
+            onUserManagementClick = onUserManagementClick,
+            onRoleManagementClick = onRoleManagementClick,
+            onBranchManagementClick = onBranchManagementClick,
+            onAccountSettingsClick = onAccountSettingsClick,
+            onDashboardClick = onDashboardClick,
+            onKeuanganClick = onKeuanganClick,
+            onSettingsClick = onSettingsClick
+        )
+    } else {
+        // Phone Layout with Bottom Navigation
+        PhoneDashboardLayout(
+            data = data,
+            selectedNavItem = selectedNavItem,
+            onNavItemSelected = { selectedNavItem = it },
+            onUserManagementClick = onUserManagementClick,
+            onRoleManagementClick = onRoleManagementClick,
+            onBranchManagementClick = onBranchManagementClick,
+            onAccountSettingsClick = onAccountSettingsClick
+        )
+    }
+}
+
+// ============================================================================
+// PHONE LAYOUT
+// ============================================================================
+@Composable
+private fun PhoneDashboardLayout(
+    data: DashboardData,
+    selectedNavItem: BottomNavItem,
+    onNavItemSelected: (BottomNavItem) -> Unit,
+    onUserManagementClick: () -> Unit,
+    onRoleManagementClick: () -> Unit,
+    onBranchManagementClick: () -> Unit,
+    onAccountSettingsClick: () -> Unit
+) {
+    Scaffold(
+        containerColor = BackgroundColor,
+        bottomBar = {
+            BottomNavigationBar(
+                selectedItem = selectedNavItem,
+                onItemSelected = onNavItemSelected
+            )
+        }
+    ) { paddingValues ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
+            // Header Section
+            item {
+                DashboardHeader(
+                    data = data
+                )
+            }
+
+            // Content Section
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                        .padding(top = 24.dp)
+                ) {
+                    // Summary Card
+                    SummaryCard(data = data)
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // Menu Utama Section
+                    MenuUtamaSection(
+                        menuItems = menuItems,
+                        onUserManagementClick = onUserManagementClick,
+                        onRoleManagementClick = onRoleManagementClick,
+                        onBranchManagementClick = onBranchManagementClick,
+                        onAccountSettingsClick = onAccountSettingsClick
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // Informasi Sistem Section
+                    InformasiSistemSection(data = data)
+
+                    Spacer(modifier = Modifier.height(24.dp))
+                }
+            }
+        }
+    }
+}
+
+// ============================================================================
+// TABLET LAYOUT
+// ============================================================================
+@Composable
+private fun TabletDashboardLayout(
+    data: DashboardData,
+    selectedNavItem: BottomNavItem,
+    onNavItemSelected: (BottomNavItem) -> Unit,
+    onUserManagementClick: () -> Unit,
+    onRoleManagementClick: () -> Unit,
+    onBranchManagementClick: () -> Unit,
+    onAccountSettingsClick: () -> Unit,
+    onDashboardClick: () -> Unit,
+    onKeuanganClick: () -> Unit,
+    onSettingsClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(BackgroundColor)
+    ) {
+        // Sidebar Navigation
+        TabletSidebar(
+            selectedItem = selectedNavItem,
+            onItemSelected = onNavItemSelected
+        )
+
+        // Main Content
+        LazyColumn(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxSize()
+                .padding(horizontal = 32.dp)
+                .padding(top = 32.dp)
+        ) {
+            // Header Section
+            item {
+                DashboardHeader(
+                    data = data,
+                    isTablet = true
+                )
+            }
+
+            // Content Section
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 24.dp)
+                ) {
+                    // Summary Card
+                    SummaryCard(
+                        data = data,
+                        isTablet = true
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // Menu Utama Section
+                    MenuUtamaSection(
+                        menuItems = menuItems,
+                        onUserManagementClick = onUserManagementClick,
+                        onRoleManagementClick = onRoleManagementClick,
+                        onBranchManagementClick = onBranchManagementClick,
+                        onAccountSettingsClick = onAccountSettingsClick,
+                        isTablet = true
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // Informasi Sistem Section
+                    InformasiSistemSection(
+                        data = data,
+                        isTablet = true
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+                }
+            }
+        }
+    }
+}
+
+// ============================================================================
+// DASHBOARD HEADER
+// ============================================================================
+@Composable
+private fun DashboardHeader(
+    data: DashboardData,
+    isTablet: Boolean = false
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(HeaderBackgroundColor)
+            .padding(
+                start = 24.dp,
+                end = 24.dp,
+                top = 16.dp,
+                bottom = 24.dp
+            )
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Top
+        ) {
+            // Left side - Greeting
+            Column {
+                Text(
+                    text = data.greeting,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = data.title,
+                    style = MaterialTheme.typography.headlineLarge.copy(
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = if (isTablet) 32.sp else 28.sp
+                    ),
+                    color = TextPrimary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = data.subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary
+                )
+            }
+
+            // Right side - Notification & Avatar
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Notification
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(Color.White),
+                    contentAlignment = Alignment.Center
+                ) {
+                    BadgedBox(
+                        badge = {
+                            Badge(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd),
+                                containerColor = GreenAccent,
+                                contentColor = Color.White
+                            ) {
+                                Text(
+                                    text = "3",
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            }
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Notifications,
+                            contentDescription = "Notifications",
+                            tint = TextSecondary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ============================================================================
+// SUMMARY CARD
+// ============================================================================
+@Composable
+private fun SummaryCard(
+    data: DashboardData,
+    isTablet: Boolean = false
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = CardBackground
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 2.dp
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp)
+        ) {
+            // Header with title and date
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Ringkasan Hari Ini",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.SemiBold
+                    ),
+                    color = TextPrimary
+                )
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = data.summaryDate,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Statistics Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                StatisticItem(
+                    value = "${data.totalPengguna}",
+                    label = "Total Pengguna",
+                    icon = Icons.Filled.Group
+                )
+
+                StatisticItem(
+                    value = "${data.totalCabang}",
+                    label = "Total Cabang",
+                    icon = Icons.Filled.Business
+                )
+
+                StatisticItem(
+                    value = data.pendapatan,
+                    label = "Pendapatan",
+                    icon = Icons.Filled.Payments
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatisticItem(
+    value: String,
+    label: String,
+    icon: ImageVector = Icons.Filled.Person
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.padding(horizontal = 8.dp)
+    ) {
+        // Icon container
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(IconBackground),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = GreenAccent,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Value
+        Text(
+            text = value,
+            style = MaterialTheme.typography.headlineSmall.copy(
+                fontWeight = FontWeight.Bold
+            ),
+            color = TextPrimary
+        )
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        // Label
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = TextMuted
+        )
+    }
+}
+
+// ============================================================================
+// MENU UTAMA SECTION
+// ============================================================================
+@Composable
+private fun MenuUtamaSection(
+    menuItems: List<MenuItem>,
+    onUserManagementClick: () -> Unit,
+    onRoleManagementClick: () -> Unit,
+    onBranchManagementClick: () -> Unit,
+    onAccountSettingsClick: () -> Unit,
+    isTablet: Boolean = false
+) {
+    Column {
+        // Section Title
+        Text(
+            text = "Menu Utama",
+            style = MaterialTheme.typography.titleMedium.copy(
+                fontWeight = FontWeight.SemiBold
+            ),
+            color = TextPrimary,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
+
+        // Menu Items
+        val onClicks = listOf(
+            onUserManagementClick,
+            onRoleManagementClick,
+            onBranchManagementClick,
+            onAccountSettingsClick
+        )
+
+        menuItems.forEachIndexed { index, menuItem ->
+            MenuCard(
+                menuItem = menuItem,
+                onClick = onClicks[index]
+            )
+            if (index < menuItems.lastIndex) {
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun MenuCard(
+    menuItem: MenuItem,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = CardBackground
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 1.dp
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Icon
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(IconBackground),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = menuItem.icon,
+                    contentDescription = null,
+                    tint = GreenAccent,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            // Text content
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = menuItem.title,
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.SemiBold
+                    ),
+                    color = TextPrimary
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = menuItem.description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary,
+                    lineHeight = 18.sp
+                )
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // Arrow
+            Icon(
+                imageVector = Icons.Filled.ChevronRight,
+                contentDescription = null,
+                tint = GreenAccent,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+    }
+}
+
+// ============================================================================
+// INFORMASI SISTEM SECTION
+// ============================================================================
+@Composable
+private fun InformasiSistemSection(
+    data: DashboardData,
+    isTablet: Boolean = false
+) {
+    Column {
+        // Section Header
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Informasi Sistem",
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.SemiBold
+                ),
+                color = TextPrimary
+            )
+
+            Text(
+                text = "Lihat Semua >",
+                style = MaterialTheme.typography.bodySmall,
+                color = GreenAccent,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+
+        // System Info Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = GreenPrimaryLight.copy(alpha = 0.15f)
+            ),
+            elevation = CardDefaults.cardElevation(
+                defaultElevation = 0.dp
+            )
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Status Icon
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(GreenPrimaryLight.copy(alpha = 0.3f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Shield,
+                            contentDescription = null,
+                            tint = GreenAccent,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    Column {
+                        Text(
+                            text = data.systemStatus,
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontWeight = FontWeight.SemiBold
+                            ),
+                            color = TextPrimary
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "Terakhir login: ${data.lastLogin}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextSecondary
+                        )
+                    }
+                }
+
+                // Green status dot
+                Box(
+                    modifier = Modifier
+                        .size(12.dp)
+                        .clip(CircleShape)
+                        .background(GreenStatus)
+                )
+            }
+        }
+    }
+}
+
+// ============================================================================
+// BOTTOM NAVIGATION BAR
+// ============================================================================
+@Composable
+private fun BottomNavigationBar(
+    selectedItem: BottomNavItem,
+    onItemSelected: (BottomNavItem) -> Unit
+) {
+    NavigationBar(
+        containerColor = Color.White,
+        tonalElevation = 8.dp,
+        modifier = Modifier.navigationBarsPadding()
+    ) {
+        BottomNavItem.values().forEach { item ->
+            val isSelected = selectedItem == item
+            NavigationBarItem(
+                selected = isSelected,
+                onClick = { onItemSelected(item) },
+                icon = {
+                    Icon(
+                        imageVector = item.icon,
+                        contentDescription = item.label,
+                        tint = if (isSelected) GreenAccent else TextMuted,
+                        modifier = Modifier.size(24.dp)
+                    )
+                },
+                label = {
+                    Text(
+                        text = item.label,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                        ),
+                        color = if (isSelected) GreenAccent else TextMuted
+                    )
+                },
+                colors = NavigationBarItemDefaults.colors(
+                    indicatorColor = GreenAccent.copy(alpha = 0.1f)
+                )
+            )
+        }
+    }
+}
+
+// ============================================================================
+// TABLET SIDEBAR
+// ============================================================================
+@Composable
+private fun TabletSidebar(
+    selectedItem: BottomNavItem,
+    onItemSelected: (BottomNavItem) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .width(240.dp)
+            .fillMaxSize()
+            .background(Color.White)
+            .padding(vertical = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // Logo
+        Column(
+            modifier = Modifier.padding(horizontal = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "PRIMARAGA",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.ExtraBold,
+                color = GreenAccent
+            )
+            Text(
+                text = "GYM",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = GreenPrimary
+            )
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // Navigation Items
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp)
+        ) {
+            BottomNavItem.values().forEach { item ->
+                val isSelected = selectedItem == item
+                TabletNavItem(
+                    item = item,
+                    isSelected = isSelected,
+                    onClick = { onItemSelected(item) }
+                )
+                if (item != BottomNavItem.values().last()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TabletNavItem(
+    item: BottomNavItem,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val backgroundColor = if (isSelected) {
+        GreenAccent.copy(alpha = 0.1f)
+    } else {
+        Color.Transparent
+    }
+
+    val contentColor = if (isSelected) {
+        GreenAccent
+    } else {
+        TextSecondary
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(backgroundColor)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = item.icon,
+            contentDescription = item.label,
+            tint = contentColor,
+            modifier = Modifier.size(24.dp)
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(
+            text = item.label,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+            color = contentColor
+        )
+    }
+}

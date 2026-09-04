@@ -24,12 +24,16 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -41,6 +45,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.pws.primaragagym.R
 import com.pws.primaragagym.ui.components.auth.AuthHeader
@@ -159,38 +164,54 @@ fun ForgotPasswordScreen(
             }
         } else {
             // Phone - Single column
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(Dimens.screen_padding_horizontal_compact)
-                    .padding(top = Dimens.spacing_8)
-                    .imePadding(),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                // Back Button
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = Dimens.spacing_4),
-                    contentAlignment = Alignment.CenterStart
-                ) {
-                    IconButton(
-                        onClick = onBackToLoginClick,
-                        modifier = Modifier.size(48.dp)
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_arrow_back),
-                            contentDescription = "Kembali ke Login",
-                            tint = TextPrimaryDark,
-                            modifier = Modifier.size(24.dp)
+            @OptIn(ExperimentalMaterial3Api::class)
+            Scaffold(
+                topBar = {
+                    TopAppBar(
+                        title = {
+                            Text(
+                                text = "Lupa Password",
+                                style = MaterialTheme.typography.titleLarge.copy(
+                                    fontWeight = FontWeight.SemiBold
+                                ),
+                                color = TextPrimaryDark
+                            )
+                        },
+                        navigationIcon = {
+                            IconButton(
+                                onClick = onBackToLoginClick,
+                                modifier = Modifier.size(48.dp)
+                            ) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_arrow_back),
+                                    contentDescription = "Kembali ke Login",
+                                    tint = TextPrimaryDark,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = LightBackground
                         )
-                    }
-                }
+                    )
+                },
+                containerColor = LightBackground,
+                modifier = Modifier.fillMaxSize()
+            ) { paddingValues ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = Dimens.screen_padding_horizontal_compact)
+                        .padding(top = Dimens.spacing_4)
+                        .imePadding(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
 
                 Spacer(modifier = Modifier.height(Dimens.spacing_4))
                 AuthHeader(
-                    logoSize = 80.dp,
+                    logoSize = 120.dp,
                     showTagline = false
                 )
                 Spacer(modifier = Modifier.height(Dimens.spacing_8))
@@ -208,6 +229,7 @@ fun ForgotPasswordScreen(
             }
         }
     }
+}
 }
 
 @Composable
@@ -403,4 +425,12 @@ private fun SuccessContent(
             )
         }
     }
+}
+
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+private fun ForgotPasswordPreview() {
+    ForgotPasswordScreen {  }
+    
 }
