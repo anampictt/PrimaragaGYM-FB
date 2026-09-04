@@ -196,7 +196,8 @@ fun AdminDashboardScreen(
             onFinanceClick = onFinanceClick,
             onNotificationClick = onNotificationClick,
             onReportClick = onReportClick,
-            onProfileClick = onProfileClick
+            onProfileClick = onProfileClick,
+            onDashboardNavClick = { selectedNavItem = AdminBottomNavItem.DASHBOARD }
         )
     } else {
         PhoneAdminDashboardLayout(
@@ -207,7 +208,8 @@ fun AdminDashboardScreen(
             onCheckInOutClick = onCheckInOutClick,
             onFinanceClick = onFinanceClick,
             onNotificationClick = onNotificationClick,
-            onReportClick = onReportClick
+            onReportClick = onReportClick,
+            onProfileClick = onProfileClick
         )
     }
 }
@@ -224,14 +226,24 @@ private fun PhoneAdminDashboardLayout(
     onCheckInOutClick: () -> Unit,
     onFinanceClick: () -> Unit,
     onNotificationClick: () -> Unit,
-    onReportClick: () -> Unit
+    onReportClick: () -> Unit,
+    onProfileClick: () -> Unit
 ) {
     Scaffold(
         containerColor = BackgroundColor,
         bottomBar = {
             AdminBottomNavigationBar(
                 selectedItem = selectedNavItem,
-                onItemSelected = onNavItemSelected
+                onItemSelected = onNavItemSelected,
+                onNavigate = { item ->
+                    when (item) {
+                        AdminBottomNavItem.MEMBER -> onMemberClick()
+                        AdminBottomNavItem.CHECK_IN -> onCheckInOutClick()
+                        AdminBottomNavItem.KEUANGAN -> onFinanceClick()
+                        AdminBottomNavItem.PROFIL -> onProfileClick()
+                        else -> {}
+                    }
+                }
             )
         }
     ) { paddingValues ->
@@ -293,7 +305,8 @@ private fun TabletAdminDashboardLayout(
     onFinanceClick: () -> Unit,
     onNotificationClick: () -> Unit,
     onReportClick: () -> Unit,
-    onProfileClick: () -> Unit
+    onProfileClick: () -> Unit,
+    onDashboardNavClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -303,7 +316,12 @@ private fun TabletAdminDashboardLayout(
         // Sidebar Navigation
         AdminTabletSidebar(
             selectedItem = selectedNavItem,
-            onItemSelected = onNavItemSelected
+            onItemSelected = onNavItemSelected,
+            onMemberClick = onMemberClick,
+            onCheckInOutClick = onCheckInOutClick,
+            onFinanceClick = onFinanceClick,
+            onProfileClick = onProfileClick,
+            onDashboardClick = onDashboardNavClick
         )
 
         // Main Content
@@ -462,6 +480,10 @@ private fun AdminSummaryCard(
     data: AdminDashboardData,
     isTablet: Boolean = false
 ) {
+    val configuration = LocalConfiguration.current
+    val screenWidth = configuration.screenWidthDp
+    val isNarrowScreen = screenWidth < 360
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(Dimens.card_corner_radius),
@@ -504,31 +526,55 @@ private fun AdminSummaryCard(
 
             Spacer(modifier = Modifier.height(Dimens.spacing_5))
 
-            // Statistics Row - 3 cards
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                AdminStatisticItem(
-                    value = "${data.totalActiveMembers}",
-                    label = "Total Member Aktif",
-                    icon = Icons.Filled.Groups,
-                    iconBackgroundColor = StatMembersBg
-                )
-
-                AdminStatisticItem(
-                    value = "Rp ${data.todayRevenue}",
-                    label = "Pendapatan Hari Ini",
-                    icon = Icons.Filled.Payments,
-                    iconBackgroundColor = StatRevenueBg
-                )
-
-                AdminStatisticItem(
-                    value = "${data.newMembersToday}",
-                    label = "Member Baru Hari Ini",
-                    icon = Icons.Filled.PersonAdd,
-                    iconBackgroundColor = StatNewMemberBg
-                )
+            // Statistics — vertical on very narrow screens, horizontal otherwise
+            if (isNarrowScreen) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(Dimens.spacing_4)
+                ) {
+                    AdminStatisticItem(
+                        value = "${data.totalActiveMembers}",
+                        label = "Total Member Aktif",
+                        icon = Icons.Filled.Groups,
+                        iconBackgroundColor = StatMembersBg
+                    )
+                    AdminStatisticItem(
+                        value = "Rp ${data.todayRevenue}",
+                        label = "Pendapatan Hari Ini",
+                        icon = Icons.Filled.Payments,
+                        iconBackgroundColor = StatRevenueBg
+                    )
+                    AdminStatisticItem(
+                        value = "${data.newMembersToday}",
+                        label = "Member Baru Hari Ini",
+                        icon = Icons.Filled.PersonAdd,
+                        iconBackgroundColor = StatNewMemberBg
+                    )
+                }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    AdminStatisticItem(
+                        value = "${data.totalActiveMembers}",
+                        label = "Total Member Aktif",
+                        icon = Icons.Filled.Groups,
+                        iconBackgroundColor = StatMembersBg
+                    )
+                    AdminStatisticItem(
+                        value = "Rp ${data.todayRevenue}",
+                        label = "Pendapatan Hari Ini",
+                        icon = Icons.Filled.Payments,
+                        iconBackgroundColor = StatRevenueBg
+                    )
+                    AdminStatisticItem(
+                        value = "${data.newMembersToday}",
+                        label = "Member Baru Hari Ini",
+                        icon = Icons.Filled.PersonAdd,
+                        iconBackgroundColor = StatNewMemberBg
+                    )
+                }
             }
         }
     }
@@ -543,12 +589,12 @@ private fun AdminStatisticItem(
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.padding(horizontal = 8.dp)
+        modifier = Modifier.padding(horizontal = 4.dp)
     ) {
         // Icon container
         Box(
             modifier = Modifier
-                .size(48.dp)
+                .size(40.dp)
                 .clip(CircleShape)
                 .background(iconBackgroundColor),
             contentAlignment = Alignment.Center
@@ -557,28 +603,31 @@ private fun AdminStatisticItem(
                 imageVector = icon,
                 contentDescription = null,
                 tint = GreenAccent,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(20.dp)
             )
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         // Value
         Text(
             text = value,
-            style = MaterialTheme.typography.headlineSmall.copy(
+            style = MaterialTheme.typography.titleMedium.copy(
                 fontWeight = FontWeight.Bold
             ),
-            color = TextPrimary
+            color = TextPrimary,
+            maxLines = 1
         )
 
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(2.dp))
 
         // Label
         Text(
             text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = TextMuted
+            style = MaterialTheme.typography.labelSmall,
+            color = TextMuted,
+            maxLines = 2,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
     }
 }
@@ -638,7 +687,7 @@ private fun CheckInChartSection(
                 // Day Labels
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     data.dailyCheckIns.forEach { checkInData ->
                         Text(
@@ -866,7 +915,8 @@ private fun AdminMenuCard(
 @Composable
 private fun AdminBottomNavigationBar(
     selectedItem: AdminBottomNavItem,
-    onItemSelected: (AdminBottomNavItem) -> Unit
+    onItemSelected: (AdminBottomNavItem) -> Unit,
+    onNavigate: (AdminBottomNavItem) -> Unit
 ) {
     NavigationBar(
         containerColor = Color.White,
@@ -877,7 +927,10 @@ private fun AdminBottomNavigationBar(
             val isSelected = selectedItem == item
             NavigationBarItem(
                 selected = isSelected,
-                onClick = { onItemSelected(item) },
+                onClick = {
+                    onItemSelected(item)
+                    onNavigate(item)
+                },
                 icon = {
                     Icon(
                         imageVector = item.icon,
@@ -909,7 +962,12 @@ private fun AdminBottomNavigationBar(
 @Composable
 private fun AdminTabletSidebar(
     selectedItem: AdminBottomNavItem,
-    onItemSelected: (AdminBottomNavItem) -> Unit
+    onItemSelected: (AdminBottomNavItem) -> Unit,
+    onMemberClick: () -> Unit,
+    onCheckInOutClick: () -> Unit,
+    onFinanceClick: () -> Unit,
+    onProfileClick: () -> Unit,
+    onDashboardClick: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -946,10 +1004,18 @@ private fun AdminTabletSidebar(
         ) {
             AdminBottomNavItem.entries.forEach { item ->
                 val isSelected = selectedItem == item
+                val onNavigate: () -> Unit = when (item) {
+                    AdminBottomNavItem.DASHBOARD -> onDashboardClick
+                    AdminBottomNavItem.MEMBER -> onMemberClick
+                    AdminBottomNavItem.CHECK_IN -> onCheckInOutClick
+                    AdminBottomNavItem.KEUANGAN -> onFinanceClick
+                    AdminBottomNavItem.PROFIL -> onProfileClick
+                }
                 AdminTabletNavItem(
                     item = item,
                     isSelected = isSelected,
-                    onClick = { onItemSelected(item) }
+                    onSelect = { onItemSelected(item) },
+                    onNavigate = onNavigate
                 )
                 if (item != AdminBottomNavItem.entries.last()) {
                     Spacer(modifier = Modifier.height(Dimens.spacing_2))
@@ -963,7 +1029,8 @@ private fun AdminTabletSidebar(
 private fun AdminTabletNavItem(
     item: AdminBottomNavItem,
     isSelected: Boolean,
-    onClick: () -> Unit
+    onSelect: () -> Unit,
+    onNavigate: () -> Unit
 ) {
     val backgroundColor = if (isSelected) {
         GreenAccent.copy(alpha = 0.1f)
@@ -982,7 +1049,10 @@ private fun AdminTabletNavItem(
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
             .background(backgroundColor)
-            .clickable(onClick = onClick)
+            .clickable {
+                onSelect()
+                onNavigate()
+            }
             .padding(horizontal = Dimens.spacing_4, vertical = Dimens.spacing_3),
         verticalAlignment = Alignment.CenterVertically
     ) {

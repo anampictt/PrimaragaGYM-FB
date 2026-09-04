@@ -4,7 +4,14 @@
       "Bash(./gradlew assembleDebug)",
       "Bash(./gradlew assembleDebug --no-daemon)",
       "Bash(./gradlew assembleDebug --no-daemon --no-configuration-cache)",
-      "Bash(./gradlew :app:compileDebugKotlin)"
+      "Bash(./gradlew :app:compileDebugKotlin)",
+      "Bash(./gradlew :app:clean :app:compileDebugKotlin)",
+      "Bash(xxd)",
+      "Bash(./gradlew :app:clean :app:compileDebugKotlin --rerun-tasks)",
+      "Bash(sed -i 's/\\\\x4d\\\\x61\\\\x6e\\\\x61\\\\x6e\\\\x61\\\\x6b\\\\x61\\\\x6e/\\\\x4d\\\\x61\\\\x6e\\\\x61\\\\x6e\\\\x61\\\\x6e\\\\x61\\\\x6b\\\\x61\\\\x6e/g' app/src/main/java/com/pws/primaragagym/navigation/AppNavHost.kt)",
+      "Bash(echo \"Exit: $?\")",
+      "Bash(sed -n '85,95p' app/src/main/java/com/pws/primaragagym/screens/admin/member/MembershipDetailScreen.kt)",
+      "Bash(sed -n '232,242p' app/src/main/java/com/pws/primaragagym/screens/admin/member/MembershipDetailScreen.kt)"
     ]
   }
 }
