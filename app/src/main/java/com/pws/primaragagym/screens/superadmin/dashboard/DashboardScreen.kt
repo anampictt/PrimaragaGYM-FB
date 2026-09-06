@@ -763,7 +763,7 @@ fun TabletSidebar(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Navigation Items
+        // Navigation Items (Scrollable)
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -771,14 +771,15 @@ fun TabletSidebar(
                 .verticalScroll(androidx.compose.foundation.rememberScrollState())
                 .padding(horizontal = 16.dp)
         ) {
-            BottomNavItem.values().forEach { item ->
+            val topNavItems = listOf(BottomNavItem.DASHBOARD, BottomNavItem.KEUANGAN)
+            topNavItems.forEachIndexed { index, item ->
                 val isSelected = selectedItem == item
                 TabletNavItem(
                     item = item,
                     isSelected = isSelected,
                     onClick = { onItemSelected(item) }
                 )
-                if (item != BottomNavItem.values().last()) {
+                if (index < topNavItems.lastIndex) {
                     Spacer(modifier = Modifier.height(8.dp))
                 }
             }
@@ -813,6 +814,21 @@ fun TabletSidebar(
                     Spacer(modifier = Modifier.height(8.dp))
                 }
             }
+        }
+
+        // Bottom Fixed Navigation Item: Pengaturan Akun
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .padding(top = 16.dp)
+        ) {
+            val accountSettingsItem = BottomNavItem.PENGATURAN_AKUN
+            TabletNavItem(
+                item = accountSettingsItem,
+                isSelected = selectedItem == accountSettingsItem,
+                onClick = { onItemSelected(accountSettingsItem) }
+            )
         }
     }
 }

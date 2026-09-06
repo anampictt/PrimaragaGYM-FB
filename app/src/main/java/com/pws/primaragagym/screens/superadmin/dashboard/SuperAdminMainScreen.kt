@@ -40,11 +40,11 @@ fun SuperAdminMainScreen(
     val currentRoute = navBackStackEntry?.destination?.route ?: AppScreen.SuperAdminDashboard.route
 
     // Map current route to BottomNavItem
-    val selectedBottomNav = when (currentRoute) {
-        AppScreen.SuperAdminDashboard.route -> BottomNavItem.DASHBOARD
-        AppScreen.CatatanKeuangan.route -> BottomNavItem.KEUANGAN
-        AppScreen.Profil.route -> BottomNavItem.PENGATURAN_AKUN
-        else -> null
+    val selectedBottomNav = when {
+        currentRoute.startsWith(AppScreen.Keuangan.route) || currentRoute.startsWith("admin/keuangan") -> BottomNavItem.KEUANGAN
+        currentRoute == AppScreen.Profil.route -> BottomNavItem.PENGATURAN_AKUN
+        currentRoute == AppScreen.SuperAdminDashboard.route -> BottomNavItem.DASHBOARD
+        else -> if (!isTablet) BottomNavItem.DASHBOARD else null
     }
 
     // Map current route to Menu index
@@ -54,10 +54,30 @@ fun SuperAdminMainScreen(
         currentRoute.startsWith("superadmin/manajemen-cabang") -> 2
         currentRoute.startsWith(AppScreen.Member.route) -> 3
         currentRoute.startsWith(AppScreen.CheckInCheckout.route) -> 4
-        currentRoute.startsWith(AppScreen.CatatanKeuangan.route) -> 5
+        currentRoute.startsWith(AppScreen.Keuangan.route) || currentRoute.startsWith("admin/keuangan") -> 5
         currentRoute.startsWith(AppScreen.Notifikasi.route) -> 6
-        currentRoute.startsWith(AppScreen.LaporanKeuangan.route) -> 7
+        currentRoute.startsWith(AppScreen.LaporanKeuangan.route) || currentRoute.startsWith(AppScreen.LaporanPemasukan.route) -> 7
         else -> null
+    }
+
+    val navigateToRoute: (String) -> Unit = { route ->
+        if (route == AppScreen.SuperAdminDashboard.route) {
+            nestedNavController.popBackStack(AppScreen.SuperAdminDashboard.route, inclusive = false)
+        } else if (currentRoute != route) {
+            nestedNavController.navigate(route) {
+                popUpTo(AppScreen.SuperAdminDashboard.route) { inclusive = false }
+                launchSingleTop = true
+            }
+        }
+    }
+
+    val onBottomNavSelected: (BottomNavItem) -> Unit = { item ->
+        val route = when (item) {
+            BottomNavItem.DASHBOARD -> AppScreen.SuperAdminDashboard.route
+            BottomNavItem.KEUANGAN -> AppScreen.Keuangan.route
+            BottomNavItem.PENGATURAN_AKUN -> AppScreen.Profil.route
+        }
+        navigateToRoute(route)
     }
 
     if (isTablet) {
@@ -69,28 +89,15 @@ fun SuperAdminMainScreen(
             TabletSidebar(
                 selectedItem = selectedBottomNav,
                 selectedMenuIndex = selectedMenuIndex,
-                onItemSelected = { item ->
-                    val route = when(item) {
-                        BottomNavItem.DASHBOARD -> AppScreen.SuperAdminDashboard.route
-                        BottomNavItem.KEUANGAN -> AppScreen.CatatanKeuangan.route
-                        BottomNavItem.PENGATURAN_AKUN -> AppScreen.Profil.route
-                    }
-                    if (currentRoute != route) {
-                        nestedNavController.navigate(route) {
-                            popUpTo(AppScreen.SuperAdminDashboard.route) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    }
-                },
-                onUserManagementClick = { nestedNavController.navigate(AppScreen.ManananakanPengguna.route) },
-                onRoleManagementClick = { nestedNavController.navigate(AppScreen.ManananakanRole.route) },
-                onBranchManagementClick = { nestedNavController.navigate(AppScreen.ManananakanCabang.route) },
-                onMemberClick = { nestedNavController.navigate(AppScreen.Member.route) },
-                onCheckInOutClick = { nestedNavController.navigate(AppScreen.CheckInCheckout.route) },
-                onCatatanKeuanganClick = { nestedNavController.navigate(AppScreen.CatatanKeuangan.route) },
-                onNotificationClick = { nestedNavController.navigate(AppScreen.Notifikasi.route) },
-                onReportClick = { nestedNavController.navigate(AppScreen.LaporanKeuangan.route) }
+                onItemSelected = onBottomNavSelected,
+                onUserManagementClick = { navigateToRoute(AppScreen.ManajemenPengguna.route) },
+                onRoleManagementClick = { navigateToRoute(AppScreen.ManajemenRole.route) },
+                onBranchManagementClick = { navigateToRoute(AppScreen.ManajemenCabang.route) },
+                onMemberClick = { navigateToRoute(AppScreen.Member.route) },
+                onCheckInOutClick = { navigateToRoute(AppScreen.CheckInCheckout.route) },
+                onCatatanKeuanganClick = { navigateToRoute(AppScreen.Keuangan.route) },
+                onNotificationClick = { navigateToRoute(AppScreen.Notifikasi.route) },
+                onReportClick = { navigateToRoute(AppScreen.LaporanPemasukan.route) }
             )
 
             Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
@@ -106,20 +113,7 @@ fun SuperAdminMainScreen(
             bottomBar = {
                 BottomNavigationBar(
                     selectedItem = selectedBottomNav,
-                    onItemSelected = { item ->
-                        val route = when(item) {
-                            BottomNavItem.DASHBOARD -> AppScreen.SuperAdminDashboard.route
-                            BottomNavItem.KEUANGAN -> AppScreen.CatatanKeuangan.route
-                            BottomNavItem.PENGATURAN_AKUN -> AppScreen.Profil.route
-                        }
-                        if (currentRoute != route) {
-                            nestedNavController.navigate(route) {
-                                popUpTo(AppScreen.SuperAdminDashboard.route) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        }
-                    }
+                    onItemSelected = onBottomNavSelected
                 )
             }
         ) { paddingValues ->
@@ -148,14 +142,14 @@ private fun SuperAdminNestedNavHost(
     ) {
         composable(AppScreen.SuperAdminDashboard.route) {
             SuperAdminDashboardContent(
-                onUserManagementClick = { navController.navigate(AppScreen.ManananakanPengguna.route) },
-                onRoleManagementClick = { navController.navigate(AppScreen.ManananakanRole.route) },
-                onBranchManagementClick = { navController.navigate(AppScreen.ManananakanCabang.route) },
+                onUserManagementClick = { navController.navigate(AppScreen.ManajemenPengguna.route) },
+                onRoleManagementClick = { navController.navigate(AppScreen.ManajemenRole.route) },
+                onBranchManagementClick = { navController.navigate(AppScreen.ManajemenCabang.route) },
                 onMemberClick = { navController.navigate(AppScreen.Member.route) },
                 onCheckInOutClick = { navController.navigate(AppScreen.CheckInCheckout.route) },
-                onCatatanKeuanganClick = { navController.navigate(AppScreen.CatatanKeuangan.route) },
+                onCatatanKeuanganClick = { navController.navigate(AppScreen.Keuangan.route) },
                 onNotificationClick = { navController.navigate(AppScreen.Notifikasi.route) },
-                onReportClick = { navController.navigate(AppScreen.LaporanKeuangan.route) },
+                onReportClick = { navController.navigate(AppScreen.LaporanPemasukan.route) },
                 onAccountSettingsClick = { navController.navigate(AppScreen.Profil.route) }
             )
         }

@@ -108,4 +108,51 @@
     <string name="wajib_diisi">Wajib diisi</string>
     <string name="paket_wajib_dipilih">Paket wajib dipilih</string>
     <string name="metode_wajib_dipilih">Metode pembayaran wajib dipilih</string>
+
+    <!-- Keuangan -->
+    <string name="keuangan">Keuangan</string>
+    <string name="catat_pembayaran">Catat Pembayaran</string>
+    <string name="invoice">Invoice / Kwitansi</string>
+    <string name="invoice_detail">Invoice Detail</string>
+    <string name="laporan_pemasukan">Laporan Pemasukan</string>
+    <string name="pilih_member">Pilih Member</string>
+    <string name="jenis_pembayaran">Jenis Pembayaran</string>
+    <string name="metode_pembayaran_label">Metode Pembayaran</string>
+    <string name="nominal">Nominal</string>
+    <string name="tanggal_pembayaran">Tanggal Pembayaran</string>
+    <string name="catatan">Catatan</string>
+    <string name="simpan_pembayaran">Simpan Pembayaran</string>
+    <string name="pembayaran_berhasil">Pembayaran berhasil dicatat</string>
+    <string name="lihat_invoice">Lihat Invoice</string>
+    <string name="selesai">Selesai</string>
+    <string name="cetak">Cetak</string>
+    <string name="bagikan">Bagikan</string>
+    <string name="berdasarkan_metode">Berdasarkan Metode</string>
+    <string name="transaksi_terbaru">Transaksi Terbaru</string>
+    <string name="total_pemasukan">Total Pemasukan</string>
+    <string name="jumlah_transaksi">Jumlah Transaksi</string>
+    <string name="belum_ada_invoice">Belum ada invoice</string>
+    <string name="belum_ada_transaksi_invoice">Invoice pembayaran akan muncul di sini.</string>
+
+    <!-- Notification -->
+    <string name="notification_detail">Detail Notifikasi</string>
+    <string name="notification_settings">Pengaturan Notifikasi</string>
+    <string name="tandai_semua_dibaca">Tandai semua dibaca</string>
+    <string name="pengaturan_notifikasi">Pengaturan Notifikasi</string>
+    <string name="belum_ada_notifikasi">Belum ada notifikasi</string>
+    <string name="notifikasi_akan_muncul">Notifikasi akan muncul di sini.</string>
+    <string name="kirim_ucapan">Kirim Ucapan</string>
+    <string name="lihat_member">Lihat Member</string>
+    <string name="membership_hampir_expired">Membership Hampir Expired</string>
+    <string name="member_tidak_aktif">Member Tidak Aktif</string>
+    <string name="ulang_tahun_member">Ulang Tahun Member</string>
+    <string name="filter_semua_notif">Semua</string>
+    <string name="filter_membership">Membership</string>
+    <string name="filter_member">Member</string>
+    <string name="filter_sistem">Sistem</string>
+    <string name="push_notification">Push Notification</string>
+    <string name="integrasi_whatsapp">Integrasi WhatsApp</string>
+    <string name="notifikasi_aplikasi">Notifikasi Aplikasi</string>
+    <string name="kategori_notifikasi">Kategori Notifikasi</string>
+    <string name="pengaturan_tersimpan_lokal">Pengaturan notifikasi akan disimpan secara lokal.</string>
 </resources>

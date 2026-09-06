@@ -31,6 +31,15 @@ import com.pws.primaragagym.screens.admin.member.RiwayatTransaksiScreen
 import com.pws.primaragagym.screens.admin.member.TambahMembershipPlanScreen
 import com.pws.primaragagym.screens.admin.member.UpgradeDowngradeScreen
 
+import com.pws.primaragagym.screens.admin.keuangan.KeuanganScreen
+import com.pws.primaragagym.screens.admin.keuangan.CatatPembayaranScreen
+import com.pws.primaragagym.screens.admin.keuangan.InvoiceScreen
+import com.pws.primaragagym.screens.admin.keuangan.InvoiceDetailScreen
+import com.pws.primaragagym.screens.admin.keuangan.LaporanPemasukanScreen
+import com.pws.primaragagym.screens.admin.notifikasi.NotifikasiScreen
+import com.pws.primaragagym.screens.admin.notifikasi.NotificationDetailScreen
+import com.pws.primaragagym.screens.admin.notifikasi.NotificationSettingsScreen
+
 import com.pws.primaragagym.screens.superadmin.manajemancabang.ManajemenCabangScreen
 import com.pws.primaragagym.screens.superadmin.manajemancabang.TambahCabangScreen
 import com.pws.primaragagym.screens.superadmin.manajemenpengguna.ManajemenPenggunaScreen
@@ -86,13 +95,13 @@ fun AppNavHost(
                     navController.navigate(AppScreen.CheckInCheckout.route)
                 },
                 onFinanceClick = {
-                    navController.navigate(AppScreen.CatatanKeuangan.route)
+                    navController.navigate(AppScreen.Keuangan.route)
                 },
                 onNotificationClick = {
                     navController.navigate(AppScreen.Notifikasi.route)
                 },
                 onReportClick = {
-                    navController.navigate(AppScreen.LaporanKeuangan.route)
+                    navController.navigate(AppScreen.LaporanPemasukan.route)
                 },
                 onProfileClick = {
                     navController.navigate(AppScreen.Profil.route)
@@ -312,16 +321,94 @@ fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(navController: android
         )
     }
 
-    composable(AppScreen.CatatanKeuangan.route) {
-        PlaceholderScreen(
-            title = "Catatan Keuangan",
+    composable(AppScreen.Keuangan.route) {
+        KeuanganScreen(
+            onBackClick = { navController.popBackStack() },
+            onCatatPembayaranClick = {
+                navController.navigate(AppScreen.CatatPembayaran.route)
+            },
+            onInvoiceClick = {
+                navController.navigate(AppScreen.Invoice.route)
+            },
+            onLaporanClick = {
+                navController.navigate(AppScreen.LaporanPemasukan.route)
+            }
+        )
+    }
+
+    composable(AppScreen.CatatPembayaran.route) {
+        CatatPembayaranScreen(
+            onBackClick = { navController.popBackStack() },
+            onSuccess = {
+                navController.navigate(AppScreen.Keuangan.route) {
+                    popUpTo(AppScreen.Keuangan.route) { inclusive = true }
+                }
+            },
+            onViewInvoice = {
+                navController.navigate(AppScreen.InvoiceDetail.createRoute("INV-20260906-001"))
+            }
+        )
+    }
+
+    composable(AppScreen.Invoice.route) {
+        InvoiceScreen(
+            onBackClick = { navController.popBackStack() },
+            onInvoiceClick = { invoiceId ->
+                navController.navigate(AppScreen.InvoiceDetail.createRoute(invoiceId))
+            }
+        )
+    }
+
+    composable(
+        route = AppScreen.InvoiceDetail.route,
+        arguments = listOf(navArgument("invoiceId") { type = NavType.StringType })
+    ) { backStackEntry ->
+        val invoiceId = backStackEntry.arguments?.getString("invoiceId") ?: ""
+        InvoiceDetailScreen(
+            invoiceId = invoiceId,
+            onBackClick = { navController.popBackStack() }
+        )
+    }
+
+    composable(AppScreen.LaporanPemasukan.route) {
+        LaporanPemasukanScreen(
             onBackClick = { navController.popBackStack() }
         )
     }
 
     composable(AppScreen.Notifikasi.route) {
+        NotifikasiScreen(
+            onBackClick = { navController.popBackStack() },
+            onNotificationClick = { notificationId ->
+                navController.navigate(AppScreen.NotificationDetail.createRoute(notificationId))
+            },
+            onSettingsClick = {
+                navController.navigate(AppScreen.NotificationSettings.route)
+            }
+        )
+    }
+
+    composable(
+        route = AppScreen.NotificationDetail.route,
+        arguments = listOf(navArgument("notificationId") { type = NavType.StringType })
+    ) { backStackEntry ->
+        val notificationId = backStackEntry.arguments?.getString("notificationId") ?: ""
+        NotificationDetailScreen(
+            notificationId = notificationId,
+            onBackClick = { navController.popBackStack() },
+            onViewMemberClick = { navController.popBackStack() }
+        )
+    }
+
+    composable(AppScreen.NotificationSettings.route) {
+        NotificationSettingsScreen(
+            onBackClick = { navController.popBackStack() }
+        )
+    }
+
+    composable(AppScreen.CatatanKeuangan.route) {
         PlaceholderScreen(
-            title = "Notifikasi",
+            title = "Catatan Keuangan",
             onBackClick = { navController.popBackStack() }
         )
     }

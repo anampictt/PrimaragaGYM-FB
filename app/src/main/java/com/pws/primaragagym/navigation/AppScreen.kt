@@ -220,10 +220,56 @@ sealed class AppScreen(
         route = "admin/catatan-keuangan"
     )
 
+    data object Keuangan : AppScreen(
+        title = R.string.keuangan,
+        icon = R.drawable.ic_launcher_background,
+        route = "admin/keuangan"
+    )
+
+    data object CatatPembayaran : AppScreen(
+        title = R.string.catat_pembayaran,
+        icon = R.drawable.ic_launcher_background,
+        route = "admin/keuangan/catat-pembayaran"
+    )
+
+    data object Invoice : AppScreen(
+        title = R.string.invoice,
+        icon = R.drawable.ic_launcher_background,
+        route = "admin/keuangan/invoice"
+    )
+
+    data object InvoiceDetail : AppScreen(
+        title = R.string.invoice_detail,
+        icon = R.drawable.ic_launcher_background,
+        route = "admin/keuangan/invoice/{invoiceId}"
+    ) {
+        fun createRoute(invoiceId: String) = "admin/keuangan/invoice/$invoiceId"
+    }
+
+    data object LaporanPemasukan : AppScreen(
+        title = R.string.laporan_pemasukan,
+        icon = R.drawable.ic_launcher_background,
+        route = "admin/keuangan/laporan"
+    )
+
     data object Notifikasi : AppScreen(
         title = R.string.notifikasi,
         icon = R.drawable.ic_launcher_background,
         route = "admin/notifikasi"
+    )
+
+    data object NotificationDetail : AppScreen(
+        title = R.string.notification_detail,
+        icon = R.drawable.ic_launcher_background,
+        route = "admin/notifikasi/{notificationId}"
+    ) {
+        fun createRoute(notificationId: String) = "admin/notifikasi/$notificationId"
+    }
+
+    data object NotificationSettings : AppScreen(
+        title = R.string.notification_settings,
+        icon = R.drawable.ic_launcher_background,
+        route = "admin/notifikasi/settings"
     )
 
     data object LaporanKeuangan : AppScreen(
