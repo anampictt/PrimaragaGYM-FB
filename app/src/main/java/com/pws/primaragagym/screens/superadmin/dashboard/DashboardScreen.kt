@@ -163,19 +163,20 @@ private val menuItems = listOf(
 // ============================================================================
 // BOTTOM NAVIGATION DATA
 // ============================================================================
-private enum class BottomNavItem(
+enum class BottomNavItem(
     val label: String,
     val icon: ImageVector
 ) {
     DASHBOARD("Dashboard", Icons.Filled.Home),
-    KEUANGAN("Keuangan", Icons.Filled.TrendingUp)
+    KEUANGAN("Keuangan", Icons.Filled.TrendingUp),
+    PENGATURAN_AKUN("Pengaturan Akun", Icons.Filled.Person)
 }
 
 // ============================================================================
 // MAIN SCREEN
 // ============================================================================
 @Composable
-fun SuperAdminDashboardScreen(
+fun SuperAdminDashboardContent(
     onUserManagementClick: () -> Unit = {},
     onRoleManagementClick: () -> Unit = {},
     onBranchManagementClick: () -> Unit = {},
@@ -189,212 +190,49 @@ fun SuperAdminDashboardScreen(
     onReportClick: () -> Unit = {}
 ) {
     val configuration = LocalConfiguration.current
-    val screenWidthDp = configuration.screenWidthDp
-    val isTablet = screenWidthDp >= 600
-
+    val isTablet = configuration.screenWidthDp >= 600
     val data = remember { dashboardData }
-    var selectedNavItem by remember { mutableStateOf(BottomNavItem.DASHBOARD) }
 
-    if (isTablet) {
-        // Tablet Layout with Sidebar
-        TabletDashboardLayout(
-            data = data,
-            selectedNavItem = selectedNavItem,
-            onNavItemSelected = { selectedNavItem = it },
-            onUserManagementClick = onUserManagementClick,
-            onRoleManagementClick = onRoleManagementClick,
-            onBranchManagementClick = onBranchManagementClick,
-            onAccountSettingsClick = onAccountSettingsClick,
-            onDashboardClick = onDashboardClick,
-            onKeuanganClick = onKeuanganClick,
-            onMemberClick = onMemberClick,
-            onCheckInOutClick = onCheckInOutClick,
-            onCatatanKeuanganClick = onCatatanKeuanganClick,
-            onNotificationClick = onNotificationClick,
-            onReportClick = onReportClick
-        )
-    } else {
-        // Phone Layout with Bottom Navigation
-        PhoneDashboardLayout(
-            data = data,
-            selectedNavItem = selectedNavItem,
-            onNavItemSelected = { selectedNavItem = it },
-            onUserManagementClick = onUserManagementClick,
-            onRoleManagementClick = onRoleManagementClick,
-            onBranchManagementClick = onBranchManagementClick,
-            onAccountSettingsClick = onAccountSettingsClick,
-            onMemberClick = onMemberClick,
-            onCheckInOutClick = onCheckInOutClick,
-            onCatatanKeuanganClick = onCatatanKeuanganClick,
-            onNotificationClick = onNotificationClick,
-            onReportClick = onReportClick
-        )
-    }
-}
-
-// ============================================================================
-// PHONE LAYOUT
-// ============================================================================
-@Composable
-private fun PhoneDashboardLayout(
-    data: DashboardData,
-    selectedNavItem: BottomNavItem,
-    onNavItemSelected: (BottomNavItem) -> Unit,
-    onUserManagementClick: () -> Unit,
-    onRoleManagementClick: () -> Unit,
-    onBranchManagementClick: () -> Unit,
-    onAccountSettingsClick: () -> Unit,
-    onMemberClick: () -> Unit,
-    onCheckInOutClick: () -> Unit,
-    onCatatanKeuanganClick: () -> Unit,
-    onNotificationClick: () -> Unit,
-    onReportClick: () -> Unit
-) {
-    Scaffold(
-        containerColor = BackgroundColor,
-        bottomBar = {
-            BottomNavigationBar(
-                selectedItem = selectedNavItem,
-                onItemSelected = onNavItemSelected
-            )
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = if (isTablet) 32.dp else 0.dp)
+            .padding(top = if (isTablet) 32.dp else 0.dp)
+    ) {
+        item {
+            DashboardHeader(data = data, isTablet = isTablet)
         }
-    ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
-            // Header Section
-            item {
-                DashboardHeader(
-                    data = data
-                )
-            }
-
-            // Content Section
-            item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp)
-                        .padding(top = 24.dp)
-                ) {
-                    // Summary Card
-                    SummaryCard(data = data)
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    // Menu Utama Section
+        item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = if (isTablet) 0.dp else 24.dp)
+                    .padding(top = 24.dp)
+            ) {
+                SummaryCard(data = data, isTablet = isTablet)
+                Spacer(modifier = Modifier.height(24.dp))
+                if (!isTablet) {
                     MenuUtamaSection(
                         menuItems = menuItems,
                         onUserManagementClick = onUserManagementClick,
                         onRoleManagementClick = onRoleManagementClick,
                         onBranchManagementClick = onBranchManagementClick,
-                        onAccountSettingsClick = onAccountSettingsClick,
                         onMemberClick = onMemberClick,
                         onCheckInOutClick = onCheckInOutClick,
                         onCatatanKeuanganClick = onCatatanKeuanganClick,
                         onNotificationClick = onNotificationClick,
-                        onReportClick = onReportClick
+                        onReportClick = onReportClick,
+                        onAccountSettingsClick = onAccountSettingsClick
                     )
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    // Informasi Sistem Section
-                    InformasiSistemSection(data = data)
-
                     Spacer(modifier = Modifier.height(24.dp))
                 }
+                InformasiSistemSection(data = data, isTablet = isTablet)
+                Spacer(modifier = Modifier.height(24.dp))
             }
         }
     }
 }
 
-// ============================================================================
-// TABLET LAYOUT
-// ============================================================================
-@Composable
-private fun TabletDashboardLayout(
-    data: DashboardData,
-    selectedNavItem: BottomNavItem,
-    onNavItemSelected: (BottomNavItem) -> Unit,
-    onUserManagementClick: () -> Unit,
-    onRoleManagementClick: () -> Unit,
-    onBranchManagementClick: () -> Unit,
-    onAccountSettingsClick: () -> Unit,
-    onDashboardClick: () -> Unit,
-    onKeuanganClick: () -> Unit,
-    onMemberClick: () -> Unit,
-    onCheckInOutClick: () -> Unit,
-    onCatatanKeuanganClick: () -> Unit,
-    onNotificationClick: () -> Unit,
-    onReportClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(BackgroundColor)
-    ) {
-        // Sidebar Navigation
-        TabletSidebar(
-            selectedItem = selectedNavItem,
-            onItemSelected = onNavItemSelected,
-            onUserManagementClick = onUserManagementClick,
-            onRoleManagementClick = onRoleManagementClick,
-            onBranchManagementClick = onBranchManagementClick,
-            onAccountSettingsClick = onAccountSettingsClick,
-            onMemberClick = onMemberClick,
-            onCheckInOutClick = onCheckInOutClick,
-            onCatatanKeuanganClick = onCatatanKeuanganClick,
-            onNotificationClick = onNotificationClick,
-            onReportClick = onReportClick
-        )
-
-        // Main Content
-        LazyColumn(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxSize()
-                .padding(horizontal = 32.dp)
-                .padding(top = 32.dp)
-        ) {
-            // Header Section
-            item {
-                DashboardHeader(
-                    data = data,
-                    isTablet = true
-                )
-            }
-
-            // Content Section
-            item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 24.dp)
-                ) {
-                    // Summary Card
-                    SummaryCard(
-                        data = data,
-                        isTablet = true
-                    )
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-
-
-                    // Informasi Sistem Section
-                    InformasiSistemSection(
-                        data = data,
-                        isTablet = true
-                    )
-
-                    Spacer(modifier = Modifier.height(24.dp))
-                }
-            }
-        }
-    }
-}
 
 // ============================================================================
 // DASHBOARD HEADER
@@ -841,8 +679,8 @@ private fun InformasiSistemSection(
 // BOTTOM NAVIGATION BAR
 // ============================================================================
 @Composable
-private fun BottomNavigationBar(
-    selectedItem: BottomNavItem,
+fun BottomNavigationBar(
+    selectedItem: BottomNavItem?,
     onItemSelected: (BottomNavItem) -> Unit
 ) {
     NavigationBar(
@@ -884,8 +722,9 @@ private fun BottomNavigationBar(
 // TABLET SIDEBAR
 // ============================================================================
 @Composable
-private fun TabletSidebar(
-    selectedItem: BottomNavItem,
+fun TabletSidebar(
+    selectedItem: BottomNavItem?,
+    selectedMenuIndex: Int?,
     onItemSelected: (BottomNavItem) -> Unit,
     onUserManagementClick: () -> Unit,
     onRoleManagementClick: () -> Unit,
@@ -970,6 +809,7 @@ private fun TabletSidebar(
             menuItems.forEachIndexed { index, menuItem ->
                 TabletSidebarMenuItem(
                     menuItem = menuItem,
+                    isSelected = selectedMenuIndex == index,
                     onClick = menuClicks[index]
                 )
                 if (index < menuItems.lastIndex) {
@@ -983,12 +823,26 @@ private fun TabletSidebar(
 @Composable
 private fun TabletSidebarMenuItem(
     menuItem: MenuItem,
+    isSelected: Boolean,
     onClick: () -> Unit
 ) {
+    val backgroundColor = if (isSelected) {
+        GreenAccent.copy(alpha = 0.1f)
+    } else {
+        Color.Transparent
+    }
+
+    val contentColor = if (isSelected) {
+        GreenAccent
+    } else {
+        TextSecondary
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
+            .background(backgroundColor)
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -996,15 +850,15 @@ private fun TabletSidebarMenuItem(
         Icon(
             imageVector = menuItem.icon,
             contentDescription = menuItem.title,
-            tint = TextSecondary,
+            tint = contentColor,
             modifier = Modifier.size(24.dp)
         )
         Spacer(modifier = Modifier.width(12.dp))
         Text(
             text = menuItem.title,
             style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Normal,
-            color = TextSecondary
+            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+            color = contentColor
         )
     }
 }

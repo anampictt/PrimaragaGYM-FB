@@ -30,7 +30,7 @@ import com.pws.primaragagym.screens.admin.member.RegistrasiMemberScreen
 import com.pws.primaragagym.screens.admin.member.RiwayatTransaksiScreen
 import com.pws.primaragagym.screens.admin.member.TambahMembershipPlanScreen
 import com.pws.primaragagym.screens.admin.member.UpgradeDowngradeScreen
-import com.pws.primaragagym.screens.superadmin.dashboard.SuperAdminDashboardScreen
+
 import com.pws.primaragagym.screens.superadmin.manajemancabang.ManajemenCabangScreen
 import com.pws.primaragagym.screens.superadmin.manajemancabang.TambahCabangScreen
 import com.pws.primaragagym.screens.superadmin.manajemenpengguna.ManajemenPenggunaScreen
@@ -68,114 +68,13 @@ fun AppNavHost(
         composable(AppScreen.Login.route) {
             LoginNavHost(navController = navController)
         }
-
         // ==================== SUPER ADMIN ====================
-        composable(AppScreen.SuperAdminDashboard.route) {
-            SuperAdminDashboardScreen(
-                onUserManagementClick = {
-                    navController.navigate(AppScreen.ManananakanPengguna.route)
-                },
-                onRoleManagementClick = {
-                    navController.navigate(AppScreen.ManananakanRole.route)
-                },
-                onBranchManagementClick = {
-                    navController.navigate(AppScreen.ManananakanCabang.route)
-                },
-                onAccountSettingsClick = {
-                    navController.navigate(AppScreen.Profil.route)
-                },
-                onDashboardClick = { },
-                onKeuanganClick = { },
-                onMemberClick = {
-                    navController.navigate(AppScreen.Member.route)
-                },
-                onCheckInOutClick = {
-                    navController.navigate(AppScreen.CheckInCheckout.route)
-                },
-                onCatatanKeuanganClick = {
-                    navController.navigate(AppScreen.CatatanKeuangan.route)
-                },
-                onNotificationClick = {
-                    navController.navigate(AppScreen.Notifikasi.route)
-                },
-                onReportClick = {
-                    navController.navigate(AppScreen.LaporanKeuangan.route)
-                }
+        composable(AppScreen.SuperAdminRoot.route) {
+            com.pws.primaragagym.screens.superadmin.dashboard.SuperAdminMainScreen(
+                rootNavController = navController
             )
         }
 
-        composable(AppScreen.ManananakanPengguna.route) {
-            ManajemenPenggunaScreen(
-                onBackClick = {
-                    navController.popBackStack()
-                },
-                onAddUserClick = {
-                    navController.navigate(AppScreen.TambahPengguna.route)
-                },
-                onEditUser = { },
-                onDeleteUser = { }
-            )
-        }
-
-        composable(AppScreen.ManananakanRole.route) {
-            ManajemenRoleScreen(
-                onBackClick = {
-                    navController.popBackStack()
-                },
-                onAddRoleClick = {
-                    navController.navigate(AppScreen.TambahRole.route)
-                },
-                onEditRole = { },
-                onDeleteRole = { },
-                onAccessClick = { }
-            )
-        }
-
-        composable(AppScreen.ManananakanCabang.route) {
-            ManajemenCabangScreen(
-                onBackClick = {
-                    navController.popBackStack()
-                },
-                onAddBranchClick = {
-                    navController.navigate(AppScreen.TambahCabang.route)
-                },
-                onEditBranch = { },
-                onDeleteBranch = { }
-            )
-        }
-
-        composable(AppScreen.TambahPengguna.route) {
-            TambahPenggunaScreen(
-                onBackClick = {
-                    navController.popBackStack()
-                },
-                onSubmitSuccess = {
-                    navController.popBackStack()
-                }
-            )
-        }
-
-        composable(AppScreen.TambahRole.route) {
-            TambahRoleScreen(
-                onBackClick = {
-                    navController.popBackStack()
-                },
-                onSubmitSuccess = {
-                    navController.popBackStack()
-                }
-            )
-        }
-
-        composable(AppScreen.TambahCabang.route) {
-            TambahCabangScreen(
-                onBackClick = {
-                    navController.popBackStack()
-                },
-                onSubmitSuccess = {
-                    navController.popBackStack()
-                }
-            )
-        }
 
         // ==================== ADMIN ====================
         composable(AppScreen.AdminDashboard.route) {
@@ -200,232 +99,265 @@ fun AppNavHost(
                 }
             )
         }
-
-        // ==================== MEMBER HUB ====================
-        composable(AppScreen.Member.route) {
-            MemberScreen(
-                onBackClick = {
-                    navController.popBackStack()
-                },
-                onMemberManagementClick = {
-                    navController.navigate(AppScreen.MemberManagement.route)
-                },
-                onMembershipManagementClick = {
-                    navController.navigate(AppScreen.MembershipManagement.route)
-                },
-                onMembershipPlanClick = {
-                    navController.navigate(AppScreen.MembershipPlan.route)
-                },
-                onMemberClick = { memberId ->
-                    navController.navigate(AppScreen.DetailMember.createRoute(memberId))
-                }
-            )
-        }
-
-        // ==================== MEMBER MANAGEMENT ====================
-        composable(AppScreen.MemberManagement.route) {
-            MemberManagementScreen(
-                onBackClick = {
-                    navController.popBackStack()
-                },
-                onAddMemberClick = {
-                    navController.navigate(AppScreen.RegistrasiMember.route)
-                },
-                onMemberClick = { memberId ->
-                    navController.navigate(AppScreen.DetailMember.createRoute(memberId))
-                }
-            )
-        }
-
-        composable(
-            route = AppScreen.DetailMember.route,
-            arguments = listOf(navArgument("memberId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val memberId = backStackEntry.arguments?.getString("memberId") ?: ""
-            DetailMemberScreen(
-                memberId = memberId,
-                onBackClick = { navController.popBackStack() },
-                onPerpanjangClick = {
-                    navController.navigate(AppScreen.PerpanjangMembership.createRoute(memberId))
-                },
-                onUpgradeClick = {
-                    navController.navigate(AppScreen.UpgradeDowngrade.createRoute(memberId))
-                },
-                onRiwayatClick = {
-                    navController.navigate(AppScreen.RiwayatTransaksi.createRoute(memberId))
-                }
-            )
-        }
-
-        composable(AppScreen.RegistrasiMember.route) {
-            RegistrasiMemberScreen(
-                onBackClick = { navController.popBackStack() },
-                onSubmitSuccess = {
-                    navController.popBackStack()
-                }
-            )
-        }
-
-        // ==================== MEMBERSHIP MANAGEMENT ====================
-        composable(AppScreen.MembershipManagement.route) {
-            MembershipManagementScreen(
-                onBackClick = { navController.popBackStack() },
-                onMembershipClick = { memberId ->
-                    navController.navigate(AppScreen.MembershipDetail.createRoute(memberId))
-                }
-            )
-        }
-
-        composable(
-            route = AppScreen.MembershipDetail.route,
-            arguments = listOf(navArgument("memberId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val memberId = backStackEntry.arguments?.getString("memberId") ?: ""
-            MembershipDetailScreen(
-                memberId = memberId,
-                onBackClick = { navController.popBackStack() },
-                onPerpanjangClick = {
-                    navController.navigate(AppScreen.PerpanjangMembership.createRoute(memberId))
-                },
-                onUpgradeClick = {
-                    navController.navigate(AppScreen.UpgradeDowngrade.createRoute(memberId))
-                },
-                onRiwayatClick = {
-                    navController.navigate(AppScreen.RiwayatTransaksi.createRoute(memberId))
-                }
-            )
-        }
-
-        composable(
-            route = AppScreen.PerpanjangMembership.route,
-            arguments = listOf(navArgument("memberId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val memberId = backStackEntry.arguments?.getString("memberId") ?: ""
-            PerpanjangMembershipScreen(
-                memberId = memberId,
-                onBackClick = { navController.popBackStack() },
-                onSubmitSuccess = {
-                    navController.popBackStack()
-                }
-            )
-        }
-
-        composable(
-            route = AppScreen.UpgradeDowngrade.route,
-            arguments = listOf(navArgument("memberId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val memberId = backStackEntry.arguments?.getString("memberId") ?: ""
-            UpgradeDowngradeScreen(
-                memberId = memberId,
-                onBackClick = { navController.popBackStack() },
-                onSubmitSuccess = {
-                    navController.popBackStack()
-                }
-            )
-        }
-
-        composable(
-            route = AppScreen.RiwayatTransaksi.route,
-            arguments = listOf(navArgument("memberId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val memberId = backStackEntry.arguments?.getString("memberId") ?: ""
-            RiwayatTransaksiScreen(
-                memberId = memberId,
-                onBackClick = { navController.popBackStack() }
-            )
-        }
-
-        // ==================== MEMBERSHIP PLAN ====================
-        composable(AppScreen.MembershipPlan.route) {
-            MembershipPlanScreen(
-                onBackClick = { navController.popBackStack() },
-                onAddPlanClick = {
-                    navController.navigate(AppScreen.TambahMembershipPlan.route)
-                },
-                onEditPlan = { planId ->
-                    navController.navigate(AppScreen.EditMembershipPlan.createRoute(planId))
-                }
-            )
-        }
-
-        composable(AppScreen.TambahMembershipPlan.route) {
-            TambahMembershipPlanScreen(
-                planId = null,
-                onBackClick = { navController.popBackStack() },
-                onSubmitSuccess = {
-                    navController.popBackStack()
-                }
-            )
-        }
-
-        composable(
-            route = AppScreen.EditMembershipPlan.route,
-            arguments = listOf(navArgument("planId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val planId = backStackEntry.arguments?.getString("planId") ?: ""
-            TambahMembershipPlanScreen(
-                planId = planId,
-                onBackClick = { navController.popBackStack() },
-                onSubmitSuccess = {
-                    navController.popBackStack()
-                }
-            )
-        }
-
-        // ==================== PLACEHOLDER ROUTES ====================
-        composable(AppScreen.CheckInCheckout.route) {
-            PlaceholderScreen(
-                title = "Check In & Check Out",
-                onBackClick = { navController.popBackStack() }
-            )
-        }
-
-        composable(AppScreen.CatatanKeuangan.route) {
-            PlaceholderScreen(
-                title = "Catatan Keuangan",
-                onBackClick = { navController.popBackStack() }
-            )
-        }
-
-        composable(AppScreen.Notifikasi.route) {
-            PlaceholderScreen(
-                title = "Notifikasi",
-                onBackClick = { navController.popBackStack() }
-            )
-        }
-
-        composable(AppScreen.LaporanKeuangan.route) {
-            PlaceholderScreen(
-                title = "Laporan Keuangan",
-                onBackClick = { navController.popBackStack() }
-            )
-        }
-
-        // ==================== PROFILE ====================
-        composable(AppScreen.Profil.route) {
-            ProfileScreen(
-                onBackClick = {
-                    navController.popBackStack()
-                },
-                onChangePasswordClick = {
-                    navController.navigate(AppScreen.UbahKataSandi.route)
-                },
-                onLogoutConfirm = {
-                    navController.navigate(AppScreen.Login.route) {
-                        popUpTo(0) { inclusive = true }
-                    }
-                }
-            )
-        }
-
-        composable(AppScreen.UbahKataSandi.route) {
-            PlaceholderScreen(
-                title = "Ubah Kata Sandi",
-                onBackClick = { navController.popBackStack() }
-            )
-        }
+        sharedAdminRoutes(navController)
     }
 }
+
+fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(navController: androidx.navigation.NavHostController) {
+
+
+    // ==================== MEMBER HUB ====================
+    composable(AppScreen.Member.route) {
+        MemberScreen(
+            onBackClick = {
+                navController.popBackStack()
+            },
+            onMemberManagementClick = {
+                navController.navigate(AppScreen.MemberManagement.route)
+            },
+            onMembershipManagementClick = {
+                navController.navigate(AppScreen.MembershipManagement.route)
+            },
+            onMembershipPlanClick = {
+                navController.navigate(AppScreen.MembershipPlan.route)
+            },
+            onMemberClick = { memberId ->
+                navController.navigate(AppScreen.DetailMember.createRoute(memberId))
+            }
+        )
+    }
+
+    // ==================== MEMBER MANAGEMENT ====================
+    composable(AppScreen.MemberManagement.route) {
+        MemberManagementScreen(
+            onBackClick = {
+                navController.popBackStack()
+            },
+            onAddMemberClick = {
+                navController.navigate(AppScreen.RegistrasiMember.route)
+            },
+            onMemberClick = { memberId ->
+                navController.navigate(AppScreen.DetailMember.createRoute(memberId))
+            }
+        )
+    }
+
+    composable(
+        route = AppScreen.DetailMember.route,
+        arguments = listOf(navArgument("memberId") { type = NavType.StringType })
+    ) { backStackEntry ->
+        val memberId = backStackEntry.arguments?.getString("memberId") ?: ""
+        DetailMemberScreen(
+            memberId = memberId,
+            onBackClick = { navController.popBackStack() },
+            onPerpanjangClick = {
+                navController.navigate(AppScreen.PerpanjangMembership.createRoute(memberId))
+            },
+            onUpgradeClick = {
+                navController.navigate(AppScreen.UpgradeDowngrade.createRoute(memberId))
+            },
+            onRiwayatClick = {
+                navController.navigate(AppScreen.RiwayatTransaksi.createRoute(memberId))
+            }
+        )
+    }
+
+    composable(AppScreen.RegistrasiMember.route) {
+        RegistrasiMemberScreen(
+            onBackClick = { navController.popBackStack() },
+            onSubmitSuccess = {
+                navController.popBackStack()
+            }
+        )
+    }
+
+    // ==================== MEMBERSHIP MANAGEMENT ====================
+    composable(AppScreen.MembershipManagement.route) {
+        MembershipManagementScreen(
+            onBackClick = { navController.popBackStack() },
+            onMembershipClick = { memberId ->
+                navController.navigate(AppScreen.MembershipDetail.createRoute(memberId))
+            }
+        )
+    }
+
+    composable(
+        route = AppScreen.MembershipDetail.route,
+        arguments = listOf(navArgument("memberId") { type = NavType.StringType })
+    ) { backStackEntry ->
+        val memberId = backStackEntry.arguments?.getString("memberId") ?: ""
+        MembershipDetailScreen(
+            memberId = memberId,
+            onBackClick = { navController.popBackStack() },
+            onPerpanjangClick = {
+                navController.navigate(AppScreen.PerpanjangMembership.createRoute(memberId))
+            },
+            onUpgradeClick = {
+                navController.navigate(AppScreen.UpgradeDowngrade.createRoute(memberId))
+            },
+            onRiwayatClick = {
+                navController.navigate(AppScreen.RiwayatTransaksi.createRoute(memberId))
+            }
+        )
+    }
+
+    composable(
+        route = AppScreen.PerpanjangMembership.route,
+        arguments = listOf(navArgument("memberId") { type = NavType.StringType })
+    ) { backStackEntry ->
+        val memberId = backStackEntry.arguments?.getString("memberId") ?: ""
+        PerpanjangMembershipScreen(
+            memberId = memberId,
+            onBackClick = { navController.popBackStack() },
+            onSubmitSuccess = {
+                navController.popBackStack()
+            }
+        )
+    }
+
+    composable(
+        route = AppScreen.UpgradeDowngrade.route,
+        arguments = listOf(navArgument("memberId") { type = NavType.StringType })
+    ) { backStackEntry ->
+        val memberId = backStackEntry.arguments?.getString("memberId") ?: ""
+        UpgradeDowngradeScreen(
+            memberId = memberId,
+            onBackClick = { navController.popBackStack() },
+            onSubmitSuccess = {
+                navController.popBackStack()
+            }
+        )
+    }
+
+    composable(
+        route = AppScreen.RiwayatTransaksi.route,
+        arguments = listOf(navArgument("memberId") { type = NavType.StringType })
+    ) { backStackEntry ->
+        val memberId = backStackEntry.arguments?.getString("memberId") ?: ""
+        RiwayatTransaksiScreen(
+            memberId = memberId,
+            onBackClick = { navController.popBackStack() }
+        )
+    }
+
+    // ==================== MEMBERSHIP PLAN ====================
+    composable(AppScreen.MembershipPlan.route) {
+        MembershipPlanScreen(
+            onBackClick = { navController.popBackStack() },
+            onAddPlanClick = {
+                navController.navigate(AppScreen.TambahMembershipPlan.route)
+            },
+            onEditPlan = { planId ->
+                navController.navigate(AppScreen.EditMembershipPlan.createRoute(planId))
+            }
+        )
+    }
+
+    composable(AppScreen.TambahMembershipPlan.route) {
+        TambahMembershipPlanScreen(
+            planId = null,
+            onBackClick = { navController.popBackStack() },
+            onSubmitSuccess = {
+                navController.popBackStack()
+            }
+        )
+    }
+
+    composable(
+        route = AppScreen.EditMembershipPlan.route,
+        arguments = listOf(navArgument("planId") { type = NavType.StringType })
+    ) { backStackEntry ->
+        val planId = backStackEntry.arguments?.getString("planId") ?: ""
+        TambahMembershipPlanScreen(
+            planId = planId,
+            onBackClick = { navController.popBackStack() },
+            onSubmitSuccess = {
+                navController.popBackStack()
+            }
+        )
+    }
+
+    // ==================== PLACEHOLDER ROUTES ====================
+    composable(AppScreen.CheckInCheckout.route) {
+        com.pws.primaragagym.screens.admin.checkin.CheckinCheckoutScreen(
+            onBackClick = { navController.popBackStack() },
+            onNavigateToScanner = {
+                navController.navigate(AppScreen.CheckInScanner.route)
+            },
+            onNavigateToDetail = { memberId ->
+                navController.navigate(AppScreen.CheckInMemberDetail.createRoute(memberId))
+            }
+        )
+    }
+
+    composable(AppScreen.CheckInScanner.route) {
+        com.pws.primaragagym.screens.admin.checkin.CheckinScannerScreen(
+            onBackClick = { navController.popBackStack() },
+            onSimulateScan = { memberId ->
+                navController.navigate(AppScreen.CheckInMemberDetail.createRoute(memberId)) {
+                    popUpTo(AppScreen.CheckInCheckout.route)
+                }
+            }
+        )
+    }
+
+    composable(
+        route = AppScreen.CheckInMemberDetail.route,
+        arguments = listOf(androidx.navigation.navArgument("memberId") { type = androidx.navigation.NavType.StringType })
+    ) { backStackEntry ->
+        val memberId = backStackEntry.arguments?.getString("memberId") ?: ""
+        com.pws.primaragagym.screens.admin.checkin.CheckinMemberDetailScreen(
+            memberId = memberId,
+            onBackClick = { navController.popBackStack() }
+        )
+    }
+
+    composable(AppScreen.CatatanKeuangan.route) {
+        PlaceholderScreen(
+            title = "Catatan Keuangan",
+            onBackClick = { navController.popBackStack() }
+        )
+    }
+
+    composable(AppScreen.Notifikasi.route) {
+        PlaceholderScreen(
+            title = "Notifikasi",
+            onBackClick = { navController.popBackStack() }
+        )
+    }
+
+    composable(AppScreen.LaporanKeuangan.route) {
+        PlaceholderScreen(
+            title = "Laporan Keuangan",
+            onBackClick = { navController.popBackStack() }
+        )
+    }
+
+    // ==================== PROFILE ====================
+    composable(AppScreen.Profil.route) {
+        ProfileScreen(
+            onBackClick = {
+                navController.popBackStack()
+            },
+            onChangePasswordClick = {
+                navController.navigate(AppScreen.UbahKataSandi.route)
+            },
+            onLogoutConfirm = {
+                navController.navigate(AppScreen.Login.route) {
+                    popUpTo(0) { inclusive = true }
+                }
+            }
+        )
+    }
+
+    composable(AppScreen.UbahKataSandi.route) {
+        PlaceholderScreen(
+            title = "Ubah Kata Sandi",
+            onBackClick = { navController.popBackStack() }
+        )
+    }
+}
+
 
 /**
  * Placeholder composable for screens that are not yet implemented.

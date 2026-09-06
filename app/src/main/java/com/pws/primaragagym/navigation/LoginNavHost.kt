@@ -107,7 +107,7 @@ fun LoginNavHost(
                         // ==================================================
 
                         // SUPERADMIN
-                        val destination = AppScreen.SuperAdminDashboard.route
+                        val destination = AppScreen.SuperAdminRoot.route
 
                         // ADMIN
                         // val destination = AppScreen.AdminDashboard.route

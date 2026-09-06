@@ -33,6 +33,12 @@ sealed class AppScreen(
     )
 
     // ==================== SUPER ADMIN ====================
+    data object SuperAdminRoot : AppScreen(
+        title = R.string.dashboard,
+        icon = R.drawable.ic_launcher_background,
+        route = "superadmin/root"
+    )
+
     data object SuperAdminDashboard : AppScreen(
         title = R.string.dashboard,
         icon = R.drawable.ic_launcher_background,
@@ -193,6 +199,20 @@ sealed class AppScreen(
         icon = R.drawable.ic_launcher_background,
         route = "admin/checkin-checkout"
     )
+
+    data object CheckInScanner : AppScreen(
+        title = R.string.check_in_checkout,
+        icon = R.drawable.ic_launcher_background,
+        route = "admin/checkin-checkout/scanner"
+    )
+
+    data object CheckInMemberDetail : AppScreen(
+        title = R.string.detail_member,
+        icon = R.drawable.ic_launcher_background,
+        route = "admin/checkin-checkout/member/{memberId}"
+    ) {
+        fun createRoute(memberId: String) = "admin/checkin-checkout/member/$memberId"
+    }
 
     data object CatatanKeuangan : AppScreen(
         title = R.string.catatan_keuangan,
