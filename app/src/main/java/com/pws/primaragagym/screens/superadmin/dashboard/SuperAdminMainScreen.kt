@@ -43,6 +43,7 @@ fun SuperAdminMainScreen(
     val selectedBottomNav = when (currentRoute) {
         AppScreen.SuperAdminDashboard.route -> BottomNavItem.DASHBOARD
         AppScreen.CatatanKeuangan.route -> BottomNavItem.KEUANGAN
+        AppScreen.Profil.route -> BottomNavItem.PENGATURAN_AKUN
         else -> null
     }
 
@@ -56,7 +57,6 @@ fun SuperAdminMainScreen(
         currentRoute.startsWith(AppScreen.CatatanKeuangan.route) -> 5
         currentRoute.startsWith(AppScreen.Notifikasi.route) -> 6
         currentRoute.startsWith(AppScreen.LaporanKeuangan.route) -> 7
-        currentRoute.startsWith(AppScreen.Profil.route) -> 8
         else -> null
     }
 
@@ -90,8 +90,7 @@ fun SuperAdminMainScreen(
                 onCheckInOutClick = { nestedNavController.navigate(AppScreen.CheckInCheckout.route) },
                 onCatatanKeuanganClick = { nestedNavController.navigate(AppScreen.CatatanKeuangan.route) },
                 onNotificationClick = { nestedNavController.navigate(AppScreen.Notifikasi.route) },
-                onReportClick = { nestedNavController.navigate(AppScreen.LaporanKeuangan.route) },
-                onAccountSettingsClick = { nestedNavController.navigate(AppScreen.Profil.route) }
+                onReportClick = { nestedNavController.navigate(AppScreen.LaporanKeuangan.route) }
             )
 
             Box(modifier = Modifier.weight(1f).fillMaxHeight()) {

@@ -152,11 +152,6 @@ private val menuItems = listOf(
         title = "Laporan Keuangan",
         description = "Lihat laporan pemasukan dan\nkeuangan gym.",
         icon = Icons.Filled.Assessment
-    ),
-    MenuItem(
-        title = "Pengaturan Akun",
-        description = "Kelola data akun anda",
-        icon = Icons.Filled.Person
     )
 )
 
@@ -180,14 +175,12 @@ fun SuperAdminDashboardContent(
     onUserManagementClick: () -> Unit = {},
     onRoleManagementClick: () -> Unit = {},
     onBranchManagementClick: () -> Unit = {},
-    onAccountSettingsClick: () -> Unit = {},
-    onDashboardClick: () -> Unit = {},
-    onKeuanganClick: () -> Unit = {},
     onMemberClick: () -> Unit = {},
     onCheckInOutClick: () -> Unit = {},
     onCatatanKeuanganClick: () -> Unit = {},
     onNotificationClick: () -> Unit = {},
-    onReportClick: () -> Unit = {}
+    onReportClick: () -> Unit = {},
+    onAccountSettingsClick: () -> Unit = {}
 ) {
     val configuration = LocalConfiguration.current
     val isTablet = configuration.screenWidthDp >= 600
@@ -200,7 +193,12 @@ fun SuperAdminDashboardContent(
             .padding(top = if (isTablet) 32.dp else 0.dp)
     ) {
         item {
-            DashboardHeader(data = data, isTablet = isTablet)
+            DashboardHeader(
+                data = data,
+                isTablet = isTablet,
+                onNotificationClick = onNotificationClick,
+                onAccountSettingsClick = onAccountSettingsClick
+            )
         }
         item {
             Column(
@@ -222,7 +220,7 @@ fun SuperAdminDashboardContent(
                         onCatatanKeuanganClick = onCatatanKeuanganClick,
                         onNotificationClick = onNotificationClick,
                         onReportClick = onReportClick,
-                        onAccountSettingsClick = onAccountSettingsClick
+                        isTablet = isTablet
                     )
                     Spacer(modifier = Modifier.height(24.dp))
                 }
@@ -240,7 +238,9 @@ fun SuperAdminDashboardContent(
 @Composable
 private fun DashboardHeader(
     data: DashboardData,
-    isTablet: Boolean = false
+    isTablet: Boolean = false,
+    onNotificationClick: () -> Unit = {},
+    onAccountSettingsClick: () -> Unit = {}
 ) {
     Box(
         modifier = Modifier
@@ -291,7 +291,8 @@ private fun DashboardHeader(
                     modifier = Modifier
                         .size(44.dp)
                         .clip(CircleShape)
-                        .background(Color.White),
+                        .background(Color.White)
+                        .clickable { onNotificationClick() },
                     contentAlignment = Alignment.Center
                 ) {
                     BadgedBox(
@@ -456,7 +457,6 @@ private fun MenuUtamaSection(
     onUserManagementClick: () -> Unit,
     onRoleManagementClick: () -> Unit,
     onBranchManagementClick: () -> Unit,
-    onAccountSettingsClick: () -> Unit,
     onMemberClick: () -> Unit,
     onCheckInOutClick: () -> Unit,
     onCatatanKeuanganClick: () -> Unit,
@@ -484,8 +484,7 @@ private fun MenuUtamaSection(
             onCheckInOutClick,
             onCatatanKeuanganClick,
             onNotificationClick,
-            onReportClick,
-            onAccountSettingsClick
+            onReportClick
         )
 
         menuItems.forEachIndexed { index, menuItem ->
@@ -729,7 +728,6 @@ fun TabletSidebar(
     onUserManagementClick: () -> Unit,
     onRoleManagementClick: () -> Unit,
     onBranchManagementClick: () -> Unit,
-    onAccountSettingsClick: () -> Unit,
     onMemberClick: () -> Unit,
     onCheckInOutClick: () -> Unit,
     onCatatanKeuanganClick: () -> Unit,
@@ -802,8 +800,7 @@ fun TabletSidebar(
                 onCheckInOutClick,
                 onCatatanKeuanganClick,
                 onNotificationClick,
-                onReportClick,
-                onAccountSettingsClick
+                onReportClick
             )
 
             menuItems.forEachIndexed { index, menuItem ->
