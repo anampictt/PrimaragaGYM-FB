@@ -86,7 +86,21 @@ fun AppNavHost(
                 },
                 onDashboardClick = { },
                 onKeuanganClick = { },
-                onSettingsClick = { }
+                onMemberClick = {
+                    navController.navigate(AppScreen.Member.route)
+                },
+                onCheckInOutClick = {
+                    navController.navigate(AppScreen.CheckInCheckout.route)
+                },
+                onCatatanKeuanganClick = {
+                    navController.navigate(AppScreen.CatatanKeuangan.route)
+                },
+                onNotificationClick = {
+                    navController.navigate(AppScreen.Notifikasi.route)
+                },
+                onReportClick = {
+                    navController.navigate(AppScreen.LaporanKeuangan.route)
+                }
             )
         }
 

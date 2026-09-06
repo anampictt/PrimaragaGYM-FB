@@ -17,11 +17,16 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Payments
@@ -124,6 +129,31 @@ private val menuItems = listOf(
         icon = Icons.Filled.Shield
     ),
     MenuItem(
+        title = "Member",
+        description = "Kelola data member gym Anda.",
+        icon = Icons.Filled.Groups
+    ),
+    MenuItem(
+        title = "Check In & Check Out",
+        description = "Scan barcode member untuk\nproses check-in dan check-out.",
+        icon = Icons.Filled.QrCodeScanner
+    ),
+    MenuItem(
+        title = "Catatan Keuangan",
+        description = "Catat dan kelola transaksi\nkeuangan gym.",
+        icon = Icons.Filled.AccountBalanceWallet
+    ),
+    MenuItem(
+        title = "Notifikasi",
+        description = "Lihat informasi dan\npemberitahuan terbaru.",
+        icon = Icons.Filled.Notifications
+    ),
+    MenuItem(
+        title = "Laporan Keuangan",
+        description = "Lihat laporan pemasukan dan\nkeuangan gym.",
+        icon = Icons.Filled.Assessment
+    ),
+    MenuItem(
         title = "Pengaturan Akun",
         description = "Kelola data akun anda",
         icon = Icons.Filled.Person
@@ -138,8 +168,7 @@ private enum class BottomNavItem(
     val icon: ImageVector
 ) {
     DASHBOARD("Dashboard", Icons.Filled.Home),
-    KEUANGAN("Keuangan", Icons.Filled.TrendingUp),
-    PENGATURAN("Pengaturan", Icons.Filled.Settings)
+    KEUANGAN("Keuangan", Icons.Filled.TrendingUp)
 }
 
 // ============================================================================
@@ -153,7 +182,11 @@ fun SuperAdminDashboardScreen(
     onAccountSettingsClick: () -> Unit = {},
     onDashboardClick: () -> Unit = {},
     onKeuanganClick: () -> Unit = {},
-    onSettingsClick: () -> Unit = {}
+    onMemberClick: () -> Unit = {},
+    onCheckInOutClick: () -> Unit = {},
+    onCatatanKeuanganClick: () -> Unit = {},
+    onNotificationClick: () -> Unit = {},
+    onReportClick: () -> Unit = {}
 ) {
     val configuration = LocalConfiguration.current
     val screenWidthDp = configuration.screenWidthDp
@@ -174,7 +207,11 @@ fun SuperAdminDashboardScreen(
             onAccountSettingsClick = onAccountSettingsClick,
             onDashboardClick = onDashboardClick,
             onKeuanganClick = onKeuanganClick,
-            onSettingsClick = onSettingsClick
+            onMemberClick = onMemberClick,
+            onCheckInOutClick = onCheckInOutClick,
+            onCatatanKeuanganClick = onCatatanKeuanganClick,
+            onNotificationClick = onNotificationClick,
+            onReportClick = onReportClick
         )
     } else {
         // Phone Layout with Bottom Navigation
@@ -185,7 +222,12 @@ fun SuperAdminDashboardScreen(
             onUserManagementClick = onUserManagementClick,
             onRoleManagementClick = onRoleManagementClick,
             onBranchManagementClick = onBranchManagementClick,
-            onAccountSettingsClick = onAccountSettingsClick
+            onAccountSettingsClick = onAccountSettingsClick,
+            onMemberClick = onMemberClick,
+            onCheckInOutClick = onCheckInOutClick,
+            onCatatanKeuanganClick = onCatatanKeuanganClick,
+            onNotificationClick = onNotificationClick,
+            onReportClick = onReportClick
         )
     }
 }
@@ -201,7 +243,12 @@ private fun PhoneDashboardLayout(
     onUserManagementClick: () -> Unit,
     onRoleManagementClick: () -> Unit,
     onBranchManagementClick: () -> Unit,
-    onAccountSettingsClick: () -> Unit
+    onAccountSettingsClick: () -> Unit,
+    onMemberClick: () -> Unit,
+    onCheckInOutClick: () -> Unit,
+    onCatatanKeuanganClick: () -> Unit,
+    onNotificationClick: () -> Unit,
+    onReportClick: () -> Unit
 ) {
     Scaffold(
         containerColor = BackgroundColor,
@@ -243,7 +290,12 @@ private fun PhoneDashboardLayout(
                         onUserManagementClick = onUserManagementClick,
                         onRoleManagementClick = onRoleManagementClick,
                         onBranchManagementClick = onBranchManagementClick,
-                        onAccountSettingsClick = onAccountSettingsClick
+                        onAccountSettingsClick = onAccountSettingsClick,
+                        onMemberClick = onMemberClick,
+                        onCheckInOutClick = onCheckInOutClick,
+                        onCatatanKeuanganClick = onCatatanKeuanganClick,
+                        onNotificationClick = onNotificationClick,
+                        onReportClick = onReportClick
                     )
 
                     Spacer(modifier = Modifier.height(24.dp))
@@ -272,7 +324,11 @@ private fun TabletDashboardLayout(
     onAccountSettingsClick: () -> Unit,
     onDashboardClick: () -> Unit,
     onKeuanganClick: () -> Unit,
-    onSettingsClick: () -> Unit
+    onMemberClick: () -> Unit,
+    onCheckInOutClick: () -> Unit,
+    onCatatanKeuanganClick: () -> Unit,
+    onNotificationClick: () -> Unit,
+    onReportClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -282,7 +338,16 @@ private fun TabletDashboardLayout(
         // Sidebar Navigation
         TabletSidebar(
             selectedItem = selectedNavItem,
-            onItemSelected = onNavItemSelected
+            onItemSelected = onNavItemSelected,
+            onUserManagementClick = onUserManagementClick,
+            onRoleManagementClick = onRoleManagementClick,
+            onBranchManagementClick = onBranchManagementClick,
+            onAccountSettingsClick = onAccountSettingsClick,
+            onMemberClick = onMemberClick,
+            onCheckInOutClick = onCheckInOutClick,
+            onCatatanKeuanganClick = onCatatanKeuanganClick,
+            onNotificationClick = onNotificationClick,
+            onReportClick = onReportClick
         )
 
         // Main Content
@@ -316,17 +381,7 @@ private fun TabletDashboardLayout(
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    // Menu Utama Section
-                    MenuUtamaSection(
-                        menuItems = menuItems,
-                        onUserManagementClick = onUserManagementClick,
-                        onRoleManagementClick = onRoleManagementClick,
-                        onBranchManagementClick = onBranchManagementClick,
-                        onAccountSettingsClick = onAccountSettingsClick,
-                        isTablet = true
-                    )
 
-                    Spacer(modifier = Modifier.height(24.dp))
 
                     // Informasi Sistem Section
                     InformasiSistemSection(
@@ -564,6 +619,11 @@ private fun MenuUtamaSection(
     onRoleManagementClick: () -> Unit,
     onBranchManagementClick: () -> Unit,
     onAccountSettingsClick: () -> Unit,
+    onMemberClick: () -> Unit,
+    onCheckInOutClick: () -> Unit,
+    onCatatanKeuanganClick: () -> Unit,
+    onNotificationClick: () -> Unit,
+    onReportClick: () -> Unit,
     isTablet: Boolean = false
 ) {
     Column {
@@ -582,6 +642,11 @@ private fun MenuUtamaSection(
             onUserManagementClick,
             onRoleManagementClick,
             onBranchManagementClick,
+            onMemberClick,
+            onCheckInOutClick,
+            onCatatanKeuanganClick,
+            onNotificationClick,
+            onReportClick,
             onAccountSettingsClick
         )
 
@@ -821,7 +886,16 @@ private fun BottomNavigationBar(
 @Composable
 private fun TabletSidebar(
     selectedItem: BottomNavItem,
-    onItemSelected: (BottomNavItem) -> Unit
+    onItemSelected: (BottomNavItem) -> Unit,
+    onUserManagementClick: () -> Unit,
+    onRoleManagementClick: () -> Unit,
+    onBranchManagementClick: () -> Unit,
+    onAccountSettingsClick: () -> Unit,
+    onMemberClick: () -> Unit,
+    onCheckInOutClick: () -> Unit,
+    onCatatanKeuanganClick: () -> Unit,
+    onNotificationClick: () -> Unit,
+    onReportClick: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -854,7 +928,11 @@ private fun TabletSidebar(
 
         // Navigation Items
         Column(
-            modifier = Modifier.padding(horizontal = 16.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .verticalScroll(androidx.compose.foundation.rememberScrollState())
+                .padding(horizontal = 16.dp)
         ) {
             BottomNavItem.values().forEach { item ->
                 val isSelected = selectedItem == item
@@ -867,7 +945,67 @@ private fun TabletSidebar(
                     Spacer(modifier = Modifier.height(8.dp))
                 }
             }
+            
+            Spacer(modifier = Modifier.height(32.dp))
+            
+            Text(
+                text = "Menu Utama",
+                style = MaterialTheme.typography.titleSmall,
+                color = TextSecondary,
+                modifier = Modifier.padding(start = 16.dp, bottom = 12.dp)
+            )
+
+            val menuClicks = listOf(
+                onUserManagementClick,
+                onRoleManagementClick,
+                onBranchManagementClick,
+                onMemberClick,
+                onCheckInOutClick,
+                onCatatanKeuanganClick,
+                onNotificationClick,
+                onReportClick,
+                onAccountSettingsClick
+            )
+
+            menuItems.forEachIndexed { index, menuItem ->
+                TabletSidebarMenuItem(
+                    menuItem = menuItem,
+                    onClick = menuClicks[index]
+                )
+                if (index < menuItems.lastIndex) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+            }
         }
+    }
+}
+
+@Composable
+private fun TabletSidebarMenuItem(
+    menuItem: MenuItem,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = menuItem.icon,
+            contentDescription = menuItem.title,
+            tint = TextSecondary,
+            modifier = Modifier.size(24.dp)
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(
+            text = menuItem.title,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Normal,
+            color = TextSecondary
+        )
     }
 }
 

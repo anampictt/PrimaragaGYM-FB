@@ -64,38 +64,68 @@ fun LoginNavHost(
                     loginPasswordError = null
                     loginErrorMessage = null
                 },
-                onLoginClick = {
-                    var hasError = false
+            onLoginClick = {
+                var hasError = false
 
-                    if (loginEmail.isBlank()) {
-                        loginEmailError = "Email wajib diisi"
-                        hasError = true
-                    } else if (!android.util.Patterns.EMAIL_ADDRESS.matcher(loginEmail).matches()) {
-                        loginEmailError = "Format email tidak valid"
-                        hasError = true
-                    }
+                // =========================
+                // VALIDASI EMAIL
+                // =========================
+                if (loginEmail.isBlank()) {
+                    loginEmailError = "Email wajib diisi"
+                    hasError = true
+                } else if (!android.util.Patterns.EMAIL_ADDRESS
+                        .matcher(loginEmail)
+                        .matches()
+                ) {
+                    loginEmailError = "Format email tidak valid"
+                    hasError = true
+                }
 
-                    if (loginPassword.isBlank()) {
-                        loginPasswordError = "Password wajib diisi"
-                        hasError = true
-                    } else if (loginPassword.length < 6) {
-                        loginPasswordError = "Password minimal 6 karakter"
-                        hasError = true
-                    }
+                // =========================
+                // VALIDASI PASSWORD
+                // =========================
+                if (loginPassword.isBlank()) {
+                    loginPasswordError = "Password wajib diisi"
+                    hasError = true
+                } else if (loginPassword.length < 6) {
+                    loginPasswordError = "Password minimal 6 karakter"
+                    hasError = true
+                }
 
-                    if (!hasError) {
-                        isLoginLoading = true
-                        // Mock login - Firebase integration will replace this
-                        Handler(Looper.getMainLooper()).postDelayed({
-                            isLoginLoading = false
-                            // Navigate to Admin Dashboard for now (role-based navigation will be added with Firebase)
-                            navController.navigate(AppScreen.AdminDashboard.route) {
-                                popUpTo(AppScreen.Login.route) { inclusive = true }
+                // =========================
+                // JIKA VALIDASI BERHASIL
+                // =========================
+                if (!hasError) {
+                    isLoginLoading = true
+
+                    Handler(Looper.getMainLooper()).postDelayed({
+
+                        isLoginLoading = false
+
+                        // ==================================================
+                        // GANTI HALAMAN TUJUAN LOGIN DI BAGIAN INI
+                        // ==================================================
+
+                        // SUPERADMIN
+                        val destination = AppScreen.SuperAdminDashboard.route
+
+                        // ADMIN
+                        // val destination = AppScreen.AdminDashboard.route
+                        navController.navigate(destination) {
+
+                            // Menghapus halaman Login dari back stack
+                            // sehingga tombol Back tidak kembali ke Login
+                            popUpTo(AppScreen.Login.route) {
+                                inclusive = true
                             }
-                        }, 1500)
-                    }
-                },
-                onForgotPasswordClick = {
+                        }
+
+                    }, 1500)
+                }
+            },
+
+
+            onForgotPasswordClick = {
                     currentScreen = AuthScreen.FORGOT_PASSWORD
                     forgotEmail = ""
                     forgotEmailError = null

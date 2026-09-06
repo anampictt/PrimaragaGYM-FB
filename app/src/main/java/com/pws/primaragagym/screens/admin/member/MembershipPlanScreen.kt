@@ -21,7 +21,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.RestoreFromTrash
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -49,6 +51,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.pws.primaragagym.screens.admin.member.MemberColors.BackgroundColor
 import com.pws.primaragagym.screens.admin.member.MemberColors.CardBackground
@@ -269,6 +272,18 @@ private fun MembershipPlanCard(
                     modifier = Modifier.size(20.dp)
                 )
             }
+
+            IconButton(
+                onClick = onEditClick,
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Delete,
+                    contentDescription = "Hapus",
+                    tint = Color(0xFFF44336),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
         }
     }
 }
@@ -293,4 +308,12 @@ private fun PlanStatusBadge(isActive: Boolean) {
             color = textColor
         )
     }
+}
+
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+private fun MembershipPlanScreenPreview() {
+    MembershipPlanScreen {  }
+
 }
