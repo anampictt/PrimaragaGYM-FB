@@ -1,5 +1,7 @@
 package com.pws.primaragagym.screens.superadmin.dashboard
 
+
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -9,9 +11,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -32,12 +39,19 @@ private val BackgroundColor = Color(0xFFF5F7FA)
 fun SuperAdminMainScreen(
     rootNavController: NavHostController
 ) {
+    val context = LocalContext.current
     val configuration = LocalConfiguration.current
     val isTablet = configuration.screenWidthDp >= 600
 
     val nestedNavController = rememberNavController()
     val navBackStackEntry by nestedNavController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route ?: AppScreen.SuperAdminDashboard.route
+
+    // Debouncing: prevent rapid successive navigation calls
+    val navigationDebounceMillis = 500L
+
+    // Guard: prevent multiple concurrent pop operations
+    var isPopInProgress by remember { mutableStateOf(false) }
 
     // Map current route to BottomNavItem
     val selectedBottomNav = when {
@@ -60,7 +74,17 @@ fun SuperAdminMainScreen(
         else -> null
     }
 
-    val navigateToRoute: (String) -> Unit = { route ->
+    // Safe navigate with debounce and launchSingleTop
+    // Using a data class + mutableState for debounce to avoid label issues with typed lambdas
+    val navDebouncer = remember { mutableLongStateOf(0L) }
+
+    fun safeNavigate(route: String) {
+        val now = System.currentTimeMillis()
+        val lastTime = navDebouncer.value
+        if (now - lastTime < navigationDebounceMillis) return
+        navDebouncer.value = now
+
+        // If navigating to dashboard, use popBackStack to reset back stack
         if (route == AppScreen.SuperAdminDashboard.route) {
             nestedNavController.popBackStack(AppScreen.SuperAdminDashboard.route, inclusive = false)
         } else if (currentRoute != route) {
@@ -71,13 +95,35 @@ fun SuperAdminMainScreen(
         }
     }
 
+    // Safe pop with guard against empty back stack
+    fun safePopBack(): Boolean {
+        if (isPopInProgress) return false
+        val hasEntries = nestedNavController.previousBackStackEntry != null
+        if (!hasEntries) return false
+        isPopInProgress = true
+        val result = nestedNavController.popBackStack()
+        isPopInProgress = false
+        return result
+    }
+
+    // Intercept system/device back button
+    BackHandler {
+        val hasNestedEntries = nestedNavController.previousBackStackEntry != null
+        if (hasNestedEntries) {
+            safePopBack()
+        } else {
+            // At nested root: finish the activity (exit app)
+            (context as? android.app.Activity)?.finish()
+        }
+    }
+
     val onBottomNavSelected: (BottomNavItem) -> Unit = { item ->
         val route = when (item) {
             BottomNavItem.DASHBOARD -> AppScreen.SuperAdminDashboard.route
             BottomNavItem.KEUANGAN -> AppScreen.Keuangan.route
             BottomNavItem.PENGATURAN_AKUN -> AppScreen.Profil.route
         }
-        navigateToRoute(route)
+        safeNavigate(route)
     }
 
     if (isTablet) {
@@ -90,20 +136,20 @@ fun SuperAdminMainScreen(
                 selectedItem = selectedBottomNav,
                 selectedMenuIndex = selectedMenuIndex,
                 onItemSelected = onBottomNavSelected,
-                onUserManagementClick = { navigateToRoute(AppScreen.ManajemenPengguna.route) },
-                onRoleManagementClick = { navigateToRoute(AppScreen.ManajemenRole.route) },
-                onBranchManagementClick = { navigateToRoute(AppScreen.ManajemenCabang.route) },
-                onMemberClick = { navigateToRoute(AppScreen.Member.route) },
-                onCheckInOutClick = { navigateToRoute(AppScreen.CheckInCheckout.route) },
-                onCatatanKeuanganClick = { navigateToRoute(AppScreen.Keuangan.route) },
-                onNotificationClick = { navigateToRoute(AppScreen.Notifikasi.route) },
-                onReportClick = { navigateToRoute(AppScreen.LaporanPemasukan.route) }
+                onUserManagementClick = { safeNavigate(AppScreen.ManajemenPengguna.route) },
+                onRoleManagementClick = { safeNavigate(AppScreen.ManajemenRole.route) },
+                onBranchManagementClick = { safeNavigate(AppScreen.ManajemenCabang.route) },
+                onMemberClick = { safeNavigate(AppScreen.Member.route) },
+                onCheckInOutClick = { safeNavigate(AppScreen.CheckInCheckout.route) },
+                onCatatanKeuanganClick = { safeNavigate(AppScreen.Keuangan.route) },
+                onNotificationClick = { safeNavigate(AppScreen.Notifikasi.route) },
+                onReportClick = { safeNavigate(AppScreen.LaporanPemasukan.route) }
             )
 
             Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
                 SuperAdminNestedNavHost(
                     navController = nestedNavController,
-                    rootNavController = rootNavController
+                    safePopBack = { safePopBack() }
                 )
             }
         }
@@ -124,7 +170,7 @@ fun SuperAdminMainScreen(
             ) {
                 SuperAdminNestedNavHost(
                     navController = nestedNavController,
-                    rootNavController = rootNavController
+                    safePopBack = { safePopBack() }
                 )
             }
         }
@@ -134,7 +180,7 @@ fun SuperAdminMainScreen(
 @Composable
 private fun SuperAdminNestedNavHost(
     navController: NavHostController,
-    rootNavController: NavHostController
+    safePopBack: () -> Boolean
 ) {
     NavHost(
         navController = navController,
@@ -154,9 +200,9 @@ private fun SuperAdminNestedNavHost(
             )
         }
 
-        composable(AppScreen.ManananakanPengguna.route) {
+        composable(AppScreen.ManajemenPengguna.route) {
             ManajemenPenggunaScreen(
-                onBackClick = { navController.popBackStack() },
+                onBackClick = { safePopBack() },
                 onAddUserClick = { navController.navigate(AppScreen.TambahPengguna.route) },
                 onEditUser = { },
                 onDeleteUser = { }
@@ -165,14 +211,14 @@ private fun SuperAdminNestedNavHost(
 
         composable(AppScreen.TambahPengguna.route) {
             TambahPenggunaScreen(
-                onBackClick = { navController.popBackStack() },
-                onSubmitSuccess = { navController.popBackStack() }
+                onBackClick = { safePopBack() },
+                onSubmitSuccess = { safePopBack() }
             )
         }
 
-        composable(AppScreen.ManananakanRole.route) {
+        composable(AppScreen.ManajemenRole.route) {
             ManajemenRoleScreen(
-                onBackClick = { navController.popBackStack() },
+                onBackClick = { safePopBack() },
                 onAddRoleClick = { navController.navigate(AppScreen.TambahRole.route) },
                 onEditRole = { },
                 onDeleteRole = { },
@@ -182,14 +228,14 @@ private fun SuperAdminNestedNavHost(
 
         composable(AppScreen.TambahRole.route) {
             TambahRoleScreen(
-                onBackClick = { navController.popBackStack() },
-                onSubmitSuccess = { navController.popBackStack() }
+                onBackClick = { safePopBack() },
+                onSubmitSuccess = { safePopBack() }
             )
         }
 
-        composable(AppScreen.ManananakanCabang.route) {
+        composable(AppScreen.ManajemenCabang.route) {
             ManajemenCabangScreen(
-                onBackClick = { navController.popBackStack() },
+                onBackClick = { safePopBack() },
                 onAddBranchClick = { navController.navigate(AppScreen.TambahCabang.route) },
                 onEditBranch = { },
                 onDeleteBranch = { }
@@ -198,8 +244,8 @@ private fun SuperAdminNestedNavHost(
 
         composable(AppScreen.TambahCabang.route) {
             TambahCabangScreen(
-                onBackClick = { navController.popBackStack() },
-                onSubmitSuccess = { navController.popBackStack() }
+                onBackClick = { safePopBack() },
+                onSubmitSuccess = { safePopBack() }
             )
         }
 

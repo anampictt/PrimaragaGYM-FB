@@ -89,22 +89,34 @@ fun AppNavHost(
         composable(AppScreen.AdminDashboard.route) {
             AdminDashboardScreen(
                 onMemberClick = {
-                    navController.navigate(AppScreen.Member.route)
+                    navController.navigate(AppScreen.Member.route) {
+                        launchSingleTop = true
+                    }
                 },
                 onCheckInOutClick = {
-                    navController.navigate(AppScreen.CheckInCheckout.route)
+                    navController.navigate(AppScreen.CheckInCheckout.route) {
+                        launchSingleTop = true
+                    }
                 },
                 onFinanceClick = {
-                    navController.navigate(AppScreen.Keuangan.route)
+                    navController.navigate(AppScreen.Keuangan.route) {
+                        launchSingleTop = true
+                    }
                 },
                 onNotificationClick = {
-                    navController.navigate(AppScreen.Notifikasi.route)
+                    navController.navigate(AppScreen.Notifikasi.route) {
+                        launchSingleTop = true
+                    }
                 },
                 onReportClick = {
-                    navController.navigate(AppScreen.LaporanPemasukan.route)
+                    navController.navigate(AppScreen.LaporanPemasukan.route) {
+                        launchSingleTop = true
+                    }
                 },
                 onProfileClick = {
-                    navController.navigate(AppScreen.Profil.route)
+                    navController.navigate(AppScreen.Profil.route) {
+                        launchSingleTop = true
+                    }
                 }
             )
         }
@@ -119,7 +131,9 @@ fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(navController: android
     composable(AppScreen.Member.route) {
         MemberScreen(
             onBackClick = {
-                navController.popBackStack()
+                if (navController.previousBackStackEntry != null) {
+                    navController.popBackStack()
+                }
             },
             onMemberManagementClick = {
                 navController.navigate(AppScreen.MemberManagement.route)
@@ -158,7 +172,11 @@ fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(navController: android
         val memberId = backStackEntry.arguments?.getString("memberId") ?: ""
         DetailMemberScreen(
             memberId = memberId,
-            onBackClick = { navController.popBackStack() },
+            onBackClick = {
+                if (navController.previousBackStackEntry != null) {
+                    navController.popBackStack()
+                }
+            },
             onPerpanjangClick = {
                 navController.navigate(AppScreen.PerpanjangMembership.createRoute(memberId))
             },
@@ -173,9 +191,15 @@ fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(navController: android
 
     composable(AppScreen.RegistrasiMember.route) {
         RegistrasiMemberScreen(
-            onBackClick = { navController.popBackStack() },
+            onBackClick = {
+                if (navController.previousBackStackEntry != null) {
+                    navController.popBackStack()
+                }
+            },
             onSubmitSuccess = {
-                navController.popBackStack()
+                if (navController.previousBackStackEntry != null) {
+                    navController.popBackStack()
+                }
             }
         )
     }
@@ -183,7 +207,11 @@ fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(navController: android
     // ==================== MEMBERSHIP MANAGEMENT ====================
     composable(AppScreen.MembershipManagement.route) {
         MembershipManagementScreen(
-            onBackClick = { navController.popBackStack() },
+            onBackClick = {
+                if (navController.previousBackStackEntry != null) {
+                    navController.popBackStack()
+                }
+            },
             onMembershipClick = { memberId ->
                 navController.navigate(AppScreen.MembershipDetail.createRoute(memberId))
             }
@@ -197,7 +225,11 @@ fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(navController: android
         val memberId = backStackEntry.arguments?.getString("memberId") ?: ""
         MembershipDetailScreen(
             memberId = memberId,
-            onBackClick = { navController.popBackStack() },
+            onBackClick = {
+                if (navController.previousBackStackEntry != null) {
+                    navController.popBackStack()
+                }
+            },
             onPerpanjangClick = {
                 navController.navigate(AppScreen.PerpanjangMembership.createRoute(memberId))
             },
@@ -217,9 +249,15 @@ fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(navController: android
         val memberId = backStackEntry.arguments?.getString("memberId") ?: ""
         PerpanjangMembershipScreen(
             memberId = memberId,
-            onBackClick = { navController.popBackStack() },
+            onBackClick = {
+                if (navController.previousBackStackEntry != null) {
+                    navController.popBackStack()
+                }
+            },
             onSubmitSuccess = {
-                navController.popBackStack()
+                if (navController.previousBackStackEntry != null) {
+                    navController.popBackStack()
+                }
             }
         )
     }
@@ -231,9 +269,15 @@ fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(navController: android
         val memberId = backStackEntry.arguments?.getString("memberId") ?: ""
         UpgradeDowngradeScreen(
             memberId = memberId,
-            onBackClick = { navController.popBackStack() },
+            onBackClick = {
+                if (navController.previousBackStackEntry != null) {
+                    navController.popBackStack()
+                }
+            },
             onSubmitSuccess = {
-                navController.popBackStack()
+                if (navController.previousBackStackEntry != null) {
+                    navController.popBackStack()
+                }
             }
         )
     }
@@ -245,14 +289,22 @@ fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(navController: android
         val memberId = backStackEntry.arguments?.getString("memberId") ?: ""
         RiwayatTransaksiScreen(
             memberId = memberId,
-            onBackClick = { navController.popBackStack() }
+            onBackClick = {
+                if (navController.previousBackStackEntry != null) {
+                    navController.popBackStack()
+                }
+            }
         )
     }
 
     // ==================== MEMBERSHIP PLAN ====================
     composable(AppScreen.MembershipPlan.route) {
         MembershipPlanScreen(
-            onBackClick = { navController.popBackStack() },
+            onBackClick = {
+                if (navController.previousBackStackEntry != null) {
+                    navController.popBackStack()
+                }
+            },
             onAddPlanClick = {
                 navController.navigate(AppScreen.TambahMembershipPlan.route)
             },
@@ -265,9 +317,15 @@ fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(navController: android
     composable(AppScreen.TambahMembershipPlan.route) {
         TambahMembershipPlanScreen(
             planId = null,
-            onBackClick = { navController.popBackStack() },
+            onBackClick = {
+                if (navController.previousBackStackEntry != null) {
+                    navController.popBackStack()
+                }
+            },
             onSubmitSuccess = {
-                navController.popBackStack()
+                if (navController.previousBackStackEntry != null) {
+                    navController.popBackStack()
+                }
             }
         )
     }
@@ -279,9 +337,15 @@ fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(navController: android
         val planId = backStackEntry.arguments?.getString("planId") ?: ""
         TambahMembershipPlanScreen(
             planId = planId,
-            onBackClick = { navController.popBackStack() },
+            onBackClick = {
+                if (navController.previousBackStackEntry != null) {
+                    navController.popBackStack()
+                }
+            },
             onSubmitSuccess = {
-                navController.popBackStack()
+                if (navController.previousBackStackEntry != null) {
+                    navController.popBackStack()
+                }
             }
         )
     }
@@ -289,7 +353,11 @@ fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(navController: android
     // ==================== PLACEHOLDER ROUTES ====================
     composable(AppScreen.CheckInCheckout.route) {
         com.pws.primaragagym.screens.admin.checkin.CheckinCheckoutScreen(
-            onBackClick = { navController.popBackStack() },
+            onBackClick = {
+                if (navController.previousBackStackEntry != null) {
+                    navController.popBackStack()
+                }
+            },
             onNavigateToScanner = {
                 navController.navigate(AppScreen.CheckInScanner.route)
             },
@@ -301,7 +369,11 @@ fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(navController: android
 
     composable(AppScreen.CheckInScanner.route) {
         com.pws.primaragagym.screens.admin.checkin.CheckinScannerScreen(
-            onBackClick = { navController.popBackStack() },
+            onBackClick = {
+                if (navController.previousBackStackEntry != null) {
+                    navController.popBackStack()
+                }
+            },
             onSimulateScan = { memberId ->
                 navController.navigate(AppScreen.CheckInMemberDetail.createRoute(memberId)) {
                     popUpTo(AppScreen.CheckInCheckout.route)
@@ -317,13 +389,21 @@ fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(navController: android
         val memberId = backStackEntry.arguments?.getString("memberId") ?: ""
         com.pws.primaragagym.screens.admin.checkin.CheckinMemberDetailScreen(
             memberId = memberId,
-            onBackClick = { navController.popBackStack() }
+            onBackClick = {
+                if (navController.previousBackStackEntry != null) {
+                    navController.popBackStack()
+                }
+            }
         )
     }
 
     composable(AppScreen.Keuangan.route) {
         KeuanganScreen(
-            onBackClick = { navController.popBackStack() },
+            onBackClick = {
+                if (navController.previousBackStackEntry != null) {
+                    navController.popBackStack()
+                }
+            },
             onCatatPembayaranClick = {
                 navController.navigate(AppScreen.CatatPembayaran.route)
             },
@@ -338,7 +418,11 @@ fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(navController: android
 
     composable(AppScreen.CatatPembayaran.route) {
         CatatPembayaranScreen(
-            onBackClick = { navController.popBackStack() },
+            onBackClick = {
+                if (navController.previousBackStackEntry != null) {
+                    navController.popBackStack()
+                }
+            },
             onSuccess = {
                 navController.navigate(AppScreen.Keuangan.route) {
                     popUpTo(AppScreen.Keuangan.route) { inclusive = true }
@@ -352,7 +436,11 @@ fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(navController: android
 
     composable(AppScreen.Invoice.route) {
         InvoiceScreen(
-            onBackClick = { navController.popBackStack() },
+            onBackClick = {
+                if (navController.previousBackStackEntry != null) {
+                    navController.popBackStack()
+                }
+            },
             onInvoiceClick = { invoiceId ->
                 navController.navigate(AppScreen.InvoiceDetail.createRoute(invoiceId))
             }
@@ -366,19 +454,31 @@ fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(navController: android
         val invoiceId = backStackEntry.arguments?.getString("invoiceId") ?: ""
         InvoiceDetailScreen(
             invoiceId = invoiceId,
-            onBackClick = { navController.popBackStack() }
+            onBackClick = {
+                if (navController.previousBackStackEntry != null) {
+                    navController.popBackStack()
+                }
+            }
         )
     }
 
     composable(AppScreen.LaporanPemasukan.route) {
         LaporanPemasukanScreen(
-            onBackClick = { navController.popBackStack() }
+            onBackClick = {
+                if (navController.previousBackStackEntry != null) {
+                    navController.popBackStack()
+                }
+            }
         )
     }
 
     composable(AppScreen.Notifikasi.route) {
         NotifikasiScreen(
-            onBackClick = { navController.popBackStack() },
+            onBackClick = {
+                if (navController.previousBackStackEntry != null) {
+                    navController.popBackStack()
+                }
+            },
             onNotificationClick = { notificationId ->
                 navController.navigate(AppScreen.NotificationDetail.createRoute(notificationId))
             },
@@ -395,28 +495,44 @@ fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(navController: android
         val notificationId = backStackEntry.arguments?.getString("notificationId") ?: ""
         NotificationDetailScreen(
             notificationId = notificationId,
-            onBackClick = { navController.popBackStack() },
+            onBackClick = {
+                if (navController.previousBackStackEntry != null) {
+                    navController.popBackStack()
+                }
+            },
             onViewMemberClick = { navController.popBackStack() }
         )
     }
 
     composable(AppScreen.NotificationSettings.route) {
         NotificationSettingsScreen(
-            onBackClick = { navController.popBackStack() }
+            onBackClick = {
+                if (navController.previousBackStackEntry != null) {
+                    navController.popBackStack()
+                }
+            }
         )
     }
 
     composable(AppScreen.CatatanKeuangan.route) {
         PlaceholderScreen(
             title = "Catatan Keuangan",
-            onBackClick = { navController.popBackStack() }
+            onBackClick = {
+                if (navController.previousBackStackEntry != null) {
+                    navController.popBackStack()
+                }
+            }
         )
     }
 
     composable(AppScreen.LaporanKeuangan.route) {
         PlaceholderScreen(
             title = "Laporan Keuangan",
-            onBackClick = { navController.popBackStack() }
+            onBackClick = {
+                if (navController.previousBackStackEntry != null) {
+                    navController.popBackStack()
+                }
+            }
         )
     }
 
@@ -440,7 +556,11 @@ fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(navController: android
     composable(AppScreen.UbahKataSandi.route) {
         PlaceholderScreen(
             title = "Ubah Kata Sandi",
-            onBackClick = { navController.popBackStack() }
+            onBackClick = {
+                if (navController.previousBackStackEntry != null) {
+                    navController.popBackStack()
+                }
+            }
         )
     }
 }

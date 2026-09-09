@@ -63,25 +63,6 @@ sealed class AppScreen(
         route = "superadmin/manajemen-cabang"
     )
 
-    // Aliases for SuperAdminDashboard navigation callbacks
-    data object ManananakanPengguna : AppScreen(
-        title = R.string.manajemen_pengguna,
-        icon = R.drawable.ic_launcher_background,
-        route = "superadmin/manajemen-pengguna"
-    )
-
-    data object ManananakanRole : AppScreen(
-        title = R.string.manajemen_role,
-        icon = R.drawable.ic_launcher_background,
-        route = "superadmin/manajemen-role"
-    )
-
-    data object ManananakanCabang : AppScreen(
-        title = R.string.manajemen_cabang,
-        icon = R.drawable.ic_launcher_background,
-        route = "superadmin/manajemen-cabang"
-    )
-
     data object TambahPengguna : AppScreen(
         title = R.string.tambah_pengguna,
         icon = R.drawable.ic_launcher_background,
@@ -276,6 +257,31 @@ sealed class AppScreen(
         title = R.string.laporan_keuangan,
         icon = R.drawable.ic_launcher_background,
         route = "admin/laporan-keuangan"
+    )
+
+    // ==================== LAPORAN MODULE ====================
+    data object Laporan : AppScreen(
+        title = R.string.laporan,
+        icon = R.drawable.ic_launcher_background,
+        route = "admin/laporan"
+    )
+
+    data object LaporanMember : AppScreen(
+        title = R.string.laporan_member,
+        icon = R.drawable.ic_launcher_background,
+        route = "admin/laporan/member"
+    )
+
+    data object LaporanKeuanganPeriodik : AppScreen(
+        title = R.string.laporan_keuangan_periodik,
+        icon = R.drawable.ic_launcher_background,
+        route = "admin/laporan/keuangan"
+    )
+
+    data object ExportLaporan : AppScreen(
+        title = R.string.export_laporan,
+        icon = R.drawable.ic_launcher_background,
+        route = "admin/laporan/export"
     )
 
     // ==================== PROFILE ====================
