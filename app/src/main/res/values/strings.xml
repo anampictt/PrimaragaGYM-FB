@@ -71,6 +71,17 @@
     <string name="member_berhasil_daftar">Member berhasil didaftarkan</string>
     <string name="cetak_kartu">Cetak Kartu</string>
     <string name="kirim_whatsapp">Kirim via WhatsApp</string>
+    <string name="generate_kartu_member">Generate Kartu Member</string>
+    <string name="cetak_kartu_member">Cetak Kartu Member</string>
+    <string name="preview_kartu_member">Preview Kartu Member</string>
+    <string name="simpan_gambar">Simpan Gambar</string>
+    <string name="simpan_pdf">Simpan PDF</string>
+    <string name="bagikan">Bagikan</string>
+    <string name="kartu_member_berhasil_simpan">Kartu member berhasil disimpan</string>
+    <string name="kartu_member_gagal_simpan">Gagal menyimpan kartu member</string>
+    <string name="kartu_member_gagal_share">Gagal membagikan kartu member</string>
+    <string name="qr_code">QR Code</string>
+    <string name="scan_untuk_absensi">Scan untuk absensi</string>
 
     <!-- Membership -->
     <string name="perpanjang">Perpanjang</string>
@@ -126,7 +137,6 @@
     <string name="lihat_invoice">Lihat Invoice</string>
     <string name="selesai">Selesai</string>
     <string name="cetak">Cetak</string>
-    <string name="bagikan">Bagikan</string>
     <string name="berdasarkan_metode">Berdasarkan Metode</string>
     <string name="transaksi_terbaru">Transaksi Terbaru</string>
     <string name="total_pemasukan">Total Pemasukan</string>

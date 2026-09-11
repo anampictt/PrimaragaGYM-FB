@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -18,6 +19,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -49,7 +51,8 @@ fun MembershipDetailScreen(
     onBackClick: () -> Unit = {},
     onPerpanjangClick: () -> Unit = {},
     onUpgradeClick: () -> Unit = {},
-    onRiwayatClick: () -> Unit = {}
+    onRiwayatClick: () -> Unit = {},
+    onKartuMemberClick: (String) -> Unit = {}
 ) {
     val configuration = LocalConfiguration.current
     val isTablet = configuration.screenWidthDp >= 600
@@ -240,6 +243,42 @@ fun MembershipDetailScreen(
                         modifier = Modifier
                             .size(20.dp)
                             .padding(0.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(Dimens.spacing_4))
+
+            // Cetak Kartu Member Button
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = horizontalPadding),
+                shape = RoundedCornerShape(Dimens.card_corner_radius),
+                colors = CardDefaults.cardColors(containerColor = greenAccent),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                onClick = { onKartuMemberClick(member.id) }
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(Dimens.spacing_4),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Badge,
+                        contentDescription = null,
+                        tint = cardBg,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Cetak Kartu Member",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.SemiBold
+                        ),
+                        color = cardBg
                     )
                 }
             }

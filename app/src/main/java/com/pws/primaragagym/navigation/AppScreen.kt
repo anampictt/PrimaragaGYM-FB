@@ -253,6 +253,14 @@ sealed class AppScreen(
         route = "admin/notifikasi/settings"
     )
 
+    data object MemberCardPreview : AppScreen(
+        title = R.string.preview_kartu_member,
+        icon = R.drawable.ic_launcher_background,
+        route = "admin/membership-management/card-preview/{memberId}"
+    ) {
+        fun createRoute(memberId: String) = "admin/membership-management/card-preview/$memberId"
+    }
+
     data object LaporanKeuangan : AppScreen(
         title = R.string.laporan_keuangan,
         icon = R.drawable.ic_launcher_background,

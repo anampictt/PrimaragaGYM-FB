@@ -84,9 +84,12 @@ fun SuperAdminMainScreen(
         if (now - lastTime < navigationDebounceMillis) return
         navDebouncer.value = now
 
-        // If navigating to dashboard, use popBackStack to reset back stack
+        // Navigating to Dashboard: clear entire stack first, then navigate to it.
+        // This handles the case where user is on any child screen and taps Dashboard.
         if (route == AppScreen.SuperAdminDashboard.route) {
-            nestedNavController.popBackStack(AppScreen.SuperAdminDashboard.route, inclusive = false)
+            nestedNavController.navigate(AppScreen.SuperAdminDashboard.route) {
+                popUpTo(0) { inclusive = false }
+            }
         } else if (currentRoute != route) {
             nestedNavController.navigate(route) {
                 popUpTo(AppScreen.SuperAdminDashboard.route) { inclusive = false }

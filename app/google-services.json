@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1061285172071",
+    "project_id": "primaragagym-9ad6a",
+    "storage_bucket": "primaragagym-9ad6a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1061285172071:android:8a3e1f59c8046f6c8115c2",
+        "android_client_info": {
+          "package_name": "com.pws.primaragagym"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBVPVqghtRqjqTm5_Fl7RGZoi9qtWL3sQw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

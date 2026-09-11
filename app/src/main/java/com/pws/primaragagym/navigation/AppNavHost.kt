@@ -30,6 +30,8 @@ import com.pws.primaragagym.screens.admin.member.RegistrasiMemberScreen
 import com.pws.primaragagym.screens.admin.member.RiwayatTransaksiScreen
 import com.pws.primaragagym.screens.admin.member.TambahMembershipPlanScreen
 import com.pws.primaragagym.screens.admin.member.UpgradeDowngradeScreen
+import com.pws.primaragagym.screens.admin.member.card.MemberCardData
+import com.pws.primaragagym.screens.admin.member.card.MemberCardPreviewScreen
 
 import com.pws.primaragagym.screens.admin.keuangan.KeuanganScreen
 import com.pws.primaragagym.screens.admin.keuangan.CatatPembayaranScreen
@@ -238,6 +240,36 @@ fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(navController: android
             },
             onRiwayatClick = {
                 navController.navigate(AppScreen.RiwayatTransaksi.createRoute(memberId))
+            },
+            onKartuMemberClick = { id ->
+                navController.navigate(AppScreen.MemberCardPreview.createRoute(id))
+            }
+        )
+    }
+
+    composable(
+        route = AppScreen.MemberCardPreview.route,
+        arguments = listOf(navArgument("memberId") { type = NavType.StringType })
+    ) { backStackEntry ->
+        val memberId = backStackEntry.arguments?.getString("memberId") ?: ""
+        val member = com.pws.primaragagym.screens.admin.member.dummyMembers
+            .find { it.id == memberId } ?: com.pws.primaragagym.screens.admin.member.dummyMembers.first()
+        val cardData = MemberCardData(
+            memberCode = member.memberCode,
+            name = member.name,
+            planName = member.planName,
+            startDate = member.startDate,
+            expiredDate = member.expiredDate,
+            status = member.status.displayName,
+            avatarInitial = member.avatarInitial,
+            qrContent = "PRIMARAGA_MEMBER:${member.memberCode}"
+        )
+        MemberCardPreviewScreen(
+            cardData = cardData,
+            onBackClick = {
+                if (navController.previousBackStackEntry != null) {
+                    navController.popBackStack()
+                }
             }
         )
     }
