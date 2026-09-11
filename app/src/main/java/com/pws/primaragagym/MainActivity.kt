@@ -12,6 +12,7 @@ import com.pws.primaragagym.navigation.AppNavHost
 import com.pws.primaragagym.navigation.AppScreen
 import com.pws.primaragagym.ui.theme.LightBackground
 import com.pws.primaragagym.ui.theme.PrimaragagymTheme
+import com.pws.primaragagym.ui.viewmodel.AuthViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -24,8 +25,10 @@ class MainActivity : ComponentActivity() {
                     color = LightBackground
                 ) {
                     val navController = rememberNavController()
+                    val authViewModel = AuthViewModel()
                     AppNavHost(
                         navController = navController,
+                        authViewModel = authViewModel,
                         startDestination = AppScreen.Splash
                     )
                 }

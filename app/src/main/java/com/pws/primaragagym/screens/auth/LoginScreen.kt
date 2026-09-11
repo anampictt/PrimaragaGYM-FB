@@ -1,6 +1,5 @@
 package com.pws.primaragagym.screens.auth
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,6 +23,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -46,33 +48,14 @@ import com.pws.primaragagym.ui.theme.TextPrimaryDark
 import com.pws.primaragagym.ui.theme.TextSecondaryDark
 import com.pws.primaragagym.ui.theme.Error
 import com.pws.primaragagym.ui.theme.LightBackground
-
-enum class AuthScreen {
-    LOGIN,
-    FORGOT_PASSWORD
-}
-
-data class LoginUiState(
-    val email: String = "",
-    val password: String = "",
-    val emailError: String? = null,
-    val passwordError: String? = null,
-    val isLoading: Boolean = false,
-    val errorMessage: String? = null
-)
+import com.pws.primaragagym.ui.viewmodel.LoginViewModel
 
 @Composable
 fun LoginScreen(
-    uiState: LoginUiState = LoginUiState(),
-    onEmailChange: (String) -> Unit = {},
-    onPasswordChange: (String) -> Unit = {},
-    onLoginClick: () -> Unit = {},
-    onForgotPasswordClick: () -> Unit = {},
-    isEmailFocused: Boolean = false,
-    isPasswordFocused: Boolean = false,
-    onEmailFocusChange: (Boolean) -> Unit = {},
-    onPasswordFocusChange: (Boolean) -> Unit = {}
+    viewModel: LoginViewModel,
+    onForgotPasswordClick: () -> Unit = {}
 ) {
+    val uiState by viewModel.uiState.collectAsState()
     val configuration = LocalConfiguration.current
     val screenWidthDp = configuration.screenWidthDp
     val isCompact = screenWidthDp < 600
@@ -84,9 +67,7 @@ fun LoginScreen(
             .background(LightBackground)
     ) {
         if (!isCompact) {
-            // Tablet / Large screen - Split layout
             Row(modifier = Modifier.fillMaxSize()) {
-                // Left Panel - Branding
                 Box(
                     modifier = Modifier
                         .fillMaxHeight()
@@ -105,7 +86,7 @@ fun LoginScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.padding(Dimens.spacing_8)
                     ) {
-                        Image(
+                        androidx.compose.foundation.Image(
                             painter = painterResource(id = R.drawable.logogym),
                             contentDescription = "Logo Primaraga Gym",
                             modifier = Modifier.size(Dimens.auth_logo_size_tablet),
@@ -128,7 +109,6 @@ fun LoginScreen(
                     }
                 }
 
-                // Right Panel - Login Form
                 Box(
                     modifier = Modifier
                         .fillMaxHeight()
@@ -138,14 +118,10 @@ fun LoginScreen(
                 ) {
                     LoginFormContent(
                         uiState = uiState,
-                        onEmailChange = onEmailChange,
-                        onPasswordChange = onPasswordChange,
-                        onLoginClick = onLoginClick,
+                        onEmailChange = viewModel::onEmailChange,
+                        onPasswordChange = viewModel::onPasswordChange,
+                        onLoginClick = viewModel::onLoginClick,
                         onForgotPasswordClick = onForgotPasswordClick,
-                        isEmailFocused = isEmailFocused,
-                        isPasswordFocused = isPasswordFocused,
-                        onEmailFocusChange = onEmailFocusChange,
-                        onPasswordFocusChange = onPasswordFocusChange,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(Dimens.spacing_8)
@@ -154,7 +130,6 @@ fun LoginScreen(
                 }
             }
         } else {
-            // Phone - Single column layout
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -173,14 +148,10 @@ fun LoginScreen(
                 Spacer(modifier = Modifier.height(Dimens.spacing_10))
                 LoginFormContent(
                     uiState = uiState,
-                    onEmailChange = onEmailChange,
-                    onPasswordChange = onPasswordChange,
-                    onLoginClick = onLoginClick,
+                    onEmailChange = viewModel::onEmailChange,
+                    onPasswordChange = viewModel::onPasswordChange,
+                    onLoginClick = viewModel::onLoginClick,
                     onForgotPasswordClick = onForgotPasswordClick,
-                    isEmailFocused = isEmailFocused,
-                    isPasswordFocused = isPasswordFocused,
-                    onEmailFocusChange = onEmailFocusChange,
-                    onPasswordFocusChange = onPasswordFocusChange,
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(Dimens.spacing_8))
@@ -191,15 +162,11 @@ fun LoginScreen(
 
 @Composable
 private fun LoginFormContent(
-    uiState: LoginUiState,
+    uiState: com.pws.primaragagym.ui.viewmodel.LoginUiState,
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onLoginClick: () -> Unit,
     onForgotPasswordClick: () -> Unit,
-    isEmailFocused: Boolean,
-    isPasswordFocused: Boolean,
-    onEmailFocusChange: (Boolean) -> Unit,
-    onPasswordFocusChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -225,7 +192,6 @@ private fun LoginFormContent(
                 .padding(bottom = Dimens.spacing_8)
         )
 
-        // Error message banner
         if (uiState.errorMessage != null) {
             Surface(
                 modifier = Modifier
@@ -244,7 +210,6 @@ private fun LoginFormContent(
             }
         }
 
-        // Email Field
         AuthTextField(
             value = uiState.email,
             onValueChange = onEmailChange,
@@ -253,14 +218,11 @@ private fun LoginFormContent(
             keyboardType = KeyboardType.Email,
             isError = uiState.emailError != null,
             errorMessage = uiState.emailError,
-            isFocused = isEmailFocused,
-            onFocusChange = onEmailFocusChange,
             modifier = Modifier.fillMaxWidth()
         )
 
         Spacer(modifier = Modifier.height(Dimens.spacing_5))
 
-        // Password Field
         AuthPasswordField(
             value = uiState.password,
             onValueChange = onPasswordChange,
@@ -268,12 +230,9 @@ private fun LoginFormContent(
             placeholder = "Masukkan password",
             isError = uiState.passwordError != null,
             errorMessage = uiState.passwordError,
-            isFocused = isPasswordFocused,
-            onFocusChange = onPasswordFocusChange,
             modifier = Modifier.fillMaxWidth()
         )
 
-        // Forgot Password Link
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -290,7 +249,6 @@ private fun LoginFormContent(
             }
         }
 
-        // Login Button
         AuthPrimaryButton(
             text = "Masuk",
             onClick = onLoginClick,

@@ -1,5 +1,11 @@
 package com.pws.primaragagym.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -20,8 +26,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Home
@@ -31,6 +37,7 @@ import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -43,10 +50,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,9 +64,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.pws.primaragagym.ui.viewmodel.ProfileEvent
+import com.pws.primaragagym.ui.viewmodel.ProfileViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 
 // ============================================================================
-// COLORS - Match existing Primaraga Gym design system
+// COLORS
 // ============================================================================
 private val BackgroundColor = Color(0xFFF5F7FA)
 private val CardBackground = Color.White
@@ -72,172 +82,138 @@ private val RedAccent = Color(0xFFFF5252)
 private val RedLight = Color(0xFFFFE8E8)
 
 // ============================================================================
-// PROFILE UI MODEL
-// ============================================================================
-data class ProfileUiModel(
-    val id: String,
-    val name: String,
-    val role: String,
-    val photoUrl: String? = null,
-    val address: String,
-    val phone: String,
-    val email: String,
-    val lastLogin: String
-)
-
-// ============================================================================
-// MOCK DATA
-// ============================================================================
-private val mockProfile = ProfileUiModel(
-    id = "1",
-    name = "Muhibbul Anam",
-    role = "Super Admin",
-    photoUrl = null,
-    address = "Jl. Jenderal Sudirman No. 123, Jakarta",
-    phone = "081234567890",
-    email = "muhibbul@gmail.com",
-    lastLogin = "29 Mei 2025, 08:30 WIB"
-)
-
-// ============================================================================
-// PROFILE UI STATE
-// ============================================================================
-data class ProfileUiState(
-    val profile: ProfileUiModel? = mockProfile,
-    val isLoading: Boolean = false,
-    val errorMessage: String? = null,
-    val showLogoutDialog: Boolean = false
-)
-
-// ============================================================================
-// MAIN SCREEN
+// PROFILE SCREEN
 // ============================================================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
+    viewModel: ProfileViewModel,
     onBackClick: () -> Unit = {},
     onChangePasswordClick: () -> Unit = {},
-    onLogoutConfirm: () -> Unit = {}
+    onLogoutSuccess: () -> Unit = {}
 ) {
+    val uiState by viewModel.uiState.collectAsState()
     val configuration = LocalConfiguration.current
     val screenWidthDp = configuration.screenWidthDp
     val isTablet = screenWidthDp >= 600
 
-    var showLogoutDialog by remember { mutableStateOf(false) }
+    val showLogoutSuccess by viewModel.logoutSuccessVisible.collectAsState()
 
-    val profile = remember { mockProfile }
-
-    Scaffold(
-        containerColor = BackgroundColor,
-        topBar = {
-            ProfileTopBar(
-                onBackClick = onBackClick
-            )
-        }
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
-                .padding(
-                    horizontal = if (isTablet) 32.dp else 16.dp
-                )
-                .padding(vertical = 24.dp)
-                .navigationBarsPadding(),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            // Profile Header
-            ProfileHeader(
-                name = profile.name,
-                role = profile.role,
-                photoUrl = profile.photoUrl
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Informasi Pribadi Section
-            SectionTitle(text = "Informasi Pribadi")
-            Spacer(modifier = Modifier.height(12.dp))
-
-            PersonalInfoCard(profile = profile)
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Keamanan Section
-            SectionTitle(text = "Keamanan")
-            Spacer(modifier = Modifier.height(12.dp))
-
-            SecurityCard(
-                onChangePasswordClick = onChangePasswordClick
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Aktivitas Section
-            SectionTitle(text = "Aktivitas")
-            Spacer(modifier = Modifier.height(12.dp))
-
-            ActivityCard(lastLogin = profile.lastLogin)
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Logout Button
-            LogoutButton(
-                onClick = { showLogoutDialog = true }
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
+    LaunchedEffect(Unit) {
+        viewModel.events.collectLatest { event ->
+            when (event) {
+                is ProfileEvent.LogoutSuccess -> onLogoutSuccess()
+                is ProfileEvent.LogoutError -> { /* handled by snackbar */ }
+            }
         }
     }
 
-    // Logout Confirmation Dialog
-    if (showLogoutDialog) {
-        LogoutConfirmationDialog(
-            onDismiss = { showLogoutDialog = false },
-            onConfirm = {
-                showLogoutDialog = false
-                onLogoutConfirm()
-            }
-        )
-    }
-}
-
-// ============================================================================
-// TOP APP BAR
-// ============================================================================
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ProfileTopBar(
-    onBackClick: () -> Unit
-) {
-    TopAppBar(
-        title = {
-            Text(
-                text = "Profil",
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.SemiBold
-                ),
-                color = TextPrimary
-            )
-        },
-        navigationIcon = {
-            IconButton(
-                onClick = onBackClick,
-                modifier = Modifier.size(48.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Kembali",
-                    tint = TextPrimary,
-                    modifier = Modifier.size(28.dp)
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            containerColor = BackgroundColor,
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Text(
+                            text = "Profil",
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.SemiBold
+                            ),
+                            color = TextPrimary
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(
+                            onClick = onBackClick,
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Kembali",
+                                tint = TextPrimary,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = CardBackground
+                    )
                 )
             }
-        },
-        colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = CardBackground
-        )
-    )
+        ) { paddingValues ->
+            if (uiState.isLoading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = GreenAccent)
+                }
+            } else {
+                val profile = uiState.profile
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                        .verticalScroll(rememberScrollState())
+                        .padding(
+                            horizontal = if (isTablet) 32.dp else 16.dp
+                        )
+                        .padding(vertical = 24.dp)
+                        .navigationBarsPadding(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    ProfileHeader(
+                        name = profile?.name ?: "User",
+                        role = profile?.role?.displayName ?: "Admin",
+                        photoUrl = profile?.photoUrl
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    SectionTitle(text = "Informasi Pribadi")
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    PersonalInfoCard(profile = profile)
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    SectionTitle(text = "Keamanan")
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    SecurityCard(onChangePasswordClick = onChangePasswordClick)
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    SectionTitle(text = "Aktivitas")
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    ActivityCard(lastLogin = profile?.lastLogin ?: "-")
+
+                    Spacer(modifier = Modifier.height(32.dp))
+
+                    LogoutButton(onClick = viewModel::showLogoutDialog)
+
+                    Spacer(modifier = Modifier.height(24.dp))
+                }
+            }
+        }
+
+        if (uiState.showLogoutDialog) {
+            LogoutConfirmationDialog(
+                onDismiss = viewModel::hideLogoutDialog,
+                onConfirm = viewModel::onLogoutConfirm
+            )
+        }
+
+        // Logout Success Popup
+        if (showLogoutSuccess) {
+            LogoutSuccessPopup(
+                onDismiss = { viewModel.hideLogoutSuccess() }
+            )
+        }
+    }
 }
 
 // ============================================================================
@@ -264,10 +240,7 @@ private fun ProfileHeader(
     role: String,
     photoUrl: String?
 ) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        // Profile Photo
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             modifier = Modifier
                 .size(100.dp)
@@ -296,7 +269,6 @@ private fun ProfileHeader(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Name
         Text(
             text = name,
             style = MaterialTheme.typography.headlineSmall.copy(
@@ -308,7 +280,6 @@ private fun ProfileHeader(
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        // Role Badge
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(20.dp))
@@ -329,62 +300,21 @@ private fun ProfileHeader(
 // PERSONAL INFO CARD
 // ============================================================================
 @Composable
-private fun PersonalInfoCard(profile: ProfileUiModel) {
+private fun PersonalInfoCard(profile: com.pws.primaragagym.domain.model.User?) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = CardBackground
-        ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 1.dp
-        )
+        colors = CardDefaults.cardColors(containerColor = CardBackground),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            ProfileInfoRow(
-                icon = Icons.Filled.Person,
-                label = "Nama Lengkap",
-                value = profile.name
-            )
-
-            HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                color = Color(0xFFEEEEEE),
-                thickness = 1.dp
-            )
-
-            ProfileInfoRow(
-                icon = Icons.Filled.Home,
-                label = "Alamat",
-                value = profile.address
-            )
-
-            HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                color = Color(0xFFEEEEEE),
-                thickness = 1.dp
-            )
-
-            ProfileInfoRow(
-                icon = Icons.Filled.Phone,
-                label = "Nomor Telepon",
-                value = profile.phone
-            )
-
-            HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                color = Color(0xFFEEEEEE),
-                thickness = 1.dp
-            )
-
-            ProfileInfoRow(
-                icon = Icons.Filled.Email,
-                label = "Email",
-                value = profile.email,
-                isLast = true
-            )
+        Column(modifier = Modifier.fillMaxWidth()) {
+            ProfileInfoRow(icon = Icons.Filled.Person, label = "Nama Lengkap", value = profile?.name ?: "-")
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = Color(0xFFEEEEEE), thickness = 1.dp)
+            ProfileInfoRow(icon = Icons.Filled.Email, label = "Email", value = profile?.email ?: "-")
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = Color(0xFFEEEEEE), thickness = 1.dp)
+            ProfileInfoRow(icon = Icons.Filled.Phone, label = "Nomor Telepon", value = profile?.phone?.takeIf { it.isNotBlank() } ?: "-")
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = Color(0xFFEEEEEE), thickness = 1.dp)
+            ProfileInfoRow(icon = Icons.Filled.Home, label = "Alamat", value = profile?.address?.takeIf { it.isNotBlank() } ?: "-", isLast = true)
         }
     }
 }
@@ -405,7 +335,6 @@ private fun ProfileInfoRow(
             .padding(16.dp),
         verticalAlignment = Alignment.Top
     ) {
-        // Icon
         Box(
             modifier = Modifier
                 .size(40.dp)
@@ -420,18 +349,9 @@ private fun ProfileInfoRow(
                 modifier = Modifier.size(20.dp)
             )
         }
-
         Spacer(modifier = Modifier.width(12.dp))
-
-        // Text content
-        Column(
-            modifier = Modifier.weight(1f)
-        ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodySmall,
-                color = TextSecondary
-            )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = label, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = value,
@@ -441,30 +361,20 @@ private fun ProfileInfoRow(
             )
         }
     }
-
-    if (!isLast) {
-        Spacer(modifier = Modifier.height(0.dp))
-    }
 }
 
 // ============================================================================
 // SECURITY CARD
 // ============================================================================
 @Composable
-private fun SecurityCard(
-    onChangePasswordClick: () -> Unit
-) {
+private fun SecurityCard(onChangePasswordClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onChangePasswordClick),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = CardBackground
-        ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 1.dp
-        )
+        colors = CardDefaults.cardColors(containerColor = CardBackground),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Row(
             modifier = Modifier
@@ -472,7 +382,6 @@ private fun SecurityCard(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Icon
             Box(
                 modifier = Modifier
                     .size(40.dp)
@@ -487,13 +396,8 @@ private fun SecurityCard(
                     modifier = Modifier.size(20.dp)
                 )
             }
-
             Spacer(modifier = Modifier.width(12.dp))
-
-            // Text content
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = "Ubah Kata Sandi",
                     style = MaterialTheme.typography.bodyMedium,
@@ -507,8 +411,6 @@ private fun SecurityCard(
                     color = TextSecondary
                 )
             }
-
-            // Chevron
             Icon(
                 imageVector = Icons.Filled.ChevronRight,
                 contentDescription = "Ubah kata sandi",
@@ -527,12 +429,8 @@ private fun ActivityCard(lastLogin: String) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = CardBackground
-        ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 1.dp
-        )
+        colors = CardDefaults.cardColors(containerColor = CardBackground),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Row(
             modifier = Modifier
@@ -540,7 +438,6 @@ private fun ActivityCard(lastLogin: String) {
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Icon
             Box(
                 modifier = Modifier
                     .size(40.dp)
@@ -555,18 +452,9 @@ private fun ActivityCard(lastLogin: String) {
                     modifier = Modifier.size(20.dp)
                 )
             }
-
             Spacer(modifier = Modifier.width(12.dp))
-
-            // Text content
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = "Terakhir Login",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = TextSecondary
-                )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = "Terakhir Login", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = lastLogin,
@@ -583,9 +471,7 @@ private fun ActivityCard(lastLogin: String) {
 // LOGOUT BUTTON
 // ============================================================================
 @Composable
-private fun LogoutButton(
-    onClick: () -> Unit
-) {
+private fun LogoutButton(onClick: () -> Unit) {
     OutlinedButton(
         onClick = onClick,
         modifier = Modifier
@@ -626,9 +512,7 @@ private fun LogoutConfirmationDialog(
         title = {
             Text(
                 text = "Keluar dari akun?",
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.SemiBold
-                ),
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
                 color = TextPrimary
             )
         },
@@ -640,9 +524,7 @@ private fun LogoutConfirmationDialog(
             )
         },
         confirmButton = {
-            TextButton(
-                onClick = onConfirm
-            ) {
+            TextButton(onClick = onConfirm) {
                 Text(
                     text = "Keluar",
                     style = MaterialTheme.typography.labelLarge,
@@ -652,9 +534,7 @@ private fun LogoutConfirmationDialog(
             }
         },
         dismissButton = {
-            TextButton(
-                onClick = onDismiss
-            ) {
+            TextButton(onClick = onDismiss) {
                 Text(
                     text = "Batal",
                     style = MaterialTheme.typography.labelLarge,
@@ -664,4 +544,59 @@ private fun LogoutConfirmationDialog(
             }
         }
     )
+}
+
+// ============================================================================
+// LOGOUT SUCCESS POPUP
+// ============================================================================
+@Composable
+private fun LogoutSuccessPopup(onDismiss: () -> Unit) {
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(1500)
+        onDismiss()
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.5f))
+            .clickable(onClick = onDismiss),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .background(Color.White, shape = RoundedCornerShape(24.dp))
+                .padding(32.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(80.dp)
+                    .clip(CircleShape)
+                    .background(GreenLight),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Check,
+                    contentDescription = "Success",
+                    tint = GreenAccent,
+                    modifier = Modifier.size(48.dp)
+                )
+            }
+            Spacer(modifier = Modifier.height(20.dp))
+            Text(
+                text = "Logout Berhasil!",
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                color = TextPrimary,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Sampai jumpa kembali",
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextSecondary,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
 }

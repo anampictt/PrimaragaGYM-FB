@@ -7,7 +7,6 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -35,6 +34,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,7 +46,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.pws.primaragagym.R
 import com.pws.primaragagym.ui.components.auth.AuthHeader
@@ -59,6 +59,10 @@ import com.pws.primaragagym.ui.theme.Success
 import com.pws.primaragagym.ui.theme.TextPrimaryDark
 import com.pws.primaragagym.ui.theme.TextSecondaryDark
 import com.pws.primaragagym.ui.theme.LightBackground
+import com.pws.primaragagym.ui.viewmodel.ForgotPasswordEvent
+import com.pws.primaragagym.ui.viewmodel.ForgotPasswordUiState
+import com.pws.primaragagym.ui.viewmodel.ForgotPasswordViewModel
+import kotlinx.coroutines.flow.collectLatest
 
 enum class ForgotPasswordState {
     IDLE,
@@ -67,26 +71,25 @@ enum class ForgotPasswordState {
     ERROR
 }
 
-data class ForgotPasswordUiState(
-    val email: String = "",
-    val emailError: String? = null,
-    val state: ForgotPasswordState = ForgotPasswordState.IDLE,
-    val errorMessage: String? = null
-)
-
 @Composable
 fun ForgotPasswordScreen(
-    uiState: ForgotPasswordUiState = ForgotPasswordUiState(),
-    onEmailChange: (String) -> Unit = {},
-    onSendClick: () -> Unit = {},
-    onBackToLoginClick: () -> Unit = {},
-    isEmailFocused: Boolean = false,
-    onEmailFocusChange: (Boolean) -> Unit = {}
+    viewModel: ForgotPasswordViewModel,
+    onBackToLoginClick: () -> Unit = {}
 ) {
+    val uiState by viewModel.uiState.collectAsState()
     val configuration = LocalConfiguration.current
     val screenWidthDp = configuration.screenWidthDp
     val isCompact = screenWidthDp < 600
     val isMedium = screenWidthDp in 600..839
+
+    LaunchedEffect(Unit) {
+        viewModel.events.collectLatest { event ->
+            when (event) {
+                is ForgotPasswordEvent.EmailSent -> { /* handled by isSent state */ }
+                is ForgotPasswordEvent.Error -> { /* handled by emailError state */ }
+            }
+        }
+    }
 
     BoxWithConstraints(
         modifier = Modifier
@@ -94,9 +97,7 @@ fun ForgotPasswordScreen(
             .background(LightBackground)
     ) {
         if (!isCompact) {
-            // Tablet - Split layout
             Row(modifier = Modifier.fillMaxSize()) {
-                // Left Panel - Branding
                 Box(
                     modifier = Modifier
                         .fillMaxHeight()
@@ -139,7 +140,6 @@ fun ForgotPasswordScreen(
                     }
                 }
 
-                // Right Panel - Form
                 Box(
                     modifier = Modifier
                         .fillMaxHeight()
@@ -149,11 +149,9 @@ fun ForgotPasswordScreen(
                 ) {
                     ForgotPasswordFormContent(
                         uiState = uiState,
-                        onEmailChange = onEmailChange,
-                        onSendClick = onSendClick,
+                        onEmailChange = viewModel::onEmailChange,
+                        onSendClick = viewModel::onSendResetLink,
                         onBackToLoginClick = onBackToLoginClick,
-                        isEmailFocused = isEmailFocused,
-                        onEmailFocusChange = onEmailFocusChange,
                         isCompact = false,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -163,7 +161,6 @@ fun ForgotPasswordScreen(
                 }
             }
         } else {
-            // Phone - Single column
             @OptIn(ExperimentalMaterial3Api::class)
             Scaffold(
                 topBar = {
@@ -208,28 +205,25 @@ fun ForgotPasswordScreen(
                         .imePadding(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-
-                Spacer(modifier = Modifier.height(Dimens.spacing_4))
-                AuthHeader(
-                    logoSize = 120.dp,
-                    showTagline = false
-                )
-                Spacer(modifier = Modifier.height(Dimens.spacing_8))
-                ForgotPasswordFormContent(
-                    uiState = uiState,
-                    onEmailChange = onEmailChange,
-                    onSendClick = onSendClick,
-                    onBackToLoginClick = onBackToLoginClick,
-                    isEmailFocused = isEmailFocused,
-                    onEmailFocusChange = onEmailFocusChange,
-                    isCompact = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(Dimens.spacing_8))
+                    Spacer(modifier = Modifier.height(Dimens.spacing_4))
+                    AuthHeader(
+                        logoSize = 120.dp,
+                        showTagline = false
+                    )
+                    Spacer(modifier = Modifier.height(Dimens.spacing_8))
+                    ForgotPasswordFormContent(
+                        uiState = uiState,
+                        onEmailChange = viewModel::onEmailChange,
+                        onSendClick = viewModel::onSendResetLink,
+                        onBackToLoginClick = onBackToLoginClick,
+                        isCompact = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(Dimens.spacing_8))
+                }
             }
         }
     }
-}
 }
 
 @Composable
@@ -238,8 +232,6 @@ private fun ForgotPasswordFormContent(
     onEmailChange: (String) -> Unit,
     onSendClick: () -> Unit,
     onBackToLoginClick: () -> Unit,
-    isEmailFocused: Boolean,
-    onEmailFocusChange: (Boolean) -> Unit,
     isCompact: Boolean,
     modifier: Modifier = Modifier
 ) {
@@ -247,27 +239,28 @@ private fun ForgotPasswordFormContent(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(
-            text = "Lupa Password",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-            color = TextPrimaryDark,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = Dimens.spacing_2)
-        )
-        Text(
-            text = "Masukkan email Anda. Kami akan mengirimkan\nlink untuk mereset password.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = TextSecondaryDark,
-            textAlign = TextAlign.Start,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = Dimens.spacing_8)
-        )
+        if (isCompact) {
+            Text(
+                text = "Lupa Password",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = TextPrimaryDark,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = Dimens.spacing_2)
+            )
+            Text(
+                text = "Masukkan email Anda. Kami akan mengirimkan\nlink untuk mereset password.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextSecondaryDark,
+                textAlign = TextAlign.Start,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = Dimens.spacing_8)
+            )
+        }
 
-        // Error message
-        if (uiState.state == ForgotPasswordState.ERROR && uiState.errorMessage != null) {
+        if (uiState.emailError != null && !uiState.isSent) {
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -276,7 +269,7 @@ private fun ForgotPasswordFormContent(
                 color = Error.copy(alpha = 0.1f)
             ) {
                 Text(
-                    text = uiState.errorMessage,
+                    text = uiState.emailError,
                     style = MaterialTheme.typography.bodySmall,
                     color = Error,
                     modifier = Modifier.padding(Dimens.spacing_4),
@@ -285,9 +278,8 @@ private fun ForgotPasswordFormContent(
             }
         }
 
-        // Email Field (only show when not in success state)
         AnimatedVisibility(
-            visible = uiState.state != ForgotPasswordState.SUCCESS,
+            visible = !uiState.isSent,
             enter = fadeIn() + scaleIn(),
             exit = fadeOut() + scaleOut()
         ) {
@@ -300,9 +292,7 @@ private fun ForgotPasswordFormContent(
                     keyboardType = KeyboardType.Email,
                     isError = uiState.emailError != null,
                     errorMessage = uiState.emailError,
-                    isFocused = isEmailFocused,
-                    onFocusChange = onEmailFocusChange,
-                    enabled = uiState.state != ForgotPasswordState.LOADING,
+                    enabled = !uiState.isLoading,
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -311,16 +301,15 @@ private fun ForgotPasswordFormContent(
                 AuthPrimaryButton(
                     text = "Kirim Link Reset",
                     onClick = onSendClick,
-                    isLoading = uiState.state == ForgotPasswordState.LOADING,
-                    enabled = uiState.state != ForgotPasswordState.LOADING,
+                    isLoading = uiState.isLoading,
+                    enabled = !uiState.isLoading,
                     modifier = Modifier.fillMaxWidth()
                 )
             }
         }
 
-        // Success State
         AnimatedVisibility(
-            visible = uiState.state == ForgotPasswordState.SUCCESS,
+            visible = uiState.isSent,
             enter = fadeIn() + scaleIn(),
             exit = fadeOut() + scaleOut()
         ) {
@@ -330,7 +319,6 @@ private fun ForgotPasswordFormContent(
             )
         }
 
-        // Back to Login link (only show when not in success state and not compact)
         if (!isCompact) {
             Box(
                 modifier = Modifier
@@ -360,7 +348,6 @@ private fun SuccessContent(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.padding(vertical = Dimens.spacing_8)
     ) {
-        // Success Icon Circle
         Box(
             modifier = Modifier
                 .size(80.dp)
@@ -425,12 +412,4 @@ private fun SuccessContent(
             )
         }
     }
-}
-
-
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-private fun ForgotPasswordPreview() {
-    ForgotPasswordScreen {  }
-    
 }

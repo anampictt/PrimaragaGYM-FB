@@ -32,12 +32,14 @@ import com.pws.primaragagym.screens.superadmin.manajemenpengguna.ManajemenPenggu
 import com.pws.primaragagym.screens.superadmin.manajemenpengguna.TambahPenggunaScreen
 import com.pws.primaragagym.screens.superadmin.manajemenrole.ManajemenRoleScreen
 import com.pws.primaragagym.screens.superadmin.manajemenrole.TambahRoleScreen
+import com.pws.primaragagym.ui.viewmodel.AuthViewModel
 
 private val BackgroundColor = Color(0xFFF5F7FA)
 
 @Composable
 fun SuperAdminMainScreen(
-    rootNavController: NavHostController
+    rootNavController: NavHostController,
+    authViewModel: AuthViewModel = AuthViewModel()
 ) {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
@@ -152,7 +154,9 @@ fun SuperAdminMainScreen(
             Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
                 SuperAdminNestedNavHost(
                     navController = nestedNavController,
-                    safePopBack = { safePopBack() }
+                    safePopBack = { safePopBack() },
+                    authViewModel = authViewModel,
+                    rootNavController = rootNavController
                 )
             }
         }
@@ -173,7 +177,9 @@ fun SuperAdminMainScreen(
             ) {
                 SuperAdminNestedNavHost(
                     navController = nestedNavController,
-                    safePopBack = { safePopBack() }
+                    safePopBack = { safePopBack() },
+                    authViewModel = authViewModel,
+                    rootNavController = rootNavController
                 )
             }
         }
@@ -183,7 +189,9 @@ fun SuperAdminMainScreen(
 @Composable
 private fun SuperAdminNestedNavHost(
     navController: NavHostController,
-    safePopBack: () -> Boolean
+    safePopBack: () -> Boolean,
+    authViewModel: AuthViewModel,
+    rootNavController: NavHostController
 ) {
     NavHost(
         navController = navController,
@@ -252,6 +260,6 @@ private fun SuperAdminNestedNavHost(
             )
         }
 
-        sharedAdminRoutes(navController)
+        sharedAdminRoutes(navController, authViewModel, rootNavController)
     }
 }

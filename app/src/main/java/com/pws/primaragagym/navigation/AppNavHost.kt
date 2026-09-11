@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -16,8 +18,10 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import com.pws.primaragagym.navigation.AppScreen
 import com.pws.primaragagym.screens.ProfileScreen
 import com.pws.primaragagym.screens.SplashScreen
+import com.pws.primaragagym.navigation.LoginNavHost
 import com.pws.primaragagym.screens.admin.dashboard.AdminDashboardScreen
 import com.pws.primaragagym.screens.admin.member.DetailMemberScreen
 import com.pws.primaragagym.screens.admin.member.MemberManagementScreen
@@ -48,17 +52,18 @@ import com.pws.primaragagym.screens.superadmin.manajemenpengguna.ManajemenPenggu
 import com.pws.primaragagym.screens.superadmin.manajemenpengguna.TambahPenggunaScreen
 import com.pws.primaragagym.screens.superadmin.manajemenrole.ManajemenRoleScreen
 import com.pws.primaragagym.screens.superadmin.manajemenrole.TambahRoleScreen
+import com.pws.primaragagym.ui.viewmodel.AuthViewModel
+import com.pws.primaragagym.ui.viewmodel.ProfileViewModel
 
-/**
- * Main navigation host for the app.
- * Manages all navigation routes and back stack.
- */
 @Composable
 fun AppNavHost(
     navController: NavHostController,
+    authViewModel: AuthViewModel = AuthViewModel(),
     startDestination: AppScreen = AppScreen.Splash,
     modifier: Modifier = Modifier
 ) {
+    val authState by authViewModel.uiState.collectAsState()
+
     NavHost(
         navController = navController,
         startDestination = startDestination.route,
@@ -67,9 +72,21 @@ fun AppNavHost(
         // ==================== SPLASH ====================
         composable(AppScreen.Splash.route) {
             SplashScreen(
+                authViewModel = authViewModel,
                 onSplashComplete = {
-                    navController.navigate(AppScreen.Login.route) {
-                        popUpTo(AppScreen.Splash.route) { inclusive = true }
+                    // Navigate based on auth state
+                    if (authState.isAuthenticated && authState.currentUser != null) {
+                        val destination = when (authState.currentUser!!.role.name) {
+                            "SUPER_ADMIN" -> AppScreen.SuperAdminRoot.route
+                            else -> AppScreen.AdminDashboard.route
+                        }
+                        navController.navigate(destination) {
+                            popUpTo(AppScreen.Splash.route) { inclusive = true }
+                        }
+                    } else {
+                        navController.navigate(AppScreen.Login.route) {
+                            popUpTo(AppScreen.Splash.route) { inclusive = true }
+                        }
                     }
                 }
             )
@@ -77,15 +94,16 @@ fun AppNavHost(
 
         // ==================== AUTH ====================
         composable(AppScreen.Login.route) {
-            LoginNavHost(navController = navController)
+            LoginNavHost(navController = navController, authViewModel = authViewModel)
         }
+
         // ==================== SUPER ADMIN ====================
         composable(AppScreen.SuperAdminRoot.route) {
             com.pws.primaragagym.screens.superadmin.dashboard.SuperAdminMainScreen(
-                rootNavController = navController
+                rootNavController = navController,
+                authViewModel = authViewModel
             )
         }
-
 
         // ==================== ADMIN ====================
         composable(AppScreen.AdminDashboard.route) {
@@ -122,13 +140,15 @@ fun AppNavHost(
                 }
             )
         }
-        sharedAdminRoutes(navController)
+        sharedAdminRoutes(navController, authViewModel, navController)
     }
 }
 
-fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(navController: androidx.navigation.NavHostController) {
-
-
+fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(
+    navController: androidx.navigation.NavHostController,
+    authViewModel: AuthViewModel = AuthViewModel(),
+    rootNavController: androidx.navigation.NavHostController? = null
+) {
     // ==================== MEMBER HUB ====================
     composable(AppScreen.Member.route) {
         MemberScreen(
@@ -152,7 +172,6 @@ fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(navController: android
         )
     }
 
-    // ==================== MEMBER MANAGEMENT ====================
     composable(AppScreen.MemberManagement.route) {
         MemberManagementScreen(
             onBackClick = {
@@ -382,7 +401,7 @@ fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(navController: android
         )
     }
 
-    // ==================== PLACEHOLDER ROUTES ====================
+    // ==================== CHECK IN / OUT ====================
     composable(AppScreen.CheckInCheckout.route) {
         com.pws.primaragagym.screens.admin.checkin.CheckinCheckoutScreen(
             onBackClick = {
@@ -429,6 +448,7 @@ fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(navController: android
         )
     }
 
+    // ==================== KEUANGAN ====================
     composable(AppScreen.Keuangan.route) {
         KeuanganScreen(
             onBackClick = {
@@ -504,6 +524,7 @@ fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(navController: android
         )
     }
 
+    // ==================== NOTIFIKASI ====================
     composable(AppScreen.Notifikasi.route) {
         NotifikasiScreen(
             onBackClick = {
@@ -546,6 +567,7 @@ fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(navController: android
         )
     }
 
+    // ==================== PLACEHOLDER ROUTES ====================
     composable(AppScreen.CatatanKeuangan.route) {
         PlaceholderScreen(
             title = "Catatan Keuangan",
@@ -570,15 +592,20 @@ fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(navController: android
 
     // ==================== PROFILE ====================
     composable(AppScreen.Profil.route) {
+        val profileViewModel = ProfileViewModel()
         ProfileScreen(
+            viewModel = profileViewModel,
             onBackClick = {
                 navController.popBackStack()
             },
             onChangePasswordClick = {
                 navController.navigate(AppScreen.UbahKataSandi.route)
             },
-            onLogoutConfirm = {
-                navController.navigate(AppScreen.Login.route) {
+            onLogoutSuccess = {
+                profileViewModel.hideLogoutSuccess()
+                authViewModel.clearUser()
+                val nav = rootNavController ?: navController
+                nav.navigate(AppScreen.Login.route) {
                     popUpTo(0) { inclusive = true }
                 }
             }
@@ -597,11 +624,6 @@ fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(navController: android
     }
 }
 
-
-/**
- * Placeholder composable for screens that are not yet implemented.
- * Used for route registration only.
- */
 @Composable
 private fun PlaceholderScreen(
     title: String,
