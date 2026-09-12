@@ -187,6 +187,9 @@ class BranchRepositoryImpl : BranchRepository {
 class RoleRepositoryImpl : RoleRepository {
     private val dataSource = FirebaseRoleDataSource()
 
+    override fun observeRoles(): Flow<List<FirestoreRole>> =
+        dataSource.observeRoles()
+
     override suspend fun getRoles(isActive: Boolean?): Result<List<FirestoreRole>> =
         dataSource.getRoles(isActive)
 
@@ -201,6 +204,9 @@ class RoleRepositoryImpl : RoleRepository {
 
     override suspend fun updateRole(role: FirestoreRole): Result<Unit> =
         dataSource.updateRole(role)
+
+    override suspend fun updateRolePermissions(roleId: String, permissions: Map<String, Boolean>): Result<Unit> =
+        dataSource.updateRolePermissions(roleId, permissions)
 
     override suspend fun deleteRole(roleId: String): Result<Unit> =
         dataSource.deleteRole(roleId)

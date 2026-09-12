@@ -93,11 +93,13 @@ interface BranchRepository {
 }
 
 interface RoleRepository {
+    fun observeRoles(): Flow<List<FirestoreRole>>
     suspend fun getRoles(isActive: Boolean? = true): Result<List<FirestoreRole>>
     suspend fun getRoleById(roleId: String): Result<FirestoreRole>
     suspend fun getRoleByName(roleName: String): Result<FirestoreRole>
     suspend fun createRole(role: FirestoreRole): Result<String>
     suspend fun updateRole(role: FirestoreRole): Result<Unit>
+    suspend fun updateRolePermissions(roleId: String, permissions: Map<String, Boolean>): Result<Unit>
     suspend fun deleteRole(roleId: String): Result<Unit>
 }
 

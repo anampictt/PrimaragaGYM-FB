@@ -32,6 +32,7 @@ import com.pws.primaragagym.screens.superadmin.manajemancabang.ManajemenCabangSc
 import com.pws.primaragagym.screens.superadmin.manajemancabang.TambahCabangScreen
 import com.pws.primaragagym.screens.superadmin.manajemenpengguna.ManajemenPenggunaScreen
 import com.pws.primaragagym.screens.superadmin.manajemenpengguna.TambahPenggunaScreen
+import com.pws.primaragagym.screens.superadmin.manajemenrole.HakAksesScreen
 import com.pws.primaragagym.screens.superadmin.manajemenrole.ManajemenRoleScreen
 import com.pws.primaragagym.screens.superadmin.manajemenrole.TambahRoleScreen
 import com.pws.primaragagym.ui.viewmodel.AuthViewModel
@@ -266,7 +267,7 @@ private fun SuperAdminNestedNavHost(
                 },
                 onDeleteRole = { },
                 onAccessClick = { role ->
-                    navController.navigate(AppScreen.TambahRole.createRoute(role.id))
+                    navController.navigate(AppScreen.HakAksesRole.createRoute(role.id))
                 }
             )
         }
@@ -283,6 +284,23 @@ private fun SuperAdminNestedNavHost(
         ) { backStackEntry ->
             val roleId = backStackEntry.arguments?.getString("roleId")
             TambahRoleScreen(
+                roleId = roleId,
+                onBackClick = { safePopBack() },
+                onSubmitSuccess = { safePopBack() }
+            )
+        }
+
+        composable(
+            route = "superadmin/manajemen-role/hak-akses?roleId={roleId}",
+            arguments = listOf(
+                navArgument("roleId") {
+                    type = NavType.StringType
+                    nullable = false
+                }
+            )
+        ) { backStackEntry ->
+            val roleId = backStackEntry.arguments?.getString("roleId") ?: ""
+            HakAksesScreen(
                 roleId = roleId,
                 onBackClick = { safePopBack() },
                 onSubmitSuccess = { safePopBack() }

@@ -567,6 +567,23 @@ class RoleListViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(RoleListUiState())
     val uiState: StateFlow<RoleListUiState> = _uiState.asStateFlow()
 
+    init {
+        observeRoles()
+    }
+
+    private fun observeRoles() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            roleRepository.observeRoles()
+                .catch { e ->
+                    _uiState.update { it.copy(isLoading = false, error = e.message) }
+                }
+                .collect { roles ->
+                    _uiState.update { it.copy(isLoading = false, roles = roles, error = null) }
+                }
+        }
+    }
+
     fun loadRoles() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
@@ -604,6 +621,21 @@ class RoleListViewModel : ViewModel() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             roleRepository.updateRole(role)
+                .onSuccess {
+                    loadRoles()
+                    onComplete?.invoke(true, null)
+                }
+                .onFailure { e ->
+                    _uiState.update { it.copy(isLoading = false, error = e.message) }
+                    onComplete?.invoke(false, e.message)
+                }
+        }
+    }
+
+    fun updateRolePermissions(roleId: String, permissions: Map<String, Boolean>, onComplete: ((Boolean, String?) -> Unit)? = null) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            roleRepository.updateRolePermissions(roleId, permissions)
                 .onSuccess {
                     loadRoles()
                     onComplete?.invoke(true, null)

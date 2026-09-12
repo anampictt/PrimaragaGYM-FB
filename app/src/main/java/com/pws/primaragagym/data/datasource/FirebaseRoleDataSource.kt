@@ -1,8 +1,12 @@
 package com.pws.primaragagym.data.datasource
 
+import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
+import com.pws.primaragagym.domain.model.FirestoreRole
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 import java.util.Date
 
@@ -11,21 +15,71 @@ class FirebaseRoleDataSource {
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
     private val rolesCollection = firestore.collection(FirestoreCollections.ROLES)
 
-    suspend fun getRoles(isActive: Boolean? = true): Result<List<com.pws.primaragagym.domain.model.FirestoreRole>> {
+    private fun documentToFirestoreRole(doc: com.google.firebase.firestore.DocumentSnapshot): FirestoreRole {
+        val data = doc.data ?: emptyMap<String, Any?>()
+        val name = (data["name"] as? String) ?: ""
+        val description = (data["description"] as? String) ?: ""
+        val isActive = (data["isActive"] as? Boolean) ?: true
+        val permissionsRaw = data["permissions"] as? Map<*, *> ?: emptyMap<Any, Any>()
+        val permissions = permissionsRaw.entries.associate { (k, v) ->
+            val boolVal = when (v) {
+                is Boolean -> v
+                is Number -> v.toInt() == 1
+                is String -> v.equals("true", ignoreCase = true)
+                else -> false
+            }
+            k.toString() to boolVal
+        }
+        val createdAt = when (val c = data["createdAt"]) {
+            is Timestamp -> c.toDate()
+            is Date -> c
+            else -> null
+        }
+        val updatedAt = when (val u = data["updatedAt"]) {
+            is Timestamp -> u.toDate()
+            is Date -> u
+            else -> null
+        }
+        return FirestoreRole(
+            roleId = doc.id,
+            name = name,
+            description = description,
+            permissions = permissions,
+            isActive = isActive,
+            createdAt = createdAt,
+            updatedAt = updatedAt
+        )
+    }
+
+    fun observeRoles(): Flow<List<FirestoreRole>> = callbackFlow {
+        val listener = rolesCollection.addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                close(error)
+                return@addSnapshotListener
+            }
+            if (snapshot != null) {
+                val roles = snapshot.documents.map { doc ->
+                    documentToFirestoreRole(doc)
+                }.sortedBy { it.name }
+                trySend(roles)
+            }
+        }
+        awaitClose { listener.remove() }
+    }
+
+    suspend fun getRoles(isActive: Boolean? = null): Result<List<FirestoreRole>> {
         return try {
             val snapshot = rolesCollection.get().await()
-            var roles = snapshot.documents.mapNotNull { doc ->
-                val role = doc.toObject(com.pws.primaragagym.domain.model.FirestoreRole::class.java)
-                role?.copy(roleId = doc.id)
+            var roles = snapshot.documents.map { doc ->
+                documentToFirestoreRole(doc)
             }
 
             // Seed default roles if Firestore has no roles yet
             if (roles.isEmpty()) {
                 seedDefaultRoles()
                 val newSnapshot = rolesCollection.get().await()
-                roles = newSnapshot.documents.mapNotNull { doc ->
-                    val role = doc.toObject(com.pws.primaragagym.domain.model.FirestoreRole::class.java)
-                    role?.copy(roleId = doc.id)
+                roles = newSnapshot.documents.map { doc ->
+                    documentToFirestoreRole(doc)
                 }
             }
 
@@ -36,6 +90,7 @@ class FirebaseRoleDataSource {
             roles = roles.sortedBy { it.name }
             Result.success(roles)
         } catch (e: Exception) {
+            if (e is kotlin.coroutines.cancellation.CancellationException) throw e
             Result.failure(Exception("Gagal memuat data role. ${e.message}"))
         }
     }
@@ -47,7 +102,9 @@ class FirebaseRoleDataSource {
             "manajemen_role" to true,
             "manajemen_cabang" to true,
             "manajemen_member" to true,
-            "check_in_out" to true,
+            "membership" to true,
+            "check_in" to true,
+            "check_out" to true,
             "keuangan" to true,
             "notifikasi" to true,
             "laporan" to true,
@@ -59,7 +116,9 @@ class FirebaseRoleDataSource {
             "manajemen_role" to false,
             "manajemen_cabang" to false,
             "manajemen_member" to true,
-            "check_in_out" to true,
+            "membership" to false,
+            "check_in" to true,
+            "check_out" to true,
             "keuangan" to true,
             "notifikasi" to true,
             "laporan" to true,
@@ -71,7 +130,9 @@ class FirebaseRoleDataSource {
             "manajemen_role" to false,
             "manajemen_cabang" to false,
             "manajemen_member" to true,
-            "check_in_out" to true,
+            "membership" to false,
+            "check_in" to true,
+            "check_out" to true,
             "keuangan" to false,
             "notifikasi" to true,
             "laporan" to false,
@@ -79,7 +140,7 @@ class FirebaseRoleDataSource {
         )
 
         val defaultRoles = listOf(
-            com.pws.primaragagym.domain.model.FirestoreRole(
+            FirestoreRole(
                 name = "Super Admin",
                 description = "Akses penuh ke seluruh sistem.",
                 permissions = superAdminPermissions,
@@ -87,7 +148,7 @@ class FirebaseRoleDataSource {
                 createdAt = Date(),
                 updatedAt = Date()
             ),
-            com.pws.primaragagym.domain.model.FirestoreRole(
+            FirestoreRole(
                 name = "Admin",
                 description = "Mengelola operasional gym dan data member.",
                 permissions = adminPermissions,
@@ -95,7 +156,7 @@ class FirebaseRoleDataSource {
                 createdAt = Date(),
                 updatedAt = Date()
             ),
-            com.pws.primaragagym.domain.model.FirestoreRole(
+            FirestoreRole(
                 name = "Staff",
                 description = "Mengelola aktivitas operasional sesuai hak akses.",
                 permissions = staffPermissions,
@@ -111,25 +172,21 @@ class FirebaseRoleDataSource {
         }
     }
 
-    suspend fun getRoleById(roleId: String): Result<com.pws.primaragagym.domain.model.FirestoreRole> {
+    suspend fun getRoleById(roleId: String): Result<FirestoreRole> {
         return try {
             val doc = rolesCollection.document(roleId).get().await()
             if (doc.exists()) {
-                val role = doc.toObject(com.pws.primaragagym.domain.model.FirestoreRole::class.java)
-                if (role != null) {
-                    Result.success(role.copy(roleId = doc.id))
-                } else {
-                    Result.failure(Exception("Role tidak ditemukan."))
-                }
+                Result.success(documentToFirestoreRole(doc))
             } else {
                 Result.failure(Exception("Role tidak ditemukan."))
             }
         } catch (e: Exception) {
+            if (e is kotlin.coroutines.cancellation.CancellationException) throw e
             Result.failure(Exception("Gagal memuat detail role. ${e.message}"))
         }
     }
 
-    suspend fun getRoleByName(roleName: String): Result<com.pws.primaragagym.domain.model.FirestoreRole> {
+    suspend fun getRoleByName(roleName: String): Result<FirestoreRole> {
         return try {
             val allRolesResult = getRoles()
             if (allRolesResult.isSuccess) {
@@ -143,11 +200,12 @@ class FirebaseRoleDataSource {
             }
             Result.failure(Exception("Role tidak ditemukan."))
         } catch (e: Exception) {
+            if (e is kotlin.coroutines.cancellation.CancellationException) throw e
             Result.failure(e)
         }
     }
 
-    suspend fun createRole(role: com.pws.primaragagym.domain.model.FirestoreRole): Result<String> {
+    suspend fun createRole(role: FirestoreRole): Result<String> {
         return try {
             val docRef = rolesCollection.document()
             val roleWithId = role.copy(
@@ -158,11 +216,12 @@ class FirebaseRoleDataSource {
             docRef.set(roleWithId).await()
             Result.success(docRef.id)
         } catch (e: Exception) {
+            if (e is kotlin.coroutines.cancellation.CancellationException) throw e
             Result.failure(Exception("Gagal membuat role baru. ${e.message}"))
         }
     }
 
-    suspend fun updateRole(role: com.pws.primaragagym.domain.model.FirestoreRole): Result<Unit> {
+    suspend fun updateRole(role: FirestoreRole): Result<Unit> {
         return try {
             val updates = mapOf(
                 "name" to role.name,
@@ -174,7 +233,23 @@ class FirebaseRoleDataSource {
             rolesCollection.document(role.roleId).update(updates).await()
             Result.success(Unit)
         } catch (e: Exception) {
+            if (e is kotlin.coroutines.cancellation.CancellationException) throw e
             Result.failure(Exception("Gagal memperbarui role. ${e.message}"))
+        }
+    }
+
+    suspend fun updateRolePermissions(roleId: String, permissions: Map<String, Boolean>): Result<Unit> {
+        return try {
+            rolesCollection.document(roleId).update(
+                mapOf(
+                    "permissions" to permissions,
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+            ).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            if (e is kotlin.coroutines.cancellation.CancellationException) throw e
+            Result.failure(Exception("Gagal memperbarui hak akses role. ${e.message}"))
         }
     }
 
@@ -188,6 +263,7 @@ class FirebaseRoleDataSource {
             rolesCollection.document(roleId).delete().await()
             Result.success(Unit)
         } catch (e: Exception) {
+            if (e is kotlin.coroutines.cancellation.CancellationException) throw e
             Result.failure(Exception("Gagal menghapus role. ${e.message}"))
         }
     }

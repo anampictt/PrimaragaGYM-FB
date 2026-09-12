@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.pws.primaragagym.di.ServiceLocator
 import com.pws.primaragagym.domain.model.FirestoreRole
 import com.pws.primaragagym.ui.viewmodel.RoleListViewModel
 import androidx.compose.material3.Button
@@ -156,13 +157,25 @@ fun TambahRoleScreen(
 
     LaunchedEffect(roleId, roleState.roles) {
         if (isEditMode) {
-            val existingRole = roleState.roles.find { it.roleId == roleId }
-            if (existingRole != null) {
-                roleName = existingRole.name
-                roleDescription = existingRole.description
+            val cachedRole = roleState.roles.find { it.roleId == roleId }
+            if (cachedRole != null) {
+                roleName = cachedRole.name
+                roleDescription = cachedRole.description
                 accessMenus = getDefaultAccessMenus().map { menu ->
-                    val isEnabled = existingRole.permissions[menu.id] ?: false
+                    val isEnabled = cachedRole.permissions[menu.id] == true
                     menu.copy(enabled = isEnabled)
+                }
+            }
+
+            if (roleId != null) {
+                val freshRole = ServiceLocator.roleRepository.getRoleById(roleId).getOrNull()
+                if (freshRole != null) {
+                    roleName = freshRole.name
+                    roleDescription = freshRole.description
+                    accessMenus = getDefaultAccessMenus().map { menu ->
+                        val isEnabled = freshRole.permissions[menu.id] == true
+                        menu.copy(enabled = isEnabled)
+                    }
                 }
             }
         }
