@@ -60,8 +60,15 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import com.pws.primaragagym.ui.theme.GreenPrimary
 import com.pws.primaragagym.ui.theme.GreenPrimaryLight
+import com.pws.primaragagym.ui.viewmodel.SuperAdminDashboardViewModel
+import com.pws.primaragagym.ui.viewmodel.AuthViewModel
 
 // ============================================================================
 // COLORS - Match design reference
@@ -106,49 +113,58 @@ private val dashboardData = DashboardData(
 // ============================================================================
 // MENU DATA
 // ============================================================================
-private data class MenuItem(
+data class MenuItem(
+    val id: String,
     val title: String,
     val description: String,
     val icon: ImageVector
 )
 
-private val menuItems = listOf(
+val allMenuItems = listOf(
     MenuItem(
+        id = "manajemen_pengguna",
         title = "Manajemen Pengguna",
         description = "Kelola data pengguna sistem,\nseperti admin, staff, dan trainer.",
         icon = Icons.Filled.Person
     ),
     MenuItem(
+        id = "manajemen_role",
         title = "Manajemen Role",
         description = "Atur peran dan hak akses\npengguna dalam sistem.",
         icon = Icons.Filled.Security
     ),
     MenuItem(
+        id = "manajemen_cabang",
         title = "Manajemen Cabang",
         description = "Kelola data cabang gym yang\ntersedia.",
         icon = Icons.Filled.Shield
     ),
     MenuItem(
+        id = "manajemen_member",
         title = "Member",
         description = "Kelola data member gym Anda.",
         icon = Icons.Filled.Groups
     ),
     MenuItem(
+        id = "check_in_out",
         title = "Check In & Check Out",
         description = "Scan barcode member untuk\nproses check-in dan check-out.",
         icon = Icons.Filled.QrCodeScanner
     ),
     MenuItem(
+        id = "keuangan",
         title = "Catatan Keuangan",
         description = "Catat dan kelola transaksi\nkeuangan gym.",
         icon = Icons.Filled.AccountBalanceWallet
     ),
     MenuItem(
+        id = "notifikasi",
         title = "Notifikasi",
         description = "Lihat informasi dan\npemberitahuan terbaru.",
         icon = Icons.Filled.Notifications
     ),
     MenuItem(
+        id = "laporan",
         title = "Laporan Keuangan",
         description = "Lihat laporan pemasukan dan\nkeuangan gym.",
         icon = Icons.Filled.Assessment
@@ -172,6 +188,8 @@ enum class BottomNavItem(
 // ============================================================================
 @Composable
 fun SuperAdminDashboardContent(
+    viewModel: SuperAdminDashboardViewModel = viewModel(),
+    authViewModel: AuthViewModel = viewModel(),
     onUserManagementClick: () -> Unit = {},
     onRoleManagementClick: () -> Unit = {},
     onBranchManagementClick: () -> Unit = {},
@@ -184,7 +202,25 @@ fun SuperAdminDashboardContent(
 ) {
     val configuration = LocalConfiguration.current
     val isTablet = configuration.screenWidthDp >= 600
-    val data = remember { dashboardData }
+    
+    val authState by authViewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
+
+    LaunchedEffect(Unit) {
+        viewModel.loadDashboard()
+    }
+
+    val data = DashboardData(
+        greeting = "Selamat datang kembali,",
+        title = authState.currentUser?.name ?: "Super Admin",
+        subtitle = "Kelola gym Anda dengan mudah dan efisien.",
+        summaryDate = LocalDate.now().format(DateTimeFormatter.ofPattern("d MMM yyyy")),
+        totalPengguna = uiState.totalUsers,
+        totalCabang = uiState.totalBranches,
+        pendapatan = "Rp 0",
+        systemStatus = "Sistem aman dan terproteksi",
+        lastLogin = authState.currentUser?.lastLogin ?: "Belum pernah login"
+    )
 
     LazyColumn(
         modifier = Modifier
@@ -210,8 +246,11 @@ fun SuperAdminDashboardContent(
                 SummaryCard(data = data, isTablet = isTablet)
                 Spacer(modifier = Modifier.height(24.dp))
                 if (!isTablet) {
+                    val allowedMenuItems = remember(authState.permissions, authState.currentUser) {
+                        allMenuItems.filter { authViewModel.hasPermission(it.id) }
+                    }
                     MenuUtamaSection(
-                        menuItems = menuItems,
+                        menuItems = allowedMenuItems,
                         onUserManagementClick = onUserManagementClick,
                         onRoleManagementClick = onRoleManagementClick,
                         onBranchManagementClick = onBranchManagementClick,
@@ -464,6 +503,8 @@ private fun MenuUtamaSection(
     onReportClick: () -> Unit,
     isTablet: Boolean = false
 ) {
+    if (menuItems.isEmpty()) return
+
     Column {
         // Section Title
         Text(
@@ -475,22 +516,21 @@ private fun MenuUtamaSection(
             modifier = Modifier.padding(bottom = 16.dp)
         )
 
-        // Menu Items
-        val onClicks = listOf(
-            onUserManagementClick,
-            onRoleManagementClick,
-            onBranchManagementClick,
-            onMemberClick,
-            onCheckInOutClick,
-            onCatatanKeuanganClick,
-            onNotificationClick,
-            onReportClick
-        )
-
         menuItems.forEachIndexed { index, menuItem ->
+            val onClick = when (menuItem.id) {
+                "manajemen_pengguna" -> onUserManagementClick
+                "manajemen_role" -> onRoleManagementClick
+                "manajemen_cabang" -> onBranchManagementClick
+                "manajemen_member" -> onMemberClick
+                "check_in_out" -> onCheckInOutClick
+                "keuangan" -> onCatatanKeuanganClick
+                "notifikasi" -> onNotificationClick
+                "laporan" -> onReportClick
+                else -> ({})
+            }
             MenuCard(
                 menuItem = menuItem,
-                onClick = onClicks[index]
+                onClick = onClick
             )
             if (index < menuItems.lastIndex) {
                 Spacer(modifier = Modifier.height(12.dp))
@@ -723,7 +763,9 @@ fun BottomNavigationBar(
 @Composable
 fun TabletSidebar(
     selectedItem: BottomNavItem?,
-    selectedMenuIndex: Int?,
+    selectedMenuIndex: Int? = null,
+    selectedMenuKey: String? = null,
+    authViewModel: AuthViewModel = viewModel(),
     onItemSelected: (BottomNavItem) -> Unit,
     onUserManagementClick: () -> Unit,
     onRoleManagementClick: () -> Unit,
@@ -734,6 +776,11 @@ fun TabletSidebar(
     onNotificationClick: () -> Unit,
     onReportClick: () -> Unit
 ) {
+    val authState by authViewModel.uiState.collectAsState()
+    val allowedMenuItems = remember(authState.permissions, authState.currentUser) {
+        allMenuItems.filter { authViewModel.hasPermission(it.id) }
+    }
+
     Column(
         modifier = Modifier
             .width(240.dp)
@@ -786,32 +833,41 @@ fun TabletSidebar(
             
             Spacer(modifier = Modifier.height(32.dp))
             
-            Text(
-                text = "Menu Utama",
-                style = MaterialTheme.typography.titleSmall,
-                color = TextSecondary,
-                modifier = Modifier.padding(start = 16.dp, bottom = 12.dp)
-            )
-
-            val menuClicks = listOf(
-                onUserManagementClick,
-                onRoleManagementClick,
-                onBranchManagementClick,
-                onMemberClick,
-                onCheckInOutClick,
-                onCatatanKeuanganClick,
-                onNotificationClick,
-                onReportClick
-            )
-
-            menuItems.forEachIndexed { index, menuItem ->
-                TabletSidebarMenuItem(
-                    menuItem = menuItem,
-                    isSelected = selectedMenuIndex == index,
-                    onClick = menuClicks[index]
+            if (allowedMenuItems.isNotEmpty()) {
+                Text(
+                    text = "Menu Utama",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = TextSecondary,
+                    modifier = Modifier.padding(start = 16.dp, bottom = 12.dp)
                 )
-                if (index < menuItems.lastIndex) {
-                    Spacer(modifier = Modifier.height(8.dp))
+
+                allowedMenuItems.forEachIndexed { index, menuItem ->
+                    val click = when (menuItem.id) {
+                        "manajemen_pengguna" -> onUserManagementClick
+                        "manajemen_role" -> onRoleManagementClick
+                        "manajemen_cabang" -> onBranchManagementClick
+                        "manajemen_member" -> onMemberClick
+                        "check_in_out" -> onCheckInOutClick
+                        "keuangan" -> onCatatanKeuanganClick
+                        "notifikasi" -> onNotificationClick
+                        "laporan" -> onReportClick
+                        else -> ({})
+                    }
+
+                    val isSelected = if (selectedMenuKey != null) {
+                        selectedMenuKey == menuItem.id
+                    } else {
+                        selectedMenuIndex == index
+                    }
+
+                    TabletSidebarMenuItem(
+                        menuItem = menuItem,
+                        isSelected = isSelected,
+                        onClick = click
+                    )
+                    if (index < allowedMenuItems.lastIndex) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
                 }
             }
         }

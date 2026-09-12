@@ -57,6 +57,13 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.pws.primaragagym.ui.viewmodel.RoleListViewModel
 
 // ============================================================================
 // COLORS - Match ManajemenPengguna visual style exactly
@@ -121,6 +128,7 @@ private data class RoleManagementUiState(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ManajemenRoleScreen(
+    viewModel: RoleListViewModel = viewModel(),
     onBackClick: () -> Unit = {},
     onAddRoleClick: () -> Unit = {},
     onEditRole: (RoleUiModel) -> Unit = {},
@@ -131,16 +139,32 @@ fun ManajemenRoleScreen(
     val screenWidthDp = configuration.screenWidthDp
     val isTablet = screenWidthDp >= 600
 
+    val roleState by viewModel.uiState.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
+    var roleToDelete by remember { mutableStateOf<RoleUiModel?>(null) }
+
+    LaunchedEffect(Unit) {
+        viewModel.loadRoles()
+    }
+
+    val uiRoles = remember(roleState.roles) {
+        roleState.roles.map {
+            RoleUiModel(
+                id = it.roleId,
+                name = it.name,
+                description = it.description.ifBlank { "Hak akses ${it.name}" }
+            )
+        }
+    }
 
     // Filter roles based on search query
-    val filteredRoles = remember(searchQuery) {
+    val filteredRoles = remember(searchQuery, uiRoles) {
         if (searchQuery.isBlank()) {
-            mockRoles
+            uiRoles
         } else {
-            mockRoles.filter { role ->
+            uiRoles.filter { role ->
                 role.name.contains(searchQuery, ignoreCase = true) ||
-                        role.description.contains(searchQuery, ignoreCase = true)
+                role.description.contains(searchQuery, ignoreCase = true)
             }
         }
     }
@@ -150,6 +174,33 @@ fun ManajemenRoleScreen(
         24.dp
     } else {
         14.dp
+    }
+
+    if (roleToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { roleToDelete = null },
+            title = { Text("Hapus Role", fontWeight = FontWeight.Bold) },
+            text = { Text("Apakah Anda yakin ingin menghapus role \"${roleToDelete?.name}\"?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val target = roleToDelete
+                        roleToDelete = null
+                        if (target != null) {
+                            viewModel.deleteRole(target.id)
+                            onDeleteRole(target)
+                        }
+                    }
+                ) {
+                    Text("Hapus", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { roleToDelete = null }) {
+                    Text("Batal")
+                }
+            }
+        )
     }
 
     Scaffold(
@@ -190,8 +241,16 @@ fun ManajemenRoleScreen(
                     )
             )
 
-            // Role List
-            if (filteredRoles.isEmpty()) {
+            if (roleState.isLoading && uiRoles.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = GreenAccent)
+                }
+            } else if (filteredRoles.isEmpty()) {
                 // Empty State
                 RoleEmptyState(
                     modifier = Modifier
@@ -216,7 +275,7 @@ fun ManajemenRoleScreen(
                         RoleCard(
                             role = role,
                             onEditClick = { onEditRole(role) },
-                            onDeleteClick = { onDeleteRole(role) },
+                            onDeleteClick = { roleToDelete = role },
                             onAccessClick = { onAccessClick(role) }
                         )
                     }

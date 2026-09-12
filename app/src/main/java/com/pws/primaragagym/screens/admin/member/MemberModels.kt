@@ -49,6 +49,20 @@ enum class MemberStatus(val displayName: String) {
 }
 
 // ============================================================================
+// MEMBERSHIP MODEL
+// ============================================================================
+data class MembershipUiModel(
+    val id: String,
+    val memberId: String,
+    val memberName: String,
+    val planName: String,
+    val startDate: String,
+    val endDate: String,
+    val status: MemberStatus,
+    val price: String
+)
+
+// ============================================================================
 // MEMBERSHIP PLAN MODEL
 // ============================================================================
 data class MembershipPlanUiModel(

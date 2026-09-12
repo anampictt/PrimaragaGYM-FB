@@ -59,6 +59,16 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
+import com.pws.primaragagym.ui.viewmodel.KeuanganViewModel
+import com.pws.primaragagym.ui.viewmodel.MemberListViewModel
+import com.pws.primaragagym.ui.viewmodel.AuthViewModel
+import com.pws.primaragagym.screens.admin.member.MemberUiModel
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import com.pws.primaragagym.screens.admin.keuangan.KeuanganColors.BackgroundColor
 import com.pws.primaragagym.screens.admin.keuangan.KeuanganColors.CardBackground
 import com.pws.primaragagym.screens.admin.keuangan.KeuanganColors.CashBg
@@ -71,28 +81,12 @@ import com.pws.primaragagym.screens.admin.keuangan.KeuanganColors.TextPrimary
 import com.pws.primaragagym.screens.admin.keuangan.KeuanganColors.TextSecondary
 import com.pws.primaragagym.screens.admin.keuangan.KeuanganColors.TransferBg
 import com.pws.primaragagym.ui.theme.Dimens
-
 // ============================================================================
 // MOCK DATA
 // ============================================================================
-data class MemberOption(
-    val id: String,
-    val code: String,
-    val name: String,
-    val plan: String
-)
-
 data class PaymentType(
     val value: String,
     val label: String
-)
-
-private val mockMembers = listOf(
-    MemberOption("MBR-001", "MBR-001", "John Smith", "Premium Monthly"),
-    MemberOption("MBR-002", "MBR-002", "Sarah Connor", "Monthly Basic"),
-    MemberOption("MBR-003", "MBR-003", "Michael Brown", "Annual Premium"),
-    MemberOption("MBR-004", "MBR-004", "David Miller", "Basic Monthly"),
-    MemberOption("MBR-005", "MBR-005", "Emma Wilson", "Premium Monthly")
 )
 
 private val paymentTypes = listOf(
@@ -119,6 +113,9 @@ private enum class PaymentFilter {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CatatPembayaranScreen(
+    memberListViewModel: MemberListViewModel = viewModel(),
+    keuanganViewModel: KeuanganViewModel = viewModel(),
+    authViewModel: AuthViewModel = viewModel(),
     onBackClick: () -> Unit = {},
     onSuccess: () -> Unit = {},
     onViewInvoice: () -> Unit = {}
@@ -126,7 +123,25 @@ fun CatatPembayaranScreen(
     val configuration = LocalConfiguration.current
     val isTablet = configuration.screenWidthDp >= 600
 
-    var selectedMember by remember { mutableStateOf<MemberOption?>(null) }
+    val authState by authViewModel.uiState.collectAsState()
+    val memberListState by memberListViewModel.uiState.collectAsState()
+    val keuanganState by keuanganViewModel.uiState.collectAsState()
+
+    LaunchedEffect(authState.currentUser) {
+        val branchId = authState.currentUser?.branchId
+        if (branchId != null) {
+            memberListViewModel.loadMembers(branchId, reset = true)
+            keuanganViewModel.loadSummary(branchId) // also sets branchId
+        }
+    }
+
+    LaunchedEffect(keuanganState.successMessage) {
+        if (keuanganState.successMessage != null) {
+            // we handle dialog inside the view
+        }
+    }
+
+    var selectedMember by remember { mutableStateOf<MemberUiModel?>(null) }
     var selectedPaymentType by remember { mutableStateOf<PaymentType?>(null) }
     var nominal by remember { mutableStateOf("") }
     var selectedMethod by remember { mutableStateOf<PaymentMethod?>(null) }
@@ -142,6 +157,8 @@ fun CatatPembayaranScreen(
     var methodError by remember { mutableStateOf(false) }
 
     val sheetState = rememberModalBottomSheetState()
+    
+    val todayDate = SimpleDateFormat("dd MMMM yyyy", Locale("id", "ID")).format(Date())
 
     Scaffold(
         containerColor = BackgroundColor,
@@ -392,7 +409,7 @@ fun CatatPembayaranScreen(
             Spacer(modifier = Modifier.height(Dimens.spacing_2))
 
             OutlinedTextField(
-                value = "06 September 2026",
+                value = todayDate,
                 onValueChange = {},
                 readOnly = true,
                 modifier = Modifier.fillMaxWidth(),
@@ -461,12 +478,25 @@ fun CatatPembayaranScreen(
                         hasError = true
                     }
                     if (!hasError) {
-                        showSuccessDialog = true
+                        val member = selectedMember
+                        if (member != null && selectedMethod != null && selectedPaymentType != null) {
+                            keuanganViewModel.recordPayment(
+                                memberId = member.id,
+                                memberName = member.name,
+                                membershipId = null, // Can map this if needed
+                                amount = nominal.toLong(),
+                                paymentMethod = selectedMethod!!.name,
+                                paymentType = selectedPaymentType!!.value,
+                                planName = member.planName
+                            )
+                            showSuccessDialog = true
+                        }
                     }
                 },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(Dimens.button_height),
+                enabled = !keuanganState.isLoading,
                 shape = RoundedCornerShape(Dimens.button_corner_radius),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = GreenAccent
@@ -491,7 +521,7 @@ fun CatatPembayaranScreen(
             containerColor = CardBackground
         ) {
             MemberSearchBottomSheet(
-                members = mockMembers,
+                members = memberListState.members,
                 onMemberSelected = { member ->
                     selectedMember = member
                     showMemberSearch = false
@@ -503,20 +533,28 @@ fun CatatPembayaranScreen(
 
     // Success Dialog
     if (showSuccessDialog) {
-        PaymentSuccessDialog(
-            member = selectedMember!!,
-            paymentType = selectedPaymentType!!.label,
-            nominal = nominal.toLong(),
-            method = selectedMethod!!.label,
-            onViewInvoice = {
-                showSuccessDialog = false
-                onViewInvoice()
-            },
-            onDismiss = {
-                showSuccessDialog = false
-                onSuccess()
-            }
-        )
+        val member = selectedMember
+        val pType = selectedPaymentType
+        val pMethod = selectedMethod
+
+        if (member != null && pType != null && pMethod != null) {
+            PaymentSuccessDialog(
+                member = member,
+                paymentType = pType.label,
+                nominal = nominal.toLong(),
+                method = pMethod.label,
+                onViewInvoice = {
+                    showSuccessDialog = false
+                    keuanganViewModel.clearMessages()
+                    onViewInvoice()
+                },
+                onDismiss = {
+                    showSuccessDialog = false
+                    keuanganViewModel.clearMessages()
+                    onSuccess()
+                }
+            )
+        }
     }
 }
 
@@ -525,7 +563,7 @@ fun CatatPembayaranScreen(
 // ============================================================================
 @Composable
 private fun SelectedMemberCard(
-    member: MemberOption,
+    member: MemberUiModel,
     onClear: () -> Unit
 ) {
     Card(
@@ -562,7 +600,7 @@ private fun SelectedMemberCard(
                     color = TextPrimary
                 )
                 Text(
-                    text = "${member.code} • ${member.plan}",
+                    text = "${member.memberCode} • ${member.planName}",
                     style = MaterialTheme.typography.bodySmall,
                     color = TextSecondary
                 )
@@ -588,7 +626,7 @@ private fun PaymentMethodChip(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val bgColor = when (method) {
+    val methodColor = when (method) {
         PaymentMethod.CASH -> CashBg
         PaymentMethod.TRANSFER -> TransferBg
         PaymentMethod.QRIS -> QrisBg
@@ -606,7 +644,7 @@ private fun PaymentMethodChip(
             ),
         shape = RoundedCornerShape(Dimens.input_corner_radius),
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) bgColor else bgColor.copy(alpha = 0.5f)
+            containerColor = if (isSelected) methodColor else methodColor.copy(alpha = 0.5f)
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -640,14 +678,14 @@ private fun PaymentMethodChip(
 // ============================================================================
 @Composable
 private fun MemberSearchBottomSheet(
-    members: List<MemberOption>,
-    onMemberSelected: (MemberOption) -> Unit
+    members: List<MemberUiModel>,
+    onMemberSelected: (MemberUiModel) -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
     val filtered = members.filter {
         searchQuery.isBlank() ||
         it.name.contains(searchQuery, ignoreCase = true) ||
-        it.code.contains(searchQuery, ignoreCase = true)
+        it.memberCode.contains(searchQuery, ignoreCase = true)
     }
 
     Column(
@@ -714,7 +752,7 @@ private fun MemberSearchBottomSheet(
 
 @Composable
 private fun MemberSearchItem(
-    member: MemberOption,
+    member: MemberUiModel,
     onClick: () -> Unit
 ) {
     Card(
@@ -754,7 +792,7 @@ private fun MemberSearchItem(
                     color = TextPrimary
                 )
                 Text(
-                    text = "${member.code} • ${member.plan}",
+                    text = "${member.memberCode} • ${member.planName}",
                     style = MaterialTheme.typography.bodySmall,
                     color = TextSecondary
                 )
@@ -768,7 +806,7 @@ private fun MemberSearchItem(
 // ============================================================================
 @Composable
 private fun PaymentSuccessDialog(
-    member: MemberOption,
+    member: MemberUiModel,
     paymentType: String,
     nominal: Long,
     method: String,

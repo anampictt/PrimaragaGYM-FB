@@ -56,6 +56,17 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.pws.primaragagym.ui.viewmodel.UserListViewModel
 
 // ============================================================================
 // COLORS - Match design system
@@ -135,6 +146,7 @@ private data class UserManagementUiState(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ManajemenPenggunaScreen(
+    viewModel: UserListViewModel = viewModel(),
     onBackClick: () -> Unit = {},
     onAddUserClick: () -> Unit = {},
     onEditUser: (UserUiModel) -> Unit = {},
@@ -144,16 +156,54 @@ fun ManajemenPenggunaScreen(
     val screenWidthDp = configuration.screenWidthDp
     val isTablet = screenWidthDp >= 600
 
+    val userState by viewModel.uiState.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
+    var userToDelete by remember { mutableStateOf<UserUiModel?>(null) }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.loadUsers()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.loadUsers()
+    }
+
+    val uiUsers = remember(userState.users) {
+        userState.users.map {
+            val initials = it.displayName.split(" ")
+                .take(2)
+                .mapNotNull { part -> part.firstOrNull()?.uppercaseChar() }
+                .joinToString("")
+                .ifEmpty { "U" }
+            UserUiModel(
+                id = it.uid,
+                name = it.displayName,
+                email = it.email,
+                role = it.resolvedRole,
+                status = if (it.isActive) "Active" else "Inactive",
+                avatarInitial = initials
+            )
+        }
+    }
 
     // Filter users based on search query
-    val filteredUsers = remember(searchQuery) {
+    val filteredUsers = remember(searchQuery, uiUsers) {
         if (searchQuery.isBlank()) {
-            mockUsers
+            uiUsers
         } else {
-            mockUsers.filter { user ->
+            uiUsers.filter { user ->
                 user.name.contains(searchQuery, ignoreCase = true) ||
-                        user.email.contains(searchQuery, ignoreCase = true)
+                user.email.contains(searchQuery, ignoreCase = true) ||
+                user.role.contains(searchQuery, ignoreCase = true)
             }
         }
     }
@@ -163,6 +213,33 @@ fun ManajemenPenggunaScreen(
         24.dp
     } else {
         14.dp
+    }
+
+    if (userToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { userToDelete = null },
+            title = { Text("Hapus Pengguna", fontWeight = FontWeight.Bold) },
+            text = { Text("Apakah Anda yakin ingin menghapus pengguna \"${userToDelete?.name}\"?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val target = userToDelete
+                        userToDelete = null
+                        if (target != null) {
+                            viewModel.deleteUser(target.id)
+                            onDeleteUser(target)
+                        }
+                    }
+                ) {
+                    Text("Hapus", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { userToDelete = null }) {
+                    Text("Batal")
+                }
+            }
+        )
     }
 
     Scaffold(
@@ -198,13 +275,21 @@ fun ManajemenPenggunaScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(
-                        horizontal = if (isTablet) 24.dp else 24.dp,
+                        horizontal = 24.dp,
                         vertical = 16.dp
                     )
             )
 
-            // User List
-            if (filteredUsers.isEmpty()) {
+            if (userState.isLoading && uiUsers.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = GreenAccent)
+                }
+            } else if (filteredUsers.isEmpty()) {
                 // Empty State
                 EmptyState(
                     modifier = Modifier
@@ -229,7 +314,7 @@ fun ManajemenPenggunaScreen(
                         UserCard(
                             user = user,
                             onEditClick = { onEditUser(user) },
-                            onDeleteClick = { onDeleteUser(user) }
+                            onDeleteClick = { userToDelete = user }
                         )
                     }
                 }

@@ -67,6 +67,11 @@ import com.pws.primaragagym.ui.theme.GreenPrimary
 import com.pws.primaragagym.ui.theme.GreenPrimaryDark
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
+import com.pws.primaragagym.ui.viewmodel.AdminDashboardViewModel
+import com.pws.primaragagym.ui.viewmodel.AuthViewModel
 
 // ============================================================================
 // COLORS - Match Super Admin Dashboard design reference
@@ -172,6 +177,8 @@ private enum class AdminBottomNavItem(
 // ============================================================================
 @Composable
 fun AdminDashboardScreen(
+    viewModel: AdminDashboardViewModel = viewModel(),
+    authViewModel: AuthViewModel = viewModel(),
     onMemberClick: () -> Unit = {},
     onCheckInOutClick: () -> Unit = {},
     onFinanceClick: () -> Unit = {},
@@ -183,12 +190,32 @@ fun AdminDashboardScreen(
     val screenWidthDp = configuration.screenWidthDp
     val isTablet = screenWidthDp >= 600
 
-    val data = remember { adminDashboardData }
+    val authState by authViewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
+
+    LaunchedEffect(authState.currentUser) {
+        val branchId = authState.currentUser?.branchId
+        if (branchId != null) {
+            viewModel.loadDashboard(branchId)
+        }
+    }
+
+    val dynamicData = AdminDashboardData(
+        greeting = "Selamat datang kembali,",
+        title = authState.currentUser?.name ?: "Admin",
+        subtitle = "Kelola gym Anda dengan mudah dan efisien.",
+        summaryDate = LocalDate.now().format(DateTimeFormatter.ofPattern("d MMM yyyy")),
+        totalActiveMembers = uiState.totalActiveMembers,
+        todayRevenue = uiState.todayRevenue.replace("Rp ", ""),
+        newMembersToday = uiState.newMembersToday,
+        dailyCheckIns = uiState.weeklyCheckins.map { DailyCheckInData(it.key, it.value) }.ifEmpty { adminDashboardData.dailyCheckIns }
+    )
+
     var selectedNavItem by remember { mutableStateOf(AdminBottomNavItem.DASHBOARD) }
 
     if (isTablet) {
         TabletAdminDashboardLayout(
-            data = data,
+            data = dynamicData,
             selectedNavItem = selectedNavItem,
             onNavItemSelected = { selectedNavItem = it },
             onMemberClick = onMemberClick,
@@ -201,7 +228,7 @@ fun AdminDashboardScreen(
         )
     } else {
         PhoneAdminDashboardLayout(
-            data = data,
+            data = dynamicData,
             selectedNavItem = selectedNavItem,
             onNavItemSelected = { selectedNavItem = it },
             onMemberClick = onMemberClick,

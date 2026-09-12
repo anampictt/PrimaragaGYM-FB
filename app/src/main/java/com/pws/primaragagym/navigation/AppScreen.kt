@@ -67,13 +67,19 @@ sealed class AppScreen(
         title = R.string.tambah_pengguna,
         icon = R.drawable.ic_launcher_background,
         route = "superadmin/manajemen-pengguna/tambah"
-    )
+    ) {
+        fun createRoute(userId: String? = null): String =
+            if (userId != null) "superadmin/manajemen-pengguna/tambah?userId=$userId" else "superadmin/manajemen-pengguna/tambah"
+    }
 
     data object TambahRole : AppScreen(
         title = R.string.tambah_role,
         icon = R.drawable.ic_launcher_background,
         route = "superadmin/manajemen-role/tambah"
-    )
+    ) {
+        fun createRoute(roleId: String? = null): String =
+            if (roleId != null) "superadmin/manajemen-role/tambah?roleId=$roleId" else "superadmin/manajemen-role/tambah"
+    }
 
     data object TambahCabang : AppScreen(
         title = R.string.tambah_cabang,

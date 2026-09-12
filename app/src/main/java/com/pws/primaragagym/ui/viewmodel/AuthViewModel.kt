@@ -12,6 +12,7 @@ import kotlinx.coroutines.launch
 
 data class AuthUiState(
     val currentUser: User? = null,
+    val permissions: Map<String, Boolean> = emptyMap(),
     val isLoading: Boolean = true,
     val isAuthenticated: Boolean = false
 )
@@ -32,14 +33,20 @@ class AuthViewModel(
             _uiState.value = _uiState.value.copy(isLoading = true)
             try {
                 val user = getCurrentUserUseCase()
-                _uiState.value = _uiState.value.copy(
-                    currentUser = user,
-                    isAuthenticated = user != null,
-                    isLoading = false
-                )
+                if (user != null) {
+                    loadPermissionsForUser(user)
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        currentUser = null,
+                        permissions = emptyMap(),
+                        isAuthenticated = false,
+                        isLoading = false
+                    )
+                }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     currentUser = null,
+                    permissions = emptyMap(),
                     isAuthenticated = false,
                     isLoading = false
                 )
@@ -47,17 +54,81 @@ class AuthViewModel(
         }
     }
 
+    private suspend fun loadPermissionsForUser(user: User) {
+        val isSuperAdmin = user.role.name.equals("SUPER_ADMIN", ignoreCase = true)
+        if (isSuperAdmin) {
+            val allPerms = mapOf(
+                "dashboard" to true,
+                "manajemen_pengguna" to true,
+                "manajemen_role" to true,
+                "manajemen_cabang" to true,
+                "manajemen_member" to true,
+                "check_in_out" to true,
+                "keuangan" to true,
+                "notifikasi" to true,
+                "laporan" to true,
+                "pengaturan" to true
+            )
+            _uiState.value = _uiState.value.copy(
+                currentUser = user,
+                permissions = allPerms,
+                isAuthenticated = true,
+                isLoading = false
+            )
+        } else {
+            // Load permissions from Firestore roles collection
+            val roleResult = ServiceLocator.roleRepository.getRoleByName(user.role.displayName)
+            val perms = roleResult.getOrNull()?.permissions ?: mapOf(
+                "dashboard" to true,
+                "manajemen_pengguna" to false,
+                "manajemen_role" to false,
+                "manajemen_cabang" to false,
+                "manajemen_member" to true,
+                "check_in_out" to true,
+                "keuangan" to true,
+                "notifikasi" to true,
+                "laporan" to true,
+                "pengaturan" to true
+            )
+            _uiState.value = _uiState.value.copy(
+                currentUser = user,
+                permissions = perms,
+                isAuthenticated = true,
+                isLoading = false
+            )
+        }
+    }
+
+    fun hasPermission(permissionKey: String): Boolean {
+        val user = _uiState.value.currentUser ?: return false
+        val roleName = user.role.name.replace(" ", "_")
+        if (roleName.equals("SUPER_ADMIN", ignoreCase = true) || user.role.displayName.equals("Super Admin", ignoreCase = true)) {
+            return true
+        }
+        val perms = _uiState.value.permissions
+        if (perms[permissionKey] == true) return true
+        return when (permissionKey) {
+            "check_in_out" -> perms["check_in"] == true || perms["check_out"] == true
+            "manajemen_member", "member" -> perms["member"] == true || perms["manajemen_member"] == true || perms["membership"] == true
+            "keuangan", "catatan_keuangan" -> perms["keuangan"] == true || perms["catatan_keuangan"] == true
+            "laporan", "laporan_keuangan" -> perms["laporan"] == true || perms["laporan_keuangan"] == true
+            "pengaturan", "pengaturan_akun" -> perms["pengaturan"] == true || perms["pengaturan_akun"] == true
+            else -> false
+        }
+    }
+
     fun setUser(user: User) {
-        _uiState.value = _uiState.value.copy(
-            currentUser = user,
-            isAuthenticated = true
-        )
+        viewModelScope.launch {
+            loadPermissionsForUser(user)
+        }
     }
 
     fun clearUser() {
         _uiState.value = _uiState.value.copy(
             currentUser = null,
-            isAuthenticated = false
+            permissions = emptyMap(),
+            isAuthenticated = false,
+            isLoading = false
         )
     }
 }

@@ -29,7 +29,13 @@ import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QrCodeScanner
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.pws.primaragagym.domain.model.FirestoreRole
+import com.pws.primaragagym.ui.viewmodel.RoleListViewModel
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -111,12 +117,14 @@ private fun getDefaultAccessMenus(): List<AccessMenuUiModel> = listOf(
     AccessMenuUiModel("manajemen_pengguna", "Manajemen Pengguna", Icons.Filled.Group, false),
     AccessMenuUiModel("manajemen_role", "Manajemen Role", Icons.Filled.AdminPanelSettings, false),
     AccessMenuUiModel("manajemen_cabang", "Manajemen Cabang", Icons.Filled.Home, false),
-    AccessMenuUiModel("manajemen_member", "Manajemen Member", Icons.Filled.Person, false),
+    AccessMenuUiModel("manajemen_member", "Member", Icons.Filled.Person, false),
     AccessMenuUiModel("membership", "Membership", Icons.Filled.FitnessCenter, false),
     AccessMenuUiModel("check_in", "Check In", Icons.Filled.QrCodeScanner, false),
     AccessMenuUiModel("check_out", "Check Out", Icons.AutoMirrored.Filled.Logout, false),
-    AccessMenuUiModel("laporan", "Laporan", Icons.Filled.Description, false),
-    AccessMenuUiModel("pengaturan", "Pengaturan", Icons.Filled.Settings, false)
+    AccessMenuUiModel("keuangan", "Catatan Keuangan", Icons.Filled.AccountBalanceWallet, false),
+    AccessMenuUiModel("notifikasi", "Notifikasi", Icons.Filled.Notifications, false),
+    AccessMenuUiModel("laporan", "Laporan Keuangan", Icons.Filled.Description, false),
+    AccessMenuUiModel("pengaturan", "Pengaturan Akun", Icons.Filled.AdminPanelSettings, false)
 )
 
 // ============================================================================
@@ -125,6 +133,8 @@ private fun getDefaultAccessMenus(): List<AccessMenuUiModel> = listOf(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TambahRoleScreen(
+    roleId: String? = null,
+    viewModel: RoleListViewModel = viewModel(),
     onBackClick: () -> Unit = {},
     onSubmitSuccess: () -> Unit = {}
 ) {
@@ -132,16 +142,37 @@ fun TambahRoleScreen(
     val screenWidthDp = configuration.screenWidthDp
     val isTablet = screenWidthDp >= 600
 
+    val roleState by viewModel.uiState.collectAsState()
+
     var roleName by remember { mutableStateOf("") }
+    var roleDescription by remember { mutableStateOf("") }
     var accessMenus by remember { mutableStateOf(getDefaultAccessMenus()) }
     var isSubmitting by remember { mutableStateOf(false) }
     var errors by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var isRoleNameFocused by remember { mutableStateOf(false) }
+    var isDescriptionFocused by remember { mutableStateOf(false) }
+
+    val isEditMode = !roleId.isNullOrBlank()
+
+    LaunchedEffect(roleId, roleState.roles) {
+        if (isEditMode) {
+            val existingRole = roleState.roles.find { it.roleId == roleId }
+            if (existingRole != null) {
+                roleName = existingRole.name
+                roleDescription = existingRole.description
+                accessMenus = getDefaultAccessMenus().map { menu ->
+                    val isEnabled = existingRole.permissions[menu.id] ?: false
+                    menu.copy(enabled = isEnabled)
+                }
+            }
+        }
+    }
 
     Scaffold(
         containerColor = BackgroundColor,
         topBar = {
             AddRoleTopBar(
+                title = if (isEditMode) "Edit Role" else "Tambah Role",
                 onBackClick = onBackClick
             )
         }
@@ -171,6 +202,20 @@ fun TambahRoleScreen(
                     errorMessage = errors["roleName"],
                     isFocused = isRoleNameFocused,
                     onFocusChange = { isRoleNameFocused = it }
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Description Field
+                FormTextField(
+                    value = roleDescription,
+                    onValueChange = {
+                        roleDescription = it
+                    },
+                    label = "Deskripsi",
+                    placeholder = "Masukkan deskripsi role",
+                    isFocused = isDescriptionFocused,
+                    onFocusChange = { isDescriptionFocused = it }
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -235,7 +280,6 @@ fun TambahRoleScreen(
                 // Submit Button
                 Button(
                     onClick = {
-                        // Validate
                         val newErrors = mutableMapOf<String, String>()
 
                         if (roleName.isBlank()) {
@@ -248,8 +292,36 @@ fun TambahRoleScreen(
                         }
 
                         isSubmitting = true
-                        // Mock submit - no Firebase
                         errors = emptyMap()
+
+                        val permissionsMap = accessMenus.associate { it.id to it.enabled }
+                        val roleToSave = FirestoreRole(
+                            roleId = roleId ?: "",
+                            name = roleName.trim(),
+                            description = roleDescription.trim(),
+                            permissions = permissionsMap,
+                            isActive = true
+                        )
+
+                        if (isEditMode) {
+                            viewModel.updateRole(roleToSave) { success, errorMsg ->
+                                isSubmitting = false
+                                if (success) {
+                                    onSubmitSuccess()
+                                } else {
+                                    errors = mapOf("submit" to (errorMsg ?: "Gagal memperbarui role"))
+                                }
+                            }
+                        } else {
+                            viewModel.createRole(roleToSave) { success, errorMsg ->
+                                isSubmitting = false
+                                if (success) {
+                                    onSubmitSuccess()
+                                } else {
+                                    errors = mapOf("submit" to (errorMsg ?: "Gagal membuat role"))
+                                }
+                            }
+                        }
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -272,9 +344,18 @@ fun TambahRoleScreen(
                         Spacer(modifier = Modifier.width(8.dp))
                     }
                     Text(
-                        text = "Tambah Role",
+                        text = if (isEditMode) "Simpan Perubahan" else "Tambah Role",
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                if (errors.containsKey("submit")) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = errors["submit"] ?: "",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
                     )
                 }
 
@@ -290,12 +371,13 @@ fun TambahRoleScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddRoleTopBar(
+    title: String = "Tambah Role",
     onBackClick: () -> Unit
 ) {
     TopAppBar(
         title = {
             Text(
-                text = "Tambah Role",
+                text = title,
                 style = MaterialTheme.typography.titleLarge.copy(
                     fontWeight = FontWeight.SemiBold
                 ),

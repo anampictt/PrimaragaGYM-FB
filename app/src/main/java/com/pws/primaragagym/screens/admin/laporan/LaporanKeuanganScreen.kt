@@ -46,6 +46,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -63,6 +65,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pws.primaragagym.screens.admin.laporan.LaporanColors.BackgroundColor
 import com.pws.primaragagym.screens.admin.laporan.LaporanColors.CardBackground
 import com.pws.primaragagym.screens.admin.laporan.LaporanColors.CashBg
@@ -79,6 +82,9 @@ import com.pws.primaragagym.screens.admin.laporan.LaporanColors.TextPrimary
 import com.pws.primaragagym.screens.admin.laporan.LaporanColors.TextSecondary
 import com.pws.primaragagym.screens.admin.laporan.LaporanColors.TransferBg
 import com.pws.primaragagym.ui.theme.Dimens
+import com.pws.primaragagym.ui.viewmodel.AuthViewModel
+import com.pws.primaragagym.ui.viewmodel.LaporanKeuanganViewModel
+import java.util.Calendar
 
 // ============================================================================
 // FILTER TYPES
@@ -151,12 +157,27 @@ private val months = listOf(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LaporanKeuanganScreen(
+    laporanViewModel: LaporanKeuanganViewModel = viewModel(),
+    authViewModel: AuthViewModel = viewModel(),
     onBackClick: () -> Unit = {}
 ) {
+    val authState by authViewModel.uiState.collectAsState()
+    val uiState by laporanViewModel.uiState.collectAsState()
+
     val configuration = LocalConfiguration.current
     val isTablet = configuration.screenWidthDp >= 600
     var selectedFilter by remember { mutableStateOf(LaporanKeuanganFilter.MONTH) }
-    var selectedMonthIndex by remember { mutableIntStateOf(8) } // September 2026
+    
+    val currentCalendar = Calendar.getInstance()
+    var selectedMonthIndex by remember { mutableIntStateOf(currentCalendar.get(Calendar.MONTH)) }
+    var selectedYear by remember { mutableIntStateOf(currentCalendar.get(Calendar.YEAR)) }
+
+    LaunchedEffect(authState.currentUser, selectedMonthIndex, selectedYear) {
+        val branchId = authState.currentUser?.branchId
+        if (branchId != null) {
+            laporanViewModel.loadLaporan(branchId, selectedYear, selectedMonthIndex + 1)
+        }
+    }
 
     Scaffold(
         containerColor = BackgroundColor,
@@ -248,21 +269,21 @@ fun LaporanKeuanganScreen(
                     ) {
                         LaporanStatCard(
                             title = "Total Pemasukan",
-                            value = "Rp 38.500.000",
+                            value = "Rp ${uiState.totalRevenue}",
                             icon = Icons.Filled.AccountBalanceWallet,
                             iconBackground = StatRevenueBg,
                             modifier = Modifier.weight(1f)
                         )
                         LaporanStatCard(
                             title = "Total Transaksi",
-                            value = "124",
+                            value = "${uiState.totalTransactions}",
                             icon = Icons.Filled.Receipt,
                             iconBackground = StatTransactionBg,
                             modifier = Modifier.weight(1f)
                         )
                         LaporanStatCard(
                             title = "Rata-rata Transaksi",
-                            value = "Rp310.484",
+                            value = "Rp ${uiState.averageTransaction}",
                             icon = Icons.Filled.TrendingUp,
                             iconBackground = CashBg,
                             modifier = Modifier.weight(1f)
@@ -276,14 +297,14 @@ fun LaporanKeuanganScreen(
                         ) {
                             LaporanStatCard(
                                 title = "Total Pemasukan",
-                                value = "Rp 38.500.000",
+                                value = "Rp ${uiState.totalRevenue}",
                                 icon = Icons.Filled.AccountBalanceWallet,
                                 iconBackground = StatRevenueBg,
                                 modifier = Modifier.weight(1f)
                             )
                             LaporanStatCard(
                                 title = "Total Transaksi",
-                                value = "124",
+                                value = "${uiState.totalTransactions}",
                                 icon = Icons.Filled.Receipt,
                                 iconBackground = StatTransactionBg,
                                 modifier = Modifier.weight(1f)
@@ -291,7 +312,7 @@ fun LaporanKeuanganScreen(
                         }
                         LaporanStatCard(
                             title = "Rata-rata Transaksi",
-                            value = "Rp310.484",
+                            value = "Rp ${uiState.averageTransaction}",
                             icon = Icons.Filled.TrendingUp,
                             iconBackground = CashBg,
                             modifier = Modifier.fillMaxWidth()

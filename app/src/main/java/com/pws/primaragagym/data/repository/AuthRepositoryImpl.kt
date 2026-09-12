@@ -46,8 +46,12 @@ class AuthRepositoryImpl : AuthRepository {
             )
         }
 
-        // Update last login
-        userDataSource.updateLastLogin(uid)
+        // Update last login (safely catch any errors or timeouts)
+        try {
+            userDataSource.updateLastLogin(uid)
+        } catch (e: Exception) {
+            Log.w("AuthRepositoryImpl", "Failed to update last login: ${e.message}")
+        }
 
         return Result.success(user)
     }
@@ -64,25 +68,33 @@ class AuthRepositoryImpl : AuthRepository {
         val firebaseUser = authDataSource.currentUser ?: return null
         val uid = firebaseUser.uid
 
+        val initialUser = User(
+            id = uid,
+            email = firebaseUser.email ?: "",
+            name = firebaseUser.displayName?.ifBlank { null }
+                ?: firebaseUser.email?.substringBefore("@") ?: "User",
+            role = UserRole.ADMIN,
+            photoUrl = firebaseUser.photoUrl?.toString()
+        )
+
         return try {
             val profileResult = userDataSource.getUserProfile(uid)
             if (profileResult.isSuccess) {
-                profileResult.getOrNull()
-            } else {
-                User(
-                    id = uid,
-                    email = firebaseUser.email ?: "",
-                    name = firebaseUser.displayName ?: "User",
-                    role = UserRole.ADMIN
+                val firestoreUser = profileResult.getOrNull()!!
+                initialUser.copy(
+                    name = firestoreUser.name.ifBlank { initialUser.name },
+                    role = firestoreUser.role,
+                    branchId = firestoreUser.branchId,
+                    photoUrl = firestoreUser.photoUrl ?: initialUser.photoUrl,
+                    address = firestoreUser.address,
+                    phone = firestoreUser.phone,
+                    lastLogin = firestoreUser.lastLogin
                 )
+            } else {
+                initialUser
             }
         } catch (e: Exception) {
-            User(
-                id = uid,
-                email = firebaseUser.email ?: "",
-                name = firebaseUser.displayName ?: "User",
-                role = UserRole.ADMIN
-            )
+            initialUser
         }
     }
 }

@@ -16,7 +16,7 @@ import kotlinx.coroutines.launch
 
 data class ProfileUiState(
     val profile: User? = null,
-    val isLoading: Boolean = true,
+    val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val showLogoutDialog: Boolean = false
 )
@@ -49,7 +49,6 @@ class ProfileViewModel(
 
     fun loadProfile() {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
             try {
                 val user = getCurrentUserUseCase()
                 _uiState.value = _uiState.value.copy(
@@ -73,13 +72,14 @@ class ProfileViewModel(
         _uiState.value = _uiState.value.copy(showLogoutDialog = false)
     }
 
-    fun onLogoutConfirm() {
+    fun onLogoutConfirm(onSuccess: (() -> Unit)? = null) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(showLogoutDialog = false)
             try {
                 logoutUseCase()
                 logoutSuccessVisible.value = true
                 _events.emit(ProfileEvent.LogoutSuccess)
+                onSuccess?.invoke()
             } catch (e: Exception) {
                 _events.emit(ProfileEvent.LogoutError(e.message ?: "Logout gagal."))
             }

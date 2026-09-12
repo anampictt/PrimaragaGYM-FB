@@ -6,7 +6,10 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.rememberNavController
 import com.pws.primaragagym.navigation.AppNavHost
 import com.pws.primaragagym.navigation.AppScreen
@@ -24,13 +27,23 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = LightBackground
                 ) {
-                    val navController = rememberNavController()
-                    val authViewModel = AuthViewModel()
-                    AppNavHost(
-                        navController = navController,
-                        authViewModel = authViewModel,
-                        startDestination = AppScreen.Splash
-                    )
+                    val authViewModel: AuthViewModel = viewModel()
+                    val authState by authViewModel.uiState.collectAsState()
+
+                    if (!authState.isLoading) {
+                        val navController = rememberNavController()
+                        val startDestination = if (authState.currentUser != null) {
+                            AppScreen.SuperAdminRoot
+                        } else {
+                            AppScreen.Splash
+                        }
+
+                        AppNavHost(
+                            navController = navController,
+                            authViewModel = authViewModel,
+                            startDestination = startDestination
+                        )
+                    }
                 }
             }
         }

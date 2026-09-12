@@ -1,0 +1,191 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ==================== HELPER FUNCTIONS ====================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isSuperAdmin() {
+      return isAuthenticated() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roleId == 'SUPER_ADMIN';
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roleId == 'ADMIN';
+    }
+
+    function isMember() {
+      return isAuthenticated() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roleId == 'MEMBER';
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isActive() {
+      return isAuthenticated() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isActive == true;
+    }
+
+    // ==================== USERS ====================
+    match /users/{userId} {
+      // Users can read their own profile
+      allow read: if isAuthenticated() && (
+        request.auth.uid == userId ||
+        isSuperAdmin() ||
+        isAdmin()
+      );
+
+      // Users can update their own profile (except role/branch)
+      allow update: if isOwner(userId) && (
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['fullName', 'phoneNumber', 'address', 'photoUrl', 'lastLoginAt', 'updatedAt'])
+      );
+
+      // Only Super Admin can create/update users with role/branch changes
+      allow create: if isSuperAdmin() || isActive();
+      allow update: if isSuperAdmin() ||
+        (isOwner(userId) && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['fullName', 'phoneNumber', 'address', 'photoUrl', 'lastLoginAt', 'updatedAt']));
+
+      // Only Super Admin can delete users
+      allow delete: if isSuperAdmin();
+    }
+
+    // ==================== ROLES ====================
+    match /roles/{roleId} {
+      // Only Super Admin can manage roles
+      allow read: if isSuperAdmin();
+      allow create, update, delete: if isSuperAdmin();
+    }
+
+    // ==================== BRANCHES ====================
+    match /branches/{branchId} {
+      // Super Admin can manage all branches
+      // Admin can only read branches
+      allow read: if isSuperAdmin() || isAdmin();
+      allow create, update, delete: if isSuperAdmin();
+    }
+
+    // ==================== MEMBERS ====================
+    match /members/{memberId} {
+      // Admins can read members in their branch
+      // Members can read their own profile
+      allow read: if isSuperAdmin() ||
+        (isAdmin() && resource.data.branchId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.branchId) ||
+        (isMember() && resource.data.memberId == request.auth.uid);
+
+      // Admins can create members in their branch
+      allow create: if isSuperAdmin() ||
+        (isAdmin() && request.resource.data.branchId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.branchId);
+
+      // Admins can update members in their branch
+      allow update: if isSuperAdmin() ||
+        (isAdmin() && resource.data.branchId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.branchId);
+
+      // Only Super Admin can delete members
+      allow delete: if isSuperAdmin();
+    }
+
+    // ==================== MEMBERSHIP PLANS ====================
+    match /membershipPlans/{planId} {
+      // Admins and Super Admin can read plans
+      allow read: if isSuperAdmin() || isAdmin();
+
+      // Only Super Admin can manage plans
+      allow create, update, delete: if isSuperAdmin();
+    }
+
+    // ==================== MEMBERSHIPS ====================
+    match /memberships/{membershipId} {
+      // Admins can read memberships in their branch
+      allow read: if isSuperAdmin() ||
+        (isAdmin() && resource.data.branchId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.branchId);
+
+      // Admins can create memberships
+      allow create: if isSuperAdmin() ||
+        (isAdmin() && request.resource.data.branchId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.branchId);
+
+      // Admins can update memberships in their branch
+      allow update: if isSuperAdmin() ||
+        (isAdmin() && resource.data.branchId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.branchId);
+
+      // Only Super Admin can delete memberships
+      allow delete: if isSuperAdmin();
+    }
+
+    // ==================== CHECKINS ====================
+    match /checkins/{checkinId} {
+      // Admins can read checkins in their branch
+      allow read: if isSuperAdmin() ||
+        (isAdmin() && resource.data.branchId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.branchId);
+
+      // Admins can create checkins
+      allow create: if isSuperAdmin() ||
+        (isAdmin() && request.resource.data.branchId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.branchId);
+
+      // Admins can update checkouts
+      allow update: if isSuperAdmin() ||
+        (isAdmin() && resource.data.branchId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.branchId);
+
+      // Only Super Admin can delete checkins
+      allow delete: if isSuperAdmin();
+    }
+
+    // ==================== PAYMENTS ====================
+    match /payments/{paymentId} {
+      // Admins can read payments in their branch
+      allow read: if isSuperAdmin() ||
+        (isAdmin() && resource.data.branchId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.branchId);
+
+      // Admins can create payments
+      allow create: if isSuperAdmin() ||
+        (isAdmin() && request.resource.data.branchId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.branchId);
+
+      // Admins can update payments in their branch
+      allow update: if isSuperAdmin() ||
+        (isAdmin() && resource.data.branchId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.branchId);
+
+      // Only Super Admin can delete payments
+      allow delete: if isSuperAdmin();
+    }
+
+    // ==================== NOTIFICATIONS ====================
+    match /notifications/{notificationId} {
+      // Users can read their own notifications
+      // Admins can read notifications for their branch
+      allow read: if isSuperAdmin() ||
+        (resource.data.userId == request.auth.uid) ||
+        (isAdmin() && (
+          resource.data.branchId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.branchId ||
+          resource.data.branchId == null
+        ));
+
+      // System creates notifications
+      allow create: if isSuperAdmin() || isAdmin();
+
+      // Users can mark their own notifications as read
+      // Admins can update notifications in their branch
+      allow update: if isSuperAdmin() ||
+        (resource.data.userId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead'])) ||
+        (isAdmin() && resource.data.branchId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.branchId);
+
+      // Users can delete their own notifications
+      // Admins can delete notifications in their branch
+      allow delete: if isSuperAdmin() ||
+        (resource.data.userId == request.auth.uid) ||
+        (isAdmin() && resource.data.branchId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.branchId);
+    }
+
+    // ==================== REPORTS ====================
+    match /reports/{reportId} {
+      // Only Super Admin can manage reports
+      allow read: if isSuperAdmin();
+      allow create, update, delete: if isSuperAdmin();
+    }
+  }
+}

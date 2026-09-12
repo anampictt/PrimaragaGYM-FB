@@ -29,6 +29,10 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.pws.primaragagym.ui.viewmodel.MemberListViewModel
+import com.pws.primaragagym.ui.viewmodel.CheckinFirestoreViewModel
+import com.pws.primaragagym.ui.viewmodel.AuthViewModel
+import com.pws.primaragagym.screens.admin.member.MemberUiModel
 
 // ============================================================================
 // COLORS - Match existing Primaraga Gym design
@@ -44,7 +48,9 @@ private val GreenAccent = Color(0xFF32A060)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CheckinCheckoutScreen(
-    viewModel: CheckinViewModel = viewModel(),
+    memberListViewModel: MemberListViewModel = viewModel(),
+    checkinViewModel: CheckinFirestoreViewModel = viewModel(),
+    authViewModel: AuthViewModel = viewModel(),
     onBackClick: () -> Unit,
     onNavigateToScanner: () -> Unit,
     onNavigateToDetail: (String) -> Unit
@@ -52,8 +58,20 @@ fun CheckinCheckoutScreen(
     val configuration = LocalConfiguration.current
     val isTablet = configuration.screenWidthDp >= 600
 
-    val members by viewModel.members.collectAsState()
-    val activities by viewModel.activities.collectAsState()
+    val authState by authViewModel.uiState.collectAsState()
+    val checkinState by checkinViewModel.uiState.collectAsState()
+    val memberListState by memberListViewModel.uiState.collectAsState()
+
+    val activities = checkinState.activities
+    val members = memberListState.members
+
+    LaunchedEffect(authState.currentUser) {
+        val branchId = authState.currentUser?.branchId
+        if (branchId != null) {
+            checkinViewModel.loadTodayActivities(branchId)
+            memberListViewModel.loadMembers(branchId, reset = true)
+        }
+    }
 
     var searchQuery by remember { mutableStateOf(TextFieldValue("")) }
     var selectedFilter by remember { mutableStateOf("Semua") }
@@ -112,7 +130,7 @@ fun CheckinCheckoutScreen(
                 item {
                     val totalCheckin = activities.count { it.type == ActivityType.CHECK_IN }
                     val totalCheckout = activities.count { it.type == ActivityType.CHECK_OUT }
-                    val totalActive = members.count { it.checkinStatus == CheckinStatus.CHECKED_IN }
+                    val totalActive = totalCheckin - totalCheckout
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -230,7 +248,7 @@ fun CheckinCheckoutScreen(
                 val query = searchQuery.text.trim()
                 if (query.isNotEmpty()) {
                     val searchResults = members.filter {
-                        it.memberId.contains(query, ignoreCase = true) || it.name.contains(query, ignoreCase = true)
+                        it.memberCode.contains(query, ignoreCase = true) || it.name.contains(query, ignoreCase = true)
                     }
 
                     if (searchResults.isEmpty()) {
@@ -246,7 +264,7 @@ fun CheckinCheckoutScreen(
                         items(searchResults) { member ->
                             SearchResultCard(
                                 member = member,
-                                onClick = { onNavigateToDetail(member.memberId) }
+                                onClick = { onNavigateToDetail(member.memberCode) }
                             )
                         }
                     }
@@ -385,7 +403,7 @@ private fun SummaryCard(
 
 @Composable
 private fun SearchResultCard(
-    member: MemberMock,
+    member: MemberUiModel,
     onClick: () -> Unit
 ) {
     Card(
@@ -420,7 +438,7 @@ private fun SearchResultCard(
                     color = TextPrimary
                 )
                 Text(
-                    text = "${member.memberId} • ${member.membershipPlan}",
+                    text = "${member.memberCode} • ${member.planName}",
                     style = MaterialTheme.typography.bodySmall,
                     color = TextSecondary
                 )
@@ -428,11 +446,12 @@ private fun SearchResultCard(
             Spacer(modifier = Modifier.width(8.dp))
             
             // Status Badge
-            val statusColor = when(member.membershipStatus) {
-                MembershipStatus.ACTIVE -> Color(0xFF4CAF50)
-                MembershipStatus.EXPIRING_SOON -> Color(0xFFFF9800)
-                MembershipStatus.EXPIRED -> Color(0xFFF44336)
-                MembershipStatus.SUSPENDED -> Color(0xFFE91E63)
+            val statusColor = when(member.status.name) {
+                "ACTIVE" -> Color(0xFF4CAF50)
+                "EXPIRING_SOON" -> Color(0xFFFF9800)
+                "EXPIRED" -> Color(0xFFF44336)
+                "SUSPENDED" -> Color(0xFFE91E63)
+                else -> Color(0xFF9E9E9E)
             }
             
             Box(
@@ -442,7 +461,7 @@ private fun SearchResultCard(
                     .padding(horizontal = 8.dp, vertical = 4.dp)
             ) {
                 Text(
-                    text = member.membershipStatus.label,
+                    text = member.status.displayName,
                     style = MaterialTheme.typography.labelSmall,
                     color = statusColor,
                     fontWeight = FontWeight.Bold

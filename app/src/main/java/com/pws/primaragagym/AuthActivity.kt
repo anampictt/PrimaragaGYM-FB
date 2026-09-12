@@ -1,6 +1,5 @@
 package com.pws.primaragagym
 
-import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -11,6 +10,7 @@ import androidx.compose.ui.Modifier
 import com.pws.primaragagym.screens.auth.LoginNavHost
 import com.pws.primaragagym.ui.theme.LightBackground
 import com.pws.primaragagym.ui.theme.PrimaragagymTheme
+import com.pws.primaragagym.ui.viewmodel.LoginViewModel
 
 class AuthActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -22,10 +22,13 @@ class AuthActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = LightBackground
                 ) {
+                    val loginViewModel = LoginViewModel()
+
                     LoginNavHost(
+                        loginViewModel = loginViewModel,
                         onLoginSuccess = {
-                            val intent = Intent(this@AuthActivity, MainActivity::class.java).apply {
-                                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                            val intent = android.content.Intent(this@AuthActivity, MainActivity::class.java).apply {
+                                flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK
                             }
                             startActivity(intent)
                             finish()

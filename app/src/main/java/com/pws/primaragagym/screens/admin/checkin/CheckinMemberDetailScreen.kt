@@ -23,7 +23,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import kotlinx.coroutines.launch
+import com.pws.primaragagym.ui.viewmodel.CheckinFirestoreViewModel
+import com.pws.primaragagym.ui.viewmodel.AuthViewModel
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 private val BackgroundColor = Color(0xFFF5F7FA)
 private val CardBackground = Color.White
@@ -35,13 +42,38 @@ private val GreenAccent = Color(0xFF32A060)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CheckinMemberDetailScreen(
-    memberId: String,
-    viewModel: CheckinViewModel = viewModel(),
+    memberId: String, // This is actually memberCode now
+    viewModel: CheckinFirestoreViewModel = viewModel(),
+    authViewModel: AuthViewModel = viewModel(),
     onBackClick: () -> Unit
 ) {
-    val member = viewModel.getMemberById(memberId)
+    val uiState by viewModel.uiState.collectAsState()
+    val authState by authViewModel.uiState.collectAsState()
+    val member = uiState.memberToProcess
+    val membership = uiState.memberMembership
+    val isLoading = uiState.isLoading
+
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
+
+    LaunchedEffect(memberId, authState.currentUser) {
+        val branchId = authState.currentUser?.branchId
+        if (branchId != null) {
+            viewModel.searchMemberByCode(memberId)
+        }
+    }
+
+    LaunchedEffect(uiState.successMessage, uiState.error) {
+        if (uiState.successMessage != null) {
+            snackbarHostState.showSnackbar(uiState.successMessage!!)
+            viewModel.clearMessages()
+            onBackClick() // go back after success
+        }
+        if (uiState.error != null) {
+            snackbarHostState.showSnackbar(uiState.error!!)
+            viewModel.clearMessages()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -68,7 +100,14 @@ fun CheckinMemberDetailScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = BackgroundColor
     ) { paddingValues ->
-        if (member == null) {
+        if (isLoading) {
+            Box(
+                modifier = Modifier.fillMaxSize().padding(paddingValues),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = GreenAccent)
+            }
+        } else if (member == null) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -91,7 +130,7 @@ fun CheckinMemberDetailScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Pastikan ID member sudah benar.",
+                        text = "Pastikan ID / Kode member sudah benar.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextSecondary
                     )
@@ -134,23 +173,24 @@ fun CheckinMemberDetailScreen(
                         }
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = member.name,
+                            text = member.fullName,
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = TextPrimary
                         )
                         Text(
-                            text = member.memberId,
+                            text = member.memberCode,
                             style = MaterialTheme.typography.bodyMedium,
                             color = TextSecondary
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         
-                        val statusColor = when(member.membershipStatus) {
-                            MembershipStatus.ACTIVE -> Color(0xFF4CAF50)
-                            MembershipStatus.EXPIRING_SOON -> Color(0xFFFF9800)
-                            MembershipStatus.EXPIRED -> Color(0xFFF44336)
-                            MembershipStatus.SUSPENDED -> Color(0xFFE91E63)
+                        val statusColor = when(member.status.uppercase()) {
+                            "ACTIVE" -> Color(0xFF4CAF50)
+                            "EXPIRING_SOON" -> Color(0xFFFF9800)
+                            "EXPIRED" -> Color(0xFFF44336)
+                            "SUSPENDED" -> Color(0xFFE91E63)
+                            else -> Color(0xFF9E9E9E)
                         }
                         
                         Box(
@@ -168,7 +208,7 @@ fun CheckinMemberDetailScreen(
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = member.membershipStatus.label,
+                                    text = member.status,
                                     style = MaterialTheme.typography.labelMedium,
                                     color = statusColor,
                                     fontWeight = FontWeight.Bold
@@ -200,206 +240,114 @@ fun CheckinMemberDetailScreen(
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = member.membershipPlan,
+                            text = membership?.planName ?: "Tidak ada membership",
                             style = MaterialTheme.typography.bodyLarge,
                             fontWeight = FontWeight.SemiBold,
                             color = GreenAccent
                         )
                         Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "${member.joinDate} - ${member.expiredDate}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = TextSecondary
-                        )
+                        if (membership != null) {
+                            val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale("id", "ID"))
+                            val start = membership.startDate?.let { dateFormat.format(it) } ?: "-"
+                            val end = membership.endDate?.let { dateFormat.format(it) } ?: "-"
+                            Text(
+                                text = "$start - $end",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = TextSecondary
+                            )
+                        }
                     }
                 }
                 
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                // Status Check-in Card
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = CardBackground),
-                    shape = RoundedCornerShape(12.dp),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp)
-                    ) {
-                        Text(
-                            text = "Status Check-in Hari Ini",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
+                        val isCheckedIn = uiState.todayCheckins.any { it.memberId == member.memberId && it.status == "CHECKED_IN" }
                         
-                        Text(
-                            text = member.checkinStatus.label,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = when(member.checkinStatus) {
-                                CheckinStatus.NOT_CHECKED_IN -> TextSecondary
-                                CheckinStatus.CHECKED_IN -> GreenAccent
-                                CheckinStatus.CHECKED_OUT -> Color(0xFFFF9800)
-                            }
-                        )
-                        
-                        if (member.checkinStatus != CheckinStatus.NOT_CHECKED_IN) {
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Divider(color = Color.LightGray.copy(alpha = 0.5f))
-                            Spacer(modifier = Modifier.height(16.dp))
-                            
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Column {
-                                    Text(
-                                        text = "Check-in:",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = TextSecondary
-                                    )
-                                    Text(
-                                        text = member.checkInTime ?: "-",
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = TextPrimary
-                                    )
+                        // Action Buttons
+                        when (member.status.uppercase()) {
+                            "EXPIRED" -> {
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3F3)),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(16.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(Icons.Filled.Warning, contentDescription = null, tint = Color.Red)
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Column {
+                                            Text(
+                                                text = "Membership sudah expired.",
+                                                style = MaterialTheme.typography.titleSmall,
+                                                color = Color.Red,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Text(
+                                                text = "Member tidak dapat melakukan check-in.",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = Color.Red.copy(alpha = 0.8f)
+                                            )
+                                        }
+                                    }
                                 }
-                                
-                                Column(horizontalAlignment = Alignment.End) {
-                                    Text(
-                                        text = "Check-out:",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = TextSecondary
-                                    )
-                                    Text(
-                                        text = member.checkOutTime ?: "-",
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = TextPrimary
-                                    )
+                            }
+                            "SUSPENDED" -> {
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3F3)),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(16.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(Icons.Filled.Error, contentDescription = null, tint = Color.Red)
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Text(
+                                            text = "Member sedang di-suspend.",
+                                            style = MaterialTheme.typography.titleSmall,
+                                            color = Color.Red,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            }
+                            else -> {
+                                if (!isCheckedIn) {
+                                    Button(
+                                        onClick = { viewModel.performCheckin() },
+                                        colors = ButtonDefaults.buttonColors(containerColor = GreenAccent),
+                                        shape = RoundedCornerShape(8.dp),
+                                        modifier = Modifier.fillMaxWidth(),
+                                        enabled = !isLoading
+                                    ) {
+                                        Text(
+                                            text = "Check-in",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(vertical = 8.dp)
+                                        )
+                                    }
+                                } else {
+                                    Button(
+                                        onClick = { viewModel.performCheckout(member.memberId, member.fullName) },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF9800)),
+                                        shape = RoundedCornerShape(8.dp),
+                                        modifier = Modifier.fillMaxWidth(),
+                                        enabled = !isLoading
+                                    ) {
+                                        Text(
+                                            text = "Check-out",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(vertical = 8.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
                 }
-                
-                Spacer(modifier = Modifier.height(24.dp))
-                
-                // Action Buttons
-                when (member.membershipStatus) {
-                    MembershipStatus.EXPIRED -> {
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3F3)),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(16.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(Icons.Filled.Warning, contentDescription = null, tint = Color.Red)
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Column {
-                                    Text(
-                                        text = "Membership sudah expired.",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        color = Color.Red,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = "Member tidak dapat melakukan check-in.",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = Color.Red.copy(alpha = 0.8f)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    MembershipStatus.SUSPENDED -> {
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3F3)),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(16.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(Icons.Filled.Error, contentDescription = null, tint = Color.Red)
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Text(
-                                    text = "Member sedang di-suspend.",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    color = Color.Red,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                    }
-                    else -> {
-                        // ACTIVE or EXPIRING_SOON
-                        when (member.checkinStatus) {
-                            CheckinStatus.NOT_CHECKED_IN -> {
-                                Button(
-                                    onClick = {
-                                        val success = viewModel.performCheckin(member.memberId)
-                                        if (success) {
-                                            coroutineScope.launch {
-                                                snackbarHostState.showSnackbar("Check-in berhasil. ${member.name} sedang berada di gym.")
-                                            }
-                                        }
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = GreenAccent),
-                                    shape = RoundedCornerShape(8.dp),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text(
-                                        text = "Check-in",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(vertical = 8.dp)
-                                    )
-                                }
-                            }
-                            CheckinStatus.CHECKED_IN -> {
-                                Button(
-                                    onClick = {
-                                        val success = viewModel.performCheckout(member.memberId)
-                                        if (success) {
-                                            coroutineScope.launch {
-                                                snackbarHostState.showSnackbar("Check-out berhasil.")
-                                            }
-                                        }
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF9800)),
-                                    shape = RoundedCornerShape(8.dp),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text(
-                                        text = "Check-out",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(vertical = 8.dp)
-                                    )
-                                }
-                            }
-                            CheckinStatus.CHECKED_OUT -> {
-                                Text(
-                                    text = "Member sudah melakukan check-out hari ini.",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = TextSecondary,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
     }
 }

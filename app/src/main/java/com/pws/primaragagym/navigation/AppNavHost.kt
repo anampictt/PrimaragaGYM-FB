@@ -1,5 +1,7 @@
 package com.pws.primaragagym.navigation
 
+import android.app.Activity
+import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -7,17 +9,20 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import com.pws.primaragagym.AuthActivity
 import com.pws.primaragagym.navigation.AppScreen
 import com.pws.primaragagym.screens.ProfileScreen
 import com.pws.primaragagym.screens.SplashScreen
@@ -71,22 +76,21 @@ fun AppNavHost(
     ) {
         // ==================== SPLASH ====================
         composable(AppScreen.Splash.route) {
+            val context = LocalContext.current
             SplashScreen(
                 authViewModel = authViewModel,
                 onSplashComplete = {
-                    // Navigate based on auth state
                     if (authState.isAuthenticated && authState.currentUser != null) {
-                        val destination = when (authState.currentUser!!.role.name) {
-                            "SUPER_ADMIN" -> AppScreen.SuperAdminRoot.route
-                            else -> AppScreen.AdminDashboard.route
-                        }
+                        val destination = AppScreen.SuperAdminRoot.route
                         navController.navigate(destination) {
                             popUpTo(AppScreen.Splash.route) { inclusive = true }
                         }
                     } else {
-                        navController.navigate(AppScreen.Login.route) {
-                            popUpTo(AppScreen.Splash.route) { inclusive = true }
+                        val intent = Intent(context, AuthActivity::class.java).apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                         }
+                        context.startActivity(intent)
+                        (context as? Activity)?.finish()
                     }
                 }
             )
@@ -94,7 +98,14 @@ fun AppNavHost(
 
         // ==================== AUTH ====================
         composable(AppScreen.Login.route) {
-            LoginNavHost(navController = navController, authViewModel = authViewModel)
+            val context = LocalContext.current
+            LaunchedEffect(Unit) {
+                val intent = Intent(context, AuthActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                }
+                context.startActivity(intent)
+                (context as? Activity)?.finish()
+            }
         }
 
         // ==================== SUPER ADMIN ====================
@@ -592,6 +603,7 @@ fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(
 
     // ==================== PROFILE ====================
     composable(AppScreen.Profil.route) {
+        val context = LocalContext.current
         val profileViewModel = ProfileViewModel()
         ProfileScreen(
             viewModel = profileViewModel,
@@ -604,10 +616,11 @@ fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(
             onLogoutSuccess = {
                 profileViewModel.hideLogoutSuccess()
                 authViewModel.clearUser()
-                val nav = rootNavController ?: navController
-                nav.navigate(AppScreen.Login.route) {
-                    popUpTo(0) { inclusive = true }
+                val intent = Intent(context, AuthActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                 }
+                context.startActivity(intent)
+                (context as? Activity)?.finish()
             }
         )
     }

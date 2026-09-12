@@ -2,9 +2,11 @@ package com.pws.primaragagym.data.datasource
 
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 import com.pws.primaragagym.domain.model.User
 import com.pws.primaragagym.domain.model.UserRole
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeoutOrNull
 
 class FirebaseUserDataSource {
 
@@ -13,19 +15,38 @@ class FirebaseUserDataSource {
 
     suspend fun getUserProfile(uid: String): Result<User> {
         return try {
-            val doc = usersCollection.document(uid).get().await()
-            if (doc.exists()) {
-                val data = doc.data ?: return Result.failure(Exception("Data user tidak ditemukan."))
+            val doc = withTimeoutOrNull(5000L) {
+                usersCollection.document(uid).get().await()
+            }
+            if (doc != null && doc.exists()) {
+                val data = doc.data ?: emptyMap<String, Any>()
+                val email = (data["email"] as? String) ?: ""
+                val name = (data["name"] as? String)
+                    ?: (data["fullName"] as? String)
+                    ?: (data["displayName"] as? String)
+                    ?: "User"
+                val roleStr = (data["role"] as? String)
+                    ?: (data["roleId"] as? String)
+                    ?: "ADMIN"
+                val branchId = data["branchId"] as? String
+                val photoUrl = data["photoUrl"] as? String
+                val address = (data["address"] as? String) ?: ""
+                val phone = (data["phone"] as? String)
+                    ?: (data["phoneNumber"] as? String)
+                    ?: ""
+                val lastLogin = (data["lastLogin"] ?: data["lastLoginAt"])?.toString() ?: ""
+
                 Result.success(
                     User(
                         id = uid,
-                        email = data["email"] as? String ?: "",
-                        name = data["name"] as? String ?: data["displayName"] as? String ?: "User",
-                        role = UserRole.fromString(data["role"] as? String ?: "ADMIN"),
-                        photoUrl = data["photoUrl"] as? String,
-                        address = data["address"] as? String ?: "",
-                        phone = data["phone"] as? String ?: "",
-                        lastLogin = data["lastLogin"] as? String ?: ""
+                        email = email,
+                        name = name,
+                        role = UserRole.fromString(roleStr),
+                        branchId = branchId,
+                        photoUrl = photoUrl,
+                        address = address,
+                        phone = phone,
+                        lastLogin = lastLogin
                     )
                 )
             } else {
@@ -41,7 +62,9 @@ class FirebaseUserDataSource {
             val updates = mapOf(
                 "lastLogin" to FieldValue.serverTimestamp()
             )
-            usersCollection.document(uid).update(updates).await()
+            withTimeoutOrNull(3000L) {
+                usersCollection.document(uid).set(updates, SetOptions.merge()).await()
+            }
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -52,17 +75,24 @@ class FirebaseUserDataSource {
         uid: String,
         email: String,
         name: String,
-        role: UserRole = UserRole.ADMIN
+        role: UserRole = UserRole.ADMIN,
+        branchId: String? = null
     ): Result<Unit> {
         return try {
             val docRef = usersCollection.document(uid)
             val doc = docRef.get().await()
             if (!doc.exists()) {
                 val userData = mapOf(
+                    "uid" to uid,
                     "email" to email,
                     "name" to name,
+                    "fullName" to name,
                     "role" to role.name,
-                    "createdAt" to FieldValue.serverTimestamp()
+                    "roleId" to role.name,
+                    "branchId" to branchId,
+                    "isActive" to true,
+                    "createdAt" to FieldValue.serverTimestamp(),
+                    "updatedAt" to FieldValue.serverTimestamp()
                 )
                 docRef.set(userData).await()
             }

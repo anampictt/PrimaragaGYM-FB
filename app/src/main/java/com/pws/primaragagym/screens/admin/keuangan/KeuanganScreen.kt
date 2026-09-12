@@ -59,6 +59,12 @@ import com.pws.primaragagym.screens.admin.keuangan.KeuanganColors.TextSecondary
 import com.pws.primaragagym.ui.theme.Dimens
 import java.text.NumberFormat
 import java.util.Locale
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import com.pws.primaragagym.ui.viewmodel.KeuanganViewModel
+import com.pws.primaragagym.ui.viewmodel.AuthViewModel
 
 // ============================================================================
 // MOCK DATA
@@ -105,6 +111,8 @@ private val menuItems = listOf(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun KeuanganScreen(
+    viewModel: KeuanganViewModel = viewModel(),
+    authViewModel: AuthViewModel = viewModel(),
     onBackClick: () -> Unit = {},
     onCatatPembayaranClick: () -> Unit = {},
     onInvoiceClick: () -> Unit = {},
@@ -113,6 +121,22 @@ fun KeuanganScreen(
     val configuration = LocalConfiguration.current
     val screenWidthDp = configuration.screenWidthDp
     val isTablet = screenWidthDp >= 600
+
+    val authState by authViewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
+
+    LaunchedEffect(authState.currentUser) {
+        val branchId = authState.currentUser?.branchId
+        if (branchId != null) {
+            viewModel.loadSummary(branchId)
+        }
+    }
+    
+    val formatCurrency = { amount: Long ->
+        val format = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
+        format.maximumFractionDigits = 0
+        format.format(amount)
+    }
 
     Scaffold(
         containerColor = BackgroundColor,
@@ -166,21 +190,21 @@ fun KeuanganScreen(
                 ) {
                     SummaryCard(
                         title = "Pendapatan Hari Ini",
-                        value = summaryData.todayRevenue,
+                        value = formatCurrency(uiState.todayRevenue),
                         icon = Icons.Filled.Payments,
                         iconBackgroundColor = StatRevenueBg,
                         modifier = Modifier.weight(1f)
                     )
                     SummaryCard(
                         title = "Pendapatan Bulan Ini",
-                        value = summaryData.monthRevenue,
+                        value = formatCurrency(uiState.monthRevenue),
                         icon = Icons.Filled.AccountBalanceWallet,
                         iconBackgroundColor = StatMonthBg,
                         modifier = Modifier.weight(1f)
                     )
                     SummaryCard(
                         title = "Transaksi Hari Ini",
-                        value = "${summaryData.todayTransactions}",
+                        value = "${uiState.todayTransactions}",
                         icon = Icons.Filled.Receipt,
                         iconBackgroundColor = StatTransactionBg,
                         modifier = Modifier.weight(1f)
@@ -194,14 +218,14 @@ fun KeuanganScreen(
                     ) {
                         SummaryCard(
                             title = "Pendapatan Hari Ini",
-                            value = summaryData.todayRevenue,
+                            value = formatCurrency(uiState.todayRevenue),
                             icon = Icons.Filled.Payments,
                             iconBackgroundColor = StatRevenueBg,
                             modifier = Modifier.weight(1f)
                         )
                         SummaryCard(
                             title = "Pendapatan Bulan Ini",
-                            value = summaryData.monthRevenue,
+                            value = formatCurrency(uiState.monthRevenue),
                             icon = Icons.Filled.AccountBalanceWallet,
                             iconBackgroundColor = StatMonthBg,
                             modifier = Modifier.weight(1f)
@@ -213,7 +237,7 @@ fun KeuanganScreen(
                     ) {
                         SummaryCard(
                             title = "Transaksi Hari Ini",
-                            value = "${summaryData.todayTransactions}",
+                            value = "${uiState.todayTransactions}",
                             icon = Icons.Filled.Receipt,
                             iconBackgroundColor = StatTransactionBg,
                             modifier = Modifier.weight(1f)

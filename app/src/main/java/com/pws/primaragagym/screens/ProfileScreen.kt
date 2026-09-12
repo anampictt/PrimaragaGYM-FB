@@ -203,7 +203,9 @@ fun ProfileScreen(
         if (uiState.showLogoutDialog) {
             LogoutConfirmationDialog(
                 onDismiss = viewModel::hideLogoutDialog,
-                onConfirm = viewModel::onLogoutConfirm
+                onConfirm = {
+                    viewModel.onLogoutConfirm(onSuccess = onLogoutSuccess)
+                }
             )
         }
 

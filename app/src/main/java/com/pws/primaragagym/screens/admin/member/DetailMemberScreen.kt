@@ -49,6 +49,11 @@ import com.pws.primaragagym.screens.admin.member.MemberColors.GreenLight
 import com.pws.primaragagym.screens.admin.member.MemberColors.TextMuted
 import com.pws.primaragagym.screens.admin.member.MemberColors.TextPrimary
 import com.pws.primaragagym.screens.admin.member.MemberColors.TextSecondary
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import com.pws.primaragagym.ui.viewmodel.MemberListViewModel
 import com.pws.primaragagym.ui.theme.Dimens
 
 // ============================================================================
@@ -58,6 +63,7 @@ import com.pws.primaragagym.ui.theme.Dimens
 @Composable
 fun DetailMemberScreen(
     memberId: String,
+    viewModel: MemberListViewModel = viewModel(),
     onBackClick: () -> Unit = {},
     onPerpanjangClick: () -> Unit = {},
     onUpgradeClick: () -> Unit = {},
@@ -67,9 +73,19 @@ fun DetailMemberScreen(
     val screenWidthDp = configuration.screenWidthDp
     val isTablet = screenWidthDp >= 600
 
-    // Find member from dummy data
-    val member = remember(memberId) {
-        dummyMembers.find { it.id == memberId } ?: dummyMembers.first()
+    val uiState by viewModel.uiState.collectAsState()
+
+    // Find member from real data
+    val member = remember(memberId, uiState.members) {
+        uiState.members.find { it.id == memberId } 
+    }
+
+    if (member == null) {
+        // Simple loading or empty state
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("Memuat data member...")
+        }
+        return
     }
 
     val horizontalPadding = if (isTablet) 32.dp else Dimens.screen_padding_horizontal

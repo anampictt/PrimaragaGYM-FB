@@ -20,10 +20,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.pws.primaragagym.navigation.AppScreen
 import com.pws.primaragagym.navigation.sharedAdminRoutes
 import com.pws.primaragagym.screens.superadmin.manajemancabang.ManajemenCabangScreen
@@ -63,16 +65,28 @@ fun SuperAdminMainScreen(
         else -> if (!isTablet) BottomNavItem.DASHBOARD else null
     }
 
-    // Map current route to Menu index
-    val selectedMenuIndex = when {
-        currentRoute.startsWith("superadmin/manajemen-pengguna") -> 0
-        currentRoute.startsWith("superadmin/manajemen-role") -> 1
-        currentRoute.startsWith("superadmin/manajemen-cabang") -> 2
-        currentRoute.startsWith(AppScreen.Member.route) -> 3
-        currentRoute.startsWith(AppScreen.CheckInCheckout.route) -> 4
-        currentRoute.startsWith(AppScreen.Keuangan.route) || currentRoute.startsWith("admin/keuangan") -> 5
-        currentRoute.startsWith(AppScreen.Notifikasi.route) -> 6
-        currentRoute.startsWith(AppScreen.LaporanKeuangan.route) || currentRoute.startsWith(AppScreen.LaporanPemasukan.route) -> 7
+    // Map current route to Menu key & index
+    val selectedMenuKey = when {
+        currentRoute.startsWith("superadmin/manajemen-pengguna") -> "manajemen_pengguna"
+        currentRoute.startsWith("superadmin/manajemen-role") -> "manajemen_role"
+        currentRoute.startsWith("superadmin/manajemen-cabang") -> "manajemen_cabang"
+        currentRoute.startsWith(AppScreen.Member.route) -> "manajemen_member"
+        currentRoute.startsWith(AppScreen.CheckInCheckout.route) -> "check_in_out"
+        currentRoute.startsWith(AppScreen.Keuangan.route) || currentRoute.startsWith("admin/keuangan") -> "keuangan"
+        currentRoute.startsWith(AppScreen.Notifikasi.route) -> "notifikasi"
+        currentRoute.startsWith(AppScreen.LaporanKeuangan.route) || currentRoute.startsWith(AppScreen.LaporanPemasukan.route) -> "laporan"
+        else -> null
+    }
+
+    val selectedMenuIndex = when (selectedMenuKey) {
+        "manajemen_pengguna" -> 0
+        "manajemen_role" -> 1
+        "manajemen_cabang" -> 2
+        "manajemen_member" -> 3
+        "check_in_out" -> 4
+        "keuangan" -> 5
+        "notifikasi" -> 6
+        "laporan" -> 7
         else -> null
     }
 
@@ -140,6 +154,8 @@ fun SuperAdminMainScreen(
             TabletSidebar(
                 selectedItem = selectedBottomNav,
                 selectedMenuIndex = selectedMenuIndex,
+                selectedMenuKey = selectedMenuKey,
+                authViewModel = authViewModel,
                 onItemSelected = onBottomNavSelected,
                 onUserManagementClick = { safeNavigate(AppScreen.ManajemenPengguna.route) },
                 onRoleManagementClick = { safeNavigate(AppScreen.ManajemenRole.route) },
@@ -199,6 +215,7 @@ private fun SuperAdminNestedNavHost(
     ) {
         composable(AppScreen.SuperAdminDashboard.route) {
             SuperAdminDashboardContent(
+                authViewModel = authViewModel,
                 onUserManagementClick = { navController.navigate(AppScreen.ManajemenPengguna.route) },
                 onRoleManagementClick = { navController.navigate(AppScreen.ManajemenRole.route) },
                 onBranchManagementClick = { navController.navigate(AppScreen.ManajemenCabang.route) },
@@ -214,14 +231,27 @@ private fun SuperAdminNestedNavHost(
         composable(AppScreen.ManajemenPengguna.route) {
             ManajemenPenggunaScreen(
                 onBackClick = { safePopBack() },
-                onAddUserClick = { navController.navigate(AppScreen.TambahPengguna.route) },
-                onEditUser = { },
+                onAddUserClick = { navController.navigate(AppScreen.TambahPengguna.createRoute()) },
+                onEditUser = { user ->
+                    navController.navigate(AppScreen.TambahPengguna.createRoute(user.id))
+                },
                 onDeleteUser = { }
             )
         }
 
-        composable(AppScreen.TambahPengguna.route) {
+        composable(
+            route = "superadmin/manajemen-pengguna/tambah?userId={userId}",
+            arguments = listOf(
+                navArgument("userId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) { backStackEntry ->
+            val userId = backStackEntry.arguments?.getString("userId")
             TambahPenggunaScreen(
+                userId = userId,
                 onBackClick = { safePopBack() },
                 onSubmitSuccess = { safePopBack() }
             )
@@ -230,15 +260,30 @@ private fun SuperAdminNestedNavHost(
         composable(AppScreen.ManajemenRole.route) {
             ManajemenRoleScreen(
                 onBackClick = { safePopBack() },
-                onAddRoleClick = { navController.navigate(AppScreen.TambahRole.route) },
-                onEditRole = { },
+                onAddRoleClick = { navController.navigate(AppScreen.TambahRole.createRoute()) },
+                onEditRole = { role ->
+                    navController.navigate(AppScreen.TambahRole.createRoute(role.id))
+                },
                 onDeleteRole = { },
-                onAccessClick = { }
+                onAccessClick = { role ->
+                    navController.navigate(AppScreen.TambahRole.createRoute(role.id))
+                }
             )
         }
 
-        composable(AppScreen.TambahRole.route) {
+        composable(
+            route = "superadmin/manajemen-role/tambah?roleId={roleId}",
+            arguments = listOf(
+                navArgument("roleId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) { backStackEntry ->
+            val roleId = backStackEntry.arguments?.getString("roleId")
             TambahRoleScreen(
+                roleId = roleId,
                 onBackClick = { safePopBack() },
                 onSubmitSuccess = { safePopBack() }
             )

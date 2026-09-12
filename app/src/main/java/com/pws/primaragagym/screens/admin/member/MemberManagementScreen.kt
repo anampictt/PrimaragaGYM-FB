@@ -57,6 +57,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import com.pws.primaragagym.ui.viewmodel.MemberListViewModel
+import com.pws.primaragagym.ui.viewmodel.AuthViewModel
 import com.pws.primaragagym.screens.admin.member.MemberColors.BackgroundColor
 import com.pws.primaragagym.screens.admin.member.MemberColors.CardBackground
 import com.pws.primaragagym.screens.admin.member.MemberColors.GreenAccent
@@ -83,6 +89,8 @@ private enum class MemberFilter(val displayName: String) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MemberManagementScreen(
+    viewModel: MemberListViewModel = viewModel(),
+    authViewModel: AuthViewModel = viewModel(),
     onBackClick: () -> Unit = {},
     onAddMemberClick: () -> Unit = {},
     onMemberClick: (String) -> Unit = {}
@@ -91,27 +99,19 @@ fun MemberManagementScreen(
     val screenWidthDp = configuration.screenWidthDp
     val isTablet = screenWidthDp >= 600
 
-    var searchQuery by remember { mutableStateOf("") }
-    var selectedFilter by remember { mutableStateOf(MemberFilter.ALL) }
+    val authState by authViewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
 
-    // Filter members
-    val filteredMembers = remember(searchQuery, selectedFilter) {
-        dummyMembers.filter { member ->
-            val matchesSearch = searchQuery.isBlank() ||
-                    member.name.contains(searchQuery, ignoreCase = true) ||
-                    member.memberCode.contains(searchQuery, ignoreCase = true)
-
-            val matchesFilter = when (selectedFilter) {
-                MemberFilter.ALL -> true
-                MemberFilter.ACTIVE -> member.status == MemberStatus.ACTIVE
-                MemberFilter.EXPIRING -> member.status == MemberStatus.EXPIRING_SOON
-                MemberFilter.EXPIRED -> member.status == MemberStatus.EXPIRED
-                MemberFilter.SUSPENDED -> member.status == MemberStatus.SUSPENDED
-            }
-
-            matchesSearch && matchesFilter
+    LaunchedEffect(authState.currentUser) {
+        val branchId = authState.currentUser?.branchId
+        if (branchId != null) {
+            viewModel.loadMembers(branchId, reset = true)
         }
     }
+
+    val filteredMembers = uiState.filteredMembers
+    val searchQuery = uiState.searchQuery
+    val selectedFilter = uiState.selectedFilter
 
     val horizontalPadding = if (isTablet) 32.dp else Dimens.screen_padding_horizontal
 
@@ -142,7 +142,7 @@ fun MemberManagementScreen(
             // Search Field
             MemberSearchField(
                 query = searchQuery,
-                onQueryChange = { searchQuery = it },
+                onQueryChange = { viewModel.searchMembers(it) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(
@@ -160,9 +160,22 @@ fun MemberManagementScreen(
                 modifier = Modifier.padding(bottom = Dimens.spacing_4)
             ) {
                 items(MemberFilter.entries) { filter ->
+                    val filterEnum = when (filter) {
+                        MemberFilter.ALL -> MemberStatus.ACTIVE // Not directly mapped in viewmodel, assuming we filter locally or add ALL to MemberStatus
+                        MemberFilter.ACTIVE -> MemberStatus.ACTIVE
+                        MemberFilter.EXPIRING -> MemberStatus.EXPIRING_SOON
+                        MemberFilter.EXPIRED -> MemberStatus.EXPIRED
+                        MemberFilter.SUSPENDED -> MemberStatus.SUSPENDED
+                    }
                     FilterChip(
-                        selected = selectedFilter == filter,
-                        onClick = { selectedFilter = filter },
+                        selected = selectedFilter.name == filterEnum.name || (filter == MemberFilter.ALL && uiState.selectedFilter == MemberStatus.ACTIVE && uiState.searchQuery.isBlank()), // Simplified
+                        onClick = { 
+                            if (filter == MemberFilter.ALL) {
+                                viewModel.searchMembers("") // Reset
+                            } else {
+                                viewModel.filterByStatus(filterEnum)
+                            }
+                        },
                         label = {
                             Text(
                                 text = filter.displayName,

@@ -46,6 +46,12 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import com.pws.primaragagym.ui.viewmodel.MemberListViewModel
+import com.pws.primaragagym.ui.viewmodel.AuthViewModel
 import com.pws.primaragagym.screens.admin.member.MemberColors.GreenAccent
 import com.pws.primaragagym.screens.admin.member.MemberColors.GreenLight
 import com.pws.primaragagym.screens.admin.member.MemberColors.TextPrimary
@@ -58,6 +64,8 @@ import com.pws.primaragagym.ui.theme.Dimens
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MemberScreen(
+    viewModel: MemberListViewModel = viewModel(),
+    authViewModel: AuthViewModel = viewModel(),
     onBackClick: () -> Unit = {},
     onMemberManagementClick: () -> Unit = {},
     onMembershipManagementClick: () -> Unit = {},
@@ -67,6 +75,16 @@ fun MemberScreen(
     val configuration = LocalConfiguration.current
     val screenWidthDp = configuration.screenWidthDp
     val isTablet = screenWidthDp >= 600
+
+    val authState by authViewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
+
+    LaunchedEffect(authState.currentUser) {
+        val branchId = authState.currentUser?.branchId
+        if (branchId != null) {
+            viewModel.loadMembers(branchId, reset = true)
+        }
+    }
 
     Scaffold(
         containerColor = MemberColors.BackgroundColor,
@@ -124,7 +142,7 @@ fun MemberScreen(
 
             if (isTablet) {
                 // Tablet: 3 columns grid
-                val recentMembers = dummyMembers.take(6)
+                val recentMembers = uiState.members.take(6)
                 val rows = recentMembers.chunked(3)
                 rows.forEach { rowMembers ->
                     Row(
@@ -151,7 +169,7 @@ fun MemberScreen(
                     horizontalArrangement = Arrangement.spacedBy(Dimens.spacing_3),
                     contentPadding = PaddingValues(end = Dimens.spacing_4)
                 ) {
-                    items(dummyMembers.take(6)) { member ->
+                    items(uiState.members.take(6)) { member ->
                         MemberHubCard(
                             member = member,
                             onClick = { onMemberClick(member.id) },

@@ -40,6 +40,16 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import com.pws.primaragagym.ui.viewmodel.InvoiceListViewModel
+import com.pws.primaragagym.ui.viewmodel.AuthViewModel
+import com.pws.primaragagym.domain.model.FirestorePayment
+import java.text.NumberFormat
+import java.text.SimpleDateFormat
+import java.util.Locale
 import com.pws.primaragagym.screens.admin.keuangan.KeuanganColors.BackgroundColor
 import com.pws.primaragagym.screens.admin.keuangan.KeuanganColors.CardBackground
 import com.pws.primaragagym.screens.admin.keuangan.KeuanganColors.GreenAccent
@@ -71,52 +81,7 @@ enum class InvoiceStatus(val label: String) {
     CANCELLED("Cancelled")
 }
 
-private val mockInvoices = listOf(
-    InvoiceUiModel(
-        id = "INV-20260906-001",
-        memberName = "John Smith",
-        memberCode = "MBR-001",
-        plan = "Premium Monthly",
-        amount = "Rp 350.000",
-        amountRaw = 350_000,
-        method = "QRIS",
-        status = InvoiceStatus.PAID,
-        date = "06 September 2026"
-    ),
-    InvoiceUiModel(
-        id = "INV-20260905-002",
-        memberName = "Sarah Connor",
-        memberCode = "MBR-002",
-        plan = "Monthly Basic",
-        amount = "Rp 250.000",
-        amountRaw = 250_000,
-        method = "Cash",
-        status = InvoiceStatus.PAID,
-        date = "05 September 2026"
-    ),
-    InvoiceUiModel(
-        id = "INV-20260904-003",
-        memberName = "Michael Brown",
-        memberCode = "MBR-003",
-        plan = "Annual Premium",
-        amount = "Rp 2.500.000",
-        amountRaw = 2_500_000,
-        method = "Transfer",
-        status = InvoiceStatus.PAID,
-        date = "04 September 2026"
-    ),
-    InvoiceUiModel(
-        id = "INV-20260903-004",
-        memberName = "Emma Wilson",
-        memberCode = "MBR-005",
-        plan = "Premium Monthly",
-        amount = "Rp 350.000",
-        amountRaw = 350_000,
-        method = "QRIS",
-        status = InvoiceStatus.PAID,
-        date = "03 September 2026"
-    )
-)
+// (Mock data removed)
 
 // ============================================================================
 // MAIN SCREEN
@@ -124,11 +89,23 @@ private val mockInvoices = listOf(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InvoiceScreen(
+    viewModel: InvoiceListViewModel = viewModel(),
+    authViewModel: AuthViewModel = viewModel(),
     onBackClick: () -> Unit = {},
     onInvoiceClick: (String) -> Unit = {}
 ) {
     val configuration = LocalConfiguration.current
     val isTablet = configuration.screenWidthDp >= 600
+
+    val authState by authViewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
+
+    LaunchedEffect(authState.currentUser) {
+        val branchId = authState.currentUser?.branchId
+        if (branchId != null) {
+            viewModel.loadInvoices(branchId)
+        }
+    }
 
     Scaffold(
         containerColor = BackgroundColor,
@@ -157,7 +134,7 @@ fun InvoiceScreen(
             )
         }
     ) { paddingValues ->
-        if (mockInvoices.isEmpty()) {
+        if (uiState.invoices.isEmpty()) {
             EmptyInvoiceState(modifier = Modifier.padding(paddingValues))
         } else {
             LazyColumn(
@@ -170,10 +147,10 @@ fun InvoiceScreen(
                 ),
                 verticalArrangement = Arrangement.spacedBy(Dimens.spacing_3)
             ) {
-                items(mockInvoices) { invoice ->
+                items(uiState.invoices) { invoice ->
                     InvoiceCard(
                         invoice = invoice,
-                        onClick = { onInvoiceClick(invoice.id) }
+                        onClick = { onInvoiceClick(invoice.paymentId) }
                     )
                 }
             }
@@ -186,9 +163,21 @@ fun InvoiceScreen(
 // ============================================================================
 @Composable
 private fun InvoiceCard(
-    invoice: InvoiceUiModel,
+    invoice: FirestorePayment,
     onClick: () -> Unit
 ) {
+    val formatCurrency = { amount: Long ->
+        val format = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
+        format.maximumFractionDigits = 0
+        format.format(amount)
+    }
+    
+    val formatDate = { date: java.util.Date? ->
+        try {
+            val dateFormat = SimpleDateFormat("dd MMMM yyyy", Locale("id", "ID"))
+            date?.let { dateFormat.format(it) } ?: ""
+        } catch (e: Exception) { "" }
+    }
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -222,14 +211,14 @@ private fun InvoiceCard(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = invoice.id,
+                    text = invoice.paymentId,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = TextPrimary
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "${invoice.memberName} • ${invoice.plan}",
+                    text = "${invoice.memberName} • ${invoice.planName.ifEmpty { invoice.paymentType }}",
                     style = MaterialTheme.typography.bodySmall,
                     color = TextSecondary,
                     maxLines = 1,
@@ -237,7 +226,7 @@ private fun InvoiceCard(
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = invoice.date,
+                    text = formatDate(invoice.createdAt),
                     style = MaterialTheme.typography.labelSmall,
                     color = TextMuted
                 )
@@ -247,14 +236,14 @@ private fun InvoiceCard(
 
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = invoice.amount,
+                    text = formatCurrency(invoice.amount),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = GreenAccent
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = invoice.method,
+                    text = invoice.paymentMethod,
                     style = MaterialTheme.typography.labelSmall,
                     color = TextMuted
                 )

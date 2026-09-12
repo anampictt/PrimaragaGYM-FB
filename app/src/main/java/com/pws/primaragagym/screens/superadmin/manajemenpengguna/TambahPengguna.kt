@@ -65,6 +65,19 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.google.firebase.FirebaseApp
+import com.google.firebase.auth.FirebaseAuth
+import com.pws.primaragagym.domain.model.FirestoreUser
+import com.pws.primaragagym.ui.viewmodel.RoleListViewModel
+import com.pws.primaragagym.ui.viewmodel.UserListViewModel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+import java.util.UUID
 
 // ============================================================================
 // COLORS - Match existing management screens
@@ -112,7 +125,7 @@ data class AccessMenuUiModel(
 // ============================================================================
 // ROLES LIST
 // ============================================================================
-private val roles = listOf(
+private val defaultRoles = listOf(
     "Super Admin",
     "Admin",
     "Staff",
@@ -125,12 +138,35 @@ private val roles = listOf(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TambahPenggunaScreen(
+    userId: String? = null,
+    userViewModel: UserListViewModel = viewModel(),
+    roleViewModel: RoleListViewModel = viewModel(),
     onBackClick: () -> Unit = {},
     onSubmitSuccess: () -> Unit = {}
 ) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     val configuration = LocalConfiguration.current
     val screenWidthDp = configuration.screenWidthDp
     val isTablet = screenWidthDp >= 600
+
+    val isEditMode = userId != null
+    val roleState by roleViewModel.uiState.collectAsState()
+    val userState by userViewModel.uiState.collectAsState()
+
+    LaunchedEffect(Unit) {
+        roleViewModel.loadRoles()
+        userViewModel.loadUsers()
+    }
+
+    val availableRoles = remember(roleState.roles) {
+        val names = roleState.roles.map { it.name }.filter { it.isNotBlank() }
+        if (names.isEmpty()) defaultRoles else names
+    }
+
+    val existingUser = remember(userId, userState.users) {
+        if (userId != null) userViewModel.getUserById(userId) else null
+    }
 
     var photoUri by remember { mutableStateOf<Uri?>(null) }
     var fullName by remember { mutableStateOf("") }
@@ -149,6 +185,15 @@ fun TambahPenggunaScreen(
     var isAddressFocused by remember { mutableStateOf(false) }
     var isPasswordFocused by remember { mutableStateOf(false) }
 
+    LaunchedEffect(existingUser) {
+        existingUser?.let { user ->
+            fullName = user.displayName
+            email = user.email
+            address = user.address
+            selectedRole = user.resolvedRole
+        }
+    }
+
     // Image picker launcher
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -160,6 +205,7 @@ fun TambahPenggunaScreen(
         containerColor = BackgroundColor,
         topBar = {
             AddUserTopBar(
+                title = if (isEditMode) "Edit Pengguna" else "Tambah Pengguna",
                 onBackClick = onBackClick
             )
         }
@@ -264,6 +310,7 @@ fun TambahPenggunaScreen(
                 // Role Dropdown
                 RoleDropdown(
                     selectedRole = selectedRole,
+                    roles = availableRoles,
                     onRoleSelected = { role ->
                         selectedRole = role
                         errors = errors - "role"
@@ -282,8 +329,8 @@ fun TambahPenggunaScreen(
                         password = it
                         errors = errors - "password"
                     },
-                    label = "Kata Sandi",
-                    placeholder = "Masukkan kata sandi",
+                    label = if (isEditMode) "Kata Sandi (Opsional)" else "Kata Sandi",
+                    placeholder = if (isEditMode) "Kosongkan jika tidak ingin mengubah sandi" else "Masukkan kata sandi",
                     isPasswordVisible = passwordVisible,
                     onPasswordVisibilityToggle = { passwordVisible = !passwordVisible },
                     isError = errors.containsKey("password"),
@@ -291,6 +338,16 @@ fun TambahPenggunaScreen(
                     isFocused = isPasswordFocused,
                     onFocusChange = { isPasswordFocused = it }
                 )
+
+                if (errors.containsKey("submit")) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = errors["submit"] ?: "",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(horizontal = 4.dp)
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(32.dp))
 
@@ -305,7 +362,7 @@ fun TambahPenggunaScreen(
                         }
                         if (email.isBlank()) {
                             newErrors["email"] = "Email wajib diisi"
-                        } else if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+                        } else if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches()) {
                             newErrors["email"] = "Format email tidak valid"
                         }
                         if (address.isBlank()) {
@@ -314,9 +371,13 @@ fun TambahPenggunaScreen(
                         if (selectedRole == null) {
                             newErrors["role"] = "Silakan pilih role"
                         }
-                        if (password.isBlank()) {
-                            newErrors["password"] = "Kata sandi wajib diisi"
-                        } else if (password.length < 6) {
+                        if (!isEditMode) {
+                            if (password.isBlank()) {
+                                newErrors["password"] = "Kata sandi wajib diisi"
+                            } else if (password.length < 6) {
+                                newErrors["password"] = "Kata sandi minimal 6 karakter"
+                            }
+                        } else if (password.isNotBlank() && password.length < 6) {
                             newErrors["password"] = "Kata sandi minimal 6 karakter"
                         }
 
@@ -326,8 +387,74 @@ fun TambahPenggunaScreen(
                         }
 
                         isSubmitting = true
-                        // Mock submit - no Firebase
                         errors = emptyMap()
+
+                        coroutineScope.launch {
+                            if (isEditMode && existingUser != null) {
+                                val roleVal = selectedRole ?: existingUser.resolvedRole
+                                val updatedUser = existingUser.copy(
+                                    name = fullName.trim(),
+                                    fullName = fullName.trim(),
+                                    email = email.trim(),
+                                    address = address.trim(),
+                                    role = roleVal,
+                                    roleId = roleVal,
+                                    photoUrl = photoUri?.toString() ?: existingUser.photoUrl
+                                )
+                                userViewModel.updateUser(updatedUser) { success, errorMsg ->
+                                    isSubmitting = false
+                                    if (success) {
+                                        onSubmitSuccess()
+                                    } else {
+                                        errors = mapOf("submit" to (errorMsg ?: "Gagal memperbarui pengguna"))
+                                    }
+                                }
+                            } else {
+                                try {
+                                    val appOptions = FirebaseApp.getInstance().options
+                                    val secondaryApp = try {
+                                        FirebaseApp.getInstance("SecondaryAuthApp")
+                                    } catch (e: Exception) {
+                                        FirebaseApp.initializeApp(context, appOptions, "SecondaryAuthApp")
+                                    }
+                                    val secondaryAuth = FirebaseAuth.getInstance(secondaryApp)
+                                    val authResult = secondaryAuth.createUserWithEmailAndPassword(email.trim(), password).await()
+                                    val newUid = authResult.user?.uid ?: UUID.randomUUID().toString()
+                                    secondaryAuth.signOut()
+
+                                    val roleVal = selectedRole ?: "Staff"
+                                    val newUser = FirestoreUser(
+                                        uid = newUid,
+                                        name = fullName.trim(),
+                                        fullName = fullName.trim(),
+                                        email = email.trim(),
+                                        role = roleVal,
+                                        roleId = roleVal,
+                                        address = address.trim(),
+                                        photoUrl = photoUri?.toString(),
+                                        isActive = true,
+                                        createdAt = java.util.Date()
+                                    )
+
+                                    userViewModel.createUser(newUser) { success, errorMsg ->
+                                        isSubmitting = false
+                                        if (success) {
+                                            onSubmitSuccess()
+                                        } else {
+                                            errors = mapOf("submit" to (errorMsg ?: "Gagal menyimpan data pengguna ke Firestore"))
+                                        }
+                                    }
+                                } catch (e: Exception) {
+                                    isSubmitting = false
+                                    val errorMsg = when {
+                                        e.message?.contains("already in use", ignoreCase = true) == true -> "Email sudah digunakan oleh akun lain"
+                                        e.message?.contains("weak password", ignoreCase = true) == true -> "Kata sandi terlalu lemah (minimal 6 karakter)"
+                                        else -> e.localizedMessage ?: "Gagal mendaftarkan akun di Firebase Auth"
+                                    }
+                                    errors = mapOf("submit" to errorMsg)
+                                }
+                            }
+                        }
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -350,7 +477,7 @@ fun TambahPenggunaScreen(
                         Spacer(modifier = Modifier.width(8.dp))
                     }
                     Text(
-                        text = "Tambah Pengguna",
+                        text = if (isEditMode) "Simpan Perubahan" else "Tambah Pengguna",
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -368,12 +495,13 @@ fun TambahPenggunaScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddUserTopBar(
+    title: String = "Tambah Pengguna",
     onBackClick: () -> Unit
 ) {
     TopAppBar(
         title = {
             Text(
-                text = "Tambah Pengguna",
+                text = title,
                 style = MaterialTheme.typography.titleLarge.copy(
                     fontWeight = FontWeight.SemiBold
                 ),
@@ -586,6 +714,7 @@ private fun FormTextField(
 @Composable
 private fun RoleDropdown(
     selectedRole: String?,
+    roles: List<String> = defaultRoles,
     onRoleSelected: (String) -> Unit,
     isExpanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
