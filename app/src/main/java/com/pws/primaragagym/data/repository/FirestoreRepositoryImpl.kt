@@ -165,6 +165,9 @@ class PaymentRepositoryImpl : PaymentRepository {
 class BranchRepositoryImpl : BranchRepository {
     private val dataSource = FirebaseBranchDataSource()
 
+    override fun observeBranches(isActive: Boolean?): Flow<List<FirestoreBranch>> =
+        dataSource.observeBranches(isActive)
+
     override suspend fun getBranches(isActive: Boolean?): Result<List<FirestoreBranch>> =
         dataSource.getBranches(isActive)
 

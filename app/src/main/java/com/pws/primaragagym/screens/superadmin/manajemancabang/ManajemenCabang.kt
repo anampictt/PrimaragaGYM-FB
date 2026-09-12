@@ -28,8 +28,10 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -37,9 +39,13 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -50,6 +56,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -57,6 +64,10 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.pws.primaragagym.ui.viewmodel.BranchListViewModel
 
 // ============================================================================
 // COLORS - Match ManajemenPengguna & ManajemenRole visual style exactly
@@ -80,42 +91,12 @@ data class BranchUiModel(
 )
 
 // ============================================================================
-// MOCK DATA
-// ============================================================================
-private val mockBranches = listOf(
-    BranchUiModel(
-        id = "1",
-        name = "Primaraga Gym Jakarta",
-        address = "Jl. Jenderal Sudirman No. 123, Jakarta"
-    ),
-    BranchUiModel(
-        id = "2",
-        name = "Primaraga Gym Bekasi",
-        address = "Jl. Ahmad Yani No. 45, Bekasi"
-    ),
-    BranchUiModel(
-        id = "3",
-        name = "Primaraga Gym Tangerang",
-        address = "Jl. MH Thamrin No. 78, Tangerang"
-    ),
-    BranchUiModel(
-        id = "4",
-        name = "Primaraga Gym Bandung",
-        address = "Jl. Asia Afrika No. 25, Bandung"
-    ),
-    BranchUiModel(
-        id = "5",
-        name = "Primaraga Gym Surabaya",
-        address = "Jl. Basuki Rahmat No. 88, Surabaya"
-    )
-)
-
-// ============================================================================
 // MAIN SCREEN
 // ============================================================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ManajemenCabangScreen(
+    viewModel: BranchListViewModel = viewModel(),
     onBackClick: () -> Unit = {},
     onAddBranchClick: () -> Unit = {},
     onEditBranch: (BranchUiModel) -> Unit = {},
@@ -125,16 +106,45 @@ fun ManajemenCabangScreen(
     val screenWidthDp = configuration.screenWidthDp
     val isTablet = screenWidthDp >= 600
 
+    val branchState by viewModel.uiState.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
+    var branchToDelete by remember { mutableStateOf<BranchUiModel?>(null) }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.loadBranches()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.loadBranches()
+    }
+
+    val uiBranches = remember(branchState.branches) {
+        branchState.branches.map {
+            BranchUiModel(
+                id = it.branchId,
+                name = it.name,
+                address = it.address
+            )
+        }
+    }
 
     // Filter branches based on search query
-    val filteredBranches = remember(searchQuery) {
+    val filteredBranches = remember(searchQuery, uiBranches) {
         if (searchQuery.isBlank()) {
-            mockBranches
+            uiBranches
         } else {
-            mockBranches.filter { branch ->
+            uiBranches.filter { branch ->
                 branch.name.contains(searchQuery, ignoreCase = true) ||
-                        branch.address.contains(searchQuery, ignoreCase = true)
+                branch.address.contains(searchQuery, ignoreCase = true)
             }
         }
     }
@@ -144,6 +154,33 @@ fun ManajemenCabangScreen(
         24.dp
     } else {
         14.dp
+    }
+
+    if (branchToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { branchToDelete = null },
+            title = { Text("Hapus Cabang", fontWeight = FontWeight.Bold) },
+            text = { Text("Apakah Anda yakin ingin menghapus cabang \"${branchToDelete?.name}\"?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val target = branchToDelete
+                        branchToDelete = null
+                        if (target != null) {
+                            viewModel.deleteBranch(target.id)
+                            onDeleteBranch(target)
+                        }
+                    }
+                ) {
+                    Text("Hapus", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { branchToDelete = null }) {
+                    Text("Batal")
+                }
+            }
+        )
     }
 
     Scaffold(
@@ -184,8 +221,20 @@ fun ManajemenCabangScreen(
                     )
             )
 
-            // Branch List
-            if (filteredBranches.isEmpty()) {
+            // Loading state
+            if (branchState.isLoading && uiBranches.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        color = GreenAccent,
+                        modifier = Modifier.size(36.dp)
+                    )
+                }
+            } else if (filteredBranches.isEmpty()) {
                 // Empty State
                 BranchEmptyState(
                     modifier = Modifier
@@ -210,7 +259,7 @@ fun ManajemenCabangScreen(
                         BranchCard(
                             branch = branch,
                             onEditClick = { onEditBranch(branch) },
-                            onDeleteClick = { onDeleteBranch(branch) }
+                            onDeleteClick = { branchToDelete = branch }
                         )
                     }
                 }

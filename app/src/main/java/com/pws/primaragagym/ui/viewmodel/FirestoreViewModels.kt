@@ -487,18 +487,60 @@ class BranchListViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(BranchListUiState())
     val uiState: StateFlow<BranchListUiState> = _uiState.asStateFlow()
 
+    init {
+        observeBranches()
+    }
+
+    fun observeBranches() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            branchRepository.observeBranches(isActive = null)
+                .catch { e ->
+                    _uiState.update { it.copy(isLoading = false, error = e.message) }
+                }
+                .collect { branches ->
+                    _uiState.update { state ->
+                        val filtered = if (state.searchQuery.isBlank()) {
+                            branches
+                        } else {
+                            branches.filter {
+                                it.name.contains(state.searchQuery, ignoreCase = true) ||
+                                it.address.contains(state.searchQuery, ignoreCase = true)
+                            }
+                        }
+                        state.copy(
+                            isLoading = false,
+                            branches = branches,
+                            filteredBranches = filtered,
+                            error = null
+                        )
+                    }
+                }
+        }
+    }
+
     fun loadBranches() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
 
             try {
-                branchRepository.getBranches()
+                branchRepository.getBranches(isActive = null)
                     .onSuccess { branches ->
-                        _uiState.update { it.copy(
-                            isLoading = false,
-                            branches = branches,
-                            filteredBranches = branches
-                        )}
+                        _uiState.update { state ->
+                            val filtered = if (state.searchQuery.isBlank()) {
+                                branches
+                            } else {
+                                branches.filter {
+                                    it.name.contains(state.searchQuery, ignoreCase = true) ||
+                                    it.address.contains(state.searchQuery, ignoreCase = true)
+                                }
+                            }
+                            state.copy(
+                                isLoading = false,
+                                branches = branches,
+                                filteredBranches = filtered
+                            )
+                        }
                     }
                     .onFailure { e ->
                         _uiState.update { it.copy(isLoading = false, error = e.message) }
@@ -523,30 +565,52 @@ class BranchListViewModel : ViewModel() {
         }
     }
 
-    fun createBranch(branch: FirestoreBranch) {
+    suspend fun getBranchById(branchId: String): Result<FirestoreBranch> {
+        return branchRepository.getBranchById(branchId)
+    }
+
+    fun createBranch(branch: FirestoreBranch, onComplete: ((Boolean, String?) -> Unit)? = null) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             branchRepository.createBranch(branch)
-                .onSuccess { loadBranches() }
-                .onFailure { e -> _uiState.update { it.copy(isLoading = false, error = e.message) } }
+                .onSuccess {
+                    loadBranches()
+                    onComplete?.invoke(true, null)
+                }
+                .onFailure { e ->
+                    _uiState.update { it.copy(isLoading = false, error = e.message) }
+                    onComplete?.invoke(false, e.message)
+                }
         }
     }
 
-    fun updateBranch(branch: FirestoreBranch) {
+    fun updateBranch(branch: FirestoreBranch, onComplete: ((Boolean, String?) -> Unit)? = null) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             branchRepository.updateBranch(branch)
-                .onSuccess { loadBranches() }
-                .onFailure { e -> _uiState.update { it.copy(isLoading = false, error = e.message) } }
+                .onSuccess {
+                    loadBranches()
+                    onComplete?.invoke(true, null)
+                }
+                .onFailure { e ->
+                    _uiState.update { it.copy(isLoading = false, error = e.message) }
+                    onComplete?.invoke(false, e.message)
+                }
         }
     }
 
-    fun deleteBranch(branchId: String) {
+    fun deleteBranch(branchId: String, onComplete: ((Boolean, String?) -> Unit)? = null) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             branchRepository.deleteBranch(branchId)
-                .onSuccess { loadBranches() }
-                .onFailure { e -> _uiState.update { it.copy(isLoading = false, error = e.message) } }
+                .onSuccess {
+                    loadBranches()
+                    onComplete?.invoke(true, null)
+                }
+                .onFailure { e ->
+                    _uiState.update { it.copy(isLoading = false, error = e.message) }
+                    onComplete?.invoke(false, e.message)
+                }
         }
     }
 }

@@ -311,14 +311,27 @@ private fun SuperAdminNestedNavHost(
         composable(AppScreen.ManajemenCabang.route) {
             ManajemenCabangScreen(
                 onBackClick = { safePopBack() },
-                onAddBranchClick = { navController.navigate(AppScreen.TambahCabang.route) },
-                onEditBranch = { },
+                onAddBranchClick = { navController.navigate(AppScreen.TambahCabang.createRoute()) },
+                onEditBranch = { branch ->
+                    navController.navigate(AppScreen.TambahCabang.createRoute(branch.id))
+                },
                 onDeleteBranch = { }
             )
         }
 
-        composable(AppScreen.TambahCabang.route) {
+        composable(
+            route = "superadmin/manajemen-cabang/tambah?branchId={branchId}",
+            arguments = listOf(
+                navArgument("branchId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) { backStackEntry ->
+            val branchId = backStackEntry.arguments?.getString("branchId")
             TambahCabangScreen(
+                branchId = branchId,
                 onBackClick = { safePopBack() },
                 onSubmitSuccess = { safePopBack() }
             )

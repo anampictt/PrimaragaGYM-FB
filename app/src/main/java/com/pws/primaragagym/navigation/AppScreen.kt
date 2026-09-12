@@ -94,7 +94,10 @@ sealed class AppScreen(
         title = R.string.tambah_cabang,
         icon = R.drawable.ic_launcher_background,
         route = "superadmin/manajemen-cabang/tambah"
-    )
+    ) {
+        fun createRoute(branchId: String? = null): String =
+            if (branchId != null) "superadmin/manajemen-cabang/tambah?branchId=$branchId" else "superadmin/manajemen-cabang/tambah"
+    }
 
     // ==================== ADMIN ====================
     data object AdminDashboard : AppScreen(

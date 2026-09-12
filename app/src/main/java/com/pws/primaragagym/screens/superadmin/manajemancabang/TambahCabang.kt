@@ -34,6 +34,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -51,6 +53,9 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.pws.primaragagym.domain.model.FirestoreBranch
+import com.pws.primaragagym.ui.viewmodel.BranchListViewModel
 
 // ============================================================================
 // COLORS - Match existing management screens
@@ -86,6 +91,8 @@ data class AddBranchUiState(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TambahCabangScreen(
+    branchId: String? = null,
+    viewModel: BranchListViewModel = viewModel(),
     onBackClick: () -> Unit = {},
     onSubmitSuccess: () -> Unit = {}
 ) {
@@ -93,17 +100,42 @@ fun TambahCabangScreen(
     val screenWidthDp = configuration.screenWidthDp
     val isTablet = screenWidthDp >= 600
 
+    val branchState by viewModel.uiState.collectAsState()
+
     var name by remember { mutableStateOf("") }
     var address by remember { mutableStateOf("") }
+    var existingBranch by remember { mutableStateOf<FirestoreBranch?>(null) }
     var isSubmitting by remember { mutableStateOf(false) }
     var errors by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var generalError by remember { mutableStateOf<String?>(null) }
     var isNameFocused by remember { mutableStateOf(false) }
     var isAddressFocused by remember { mutableStateOf(false) }
+
+    val isEditMode = !branchId.isNullOrBlank()
+
+    LaunchedEffect(branchId, branchState.branches) {
+        if (isEditMode && branchId != null) {
+            val cached = branchState.branches.find { it.branchId == branchId || it.id == branchId }
+            if (cached != null) {
+                existingBranch = cached
+                name = cached.name
+                address = cached.address
+            }
+            val freshResult = viewModel.getBranchById(branchId)
+            val fresh = freshResult.getOrNull()
+            if (fresh != null) {
+                existingBranch = fresh
+                name = fresh.name
+                address = fresh.address
+            }
+        }
+    }
 
     Scaffold(
         containerColor = BackgroundColor,
         topBar = {
             AddBranchTopBar(
+                isEditMode = isEditMode,
                 onBackClick = onBackClick
             )
         }
@@ -125,12 +157,23 @@ fun TambahCabangScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
+                // General Error Message
+                if (generalError != null) {
+                    Text(
+                        text = generalError ?: "",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                }
+
                 // Branch Name Field
                 FormTextField(
                     value = name,
                     onValueChange = {
                         name = it
                         errors = errors - "name"
+                        generalError = null
                     },
                     label = "Nama Cabang",
                     placeholder = "Masukkan nama cabang",
@@ -156,6 +199,7 @@ fun TambahCabangScreen(
                     onValueChange = {
                         address = it
                         errors = errors - "address"
+                        generalError = null
                     },
                     label = "Alamat",
                     placeholder = "Masukkan alamat cabang",
@@ -196,8 +240,39 @@ fun TambahCabangScreen(
                         }
 
                         isSubmitting = true
-                        // Mock submit - no Firebase
                         errors = emptyMap()
+                        generalError = null
+
+                        if (isEditMode) {
+                            val targetId = branchId ?: existingBranch?.branchId ?: ""
+                            val updatedBranch = (existingBranch ?: FirestoreBranch(branchId = targetId)).copy(
+                                branchId = targetId,
+                                name = name.trim(),
+                                address = address.trim()
+                            )
+                            viewModel.updateBranch(updatedBranch) { success, errMsg ->
+                                isSubmitting = false
+                                if (success) {
+                                    onSubmitSuccess()
+                                } else {
+                                    generalError = errMsg ?: "Gagal memperbarui data cabang"
+                                }
+                            }
+                        } else {
+                            val newBranch = FirestoreBranch(
+                                name = name.trim(),
+                                address = address.trim(),
+                                isActive = true
+                            )
+                            viewModel.createBranch(newBranch) { success, errMsg ->
+                                isSubmitting = false
+                                if (success) {
+                                    onSubmitSuccess()
+                                } else {
+                                    generalError = errMsg ?: "Gagal membuat cabang baru"
+                                }
+                            }
+                        }
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -220,7 +295,7 @@ fun TambahCabangScreen(
                         Spacer(modifier = Modifier.width(8.dp))
                     }
                     Text(
-                        text = "Tambah Cabang",
+                        text = if (isEditMode) "Simpan Perubahan" else "Tambah Cabang",
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -238,12 +313,13 @@ fun TambahCabangScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddBranchTopBar(
+    isEditMode: Boolean = false,
     onBackClick: () -> Unit
 ) {
     TopAppBar(
         title = {
             Text(
-                text = "Tambah Cabang",
+                text = if (isEditMode) "Edit Cabang" else "Tambah Cabang",
                 style = MaterialTheme.typography.titleLarge.copy(
                     fontWeight = FontWeight.SemiBold
                 ),

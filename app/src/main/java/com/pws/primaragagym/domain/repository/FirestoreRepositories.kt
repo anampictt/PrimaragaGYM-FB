@@ -84,6 +84,7 @@ interface PaymentRepository {
 }
 
 interface BranchRepository {
+    fun observeBranches(isActive: Boolean? = null): Flow<List<FirestoreBranch>>
     suspend fun getBranches(isActive: Boolean? = true): Result<List<FirestoreBranch>>
     suspend fun getBranchById(branchId: String): Result<FirestoreBranch>
     suspend fun createBranch(branch: FirestoreBranch): Result<String>

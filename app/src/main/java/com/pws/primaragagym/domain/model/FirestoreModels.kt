@@ -65,7 +65,9 @@ data class FirestoreBranch(
     val createdAt: Date? = null,
     @ServerTimestamp
     val updatedAt: Date? = null
-)
+) {
+    val id: String get() = branchId
+}
 
 data class FirestoreMember(
     @DocumentId
