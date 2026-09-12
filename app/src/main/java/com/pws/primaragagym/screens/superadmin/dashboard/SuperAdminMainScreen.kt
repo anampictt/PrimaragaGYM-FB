@@ -60,6 +60,7 @@ fun SuperAdminMainScreen(
 
     // Map current route to BottomNavItem
     val selectedBottomNav = when {
+        currentRoute.startsWith(AppScreen.LaporanKeuangan.route) || currentRoute.startsWith(AppScreen.LaporanPemasukan.route) -> if (!isTablet) BottomNavItem.DASHBOARD else null
         currentRoute.startsWith(AppScreen.Keuangan.route) || currentRoute.startsWith("admin/keuangan") -> BottomNavItem.KEUANGAN
         currentRoute == AppScreen.Profil.route -> BottomNavItem.PENGATURAN_AKUN
         currentRoute == AppScreen.SuperAdminDashboard.route -> BottomNavItem.DASHBOARD
@@ -73,6 +74,7 @@ fun SuperAdminMainScreen(
         currentRoute.startsWith("superadmin/manajemen-cabang") -> "manajemen_cabang"
         currentRoute.startsWith(AppScreen.Member.route) -> "manajemen_member"
         currentRoute.startsWith(AppScreen.CheckInCheckout.route) -> "check_in_out"
+        currentRoute.startsWith(AppScreen.Keuangan.route) && !currentRoute.startsWith(AppScreen.LaporanPemasukan.route) -> "keuangan"
         currentRoute.startsWith(AppScreen.Notifikasi.route) -> "notifikasi"
         currentRoute.startsWith(AppScreen.LaporanKeuangan.route) || currentRoute.startsWith(AppScreen.LaporanPemasukan.route) -> "laporan"
         else -> null
@@ -84,8 +86,9 @@ fun SuperAdminMainScreen(
         "manajemen_cabang" -> 2
         "manajemen_member" -> 3
         "check_in_out" -> 4
-        "notifikasi" -> 5
-        "laporan" -> 6
+        "keuangan" -> 5
+        "notifikasi" -> 6
+        "laporan" -> 7
         else -> null
     }
 

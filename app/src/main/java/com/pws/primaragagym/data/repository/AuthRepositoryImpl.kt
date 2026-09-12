@@ -88,7 +88,8 @@ class AuthRepositoryImpl : AuthRepository {
                     photoUrl = firestoreUser.photoUrl ?: initialUser.photoUrl,
                     address = firestoreUser.address,
                     phone = firestoreUser.phone,
-                    lastLogin = firestoreUser.lastLogin
+                    lastLogin = firestoreUser.lastLogin,
+                    roleTitle = firestoreUser.roleTitle
                 )
             } else {
                 initialUser

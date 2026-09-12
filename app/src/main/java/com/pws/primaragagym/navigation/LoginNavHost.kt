@@ -65,10 +65,7 @@ fun LoginNavHost(
             when (event) {
                 is LoginEvent.LoginSuccess -> {
                     authViewModel.setUser(event.user)
-                    val destination = when (event.user.role.name) {
-                        "SUPER_ADMIN" -> AppScreen.SuperAdminRoot.route
-                        else -> AppScreen.AdminDashboard.route
-                    }
+                    val destination = AppScreen.SuperAdminRoot.route
                     showLoginSuccess = true
                     pendingDestination = destination
                 }

@@ -36,17 +36,21 @@ class FirebaseUserDataSource {
                     ?: ""
                 val lastLogin = (data["lastLogin"] ?: data["lastLoginAt"])?.toString() ?: ""
 
+                val parsedRole = UserRole.fromString(roleStr)
+                val resolvedRoleTitle = roleStr.ifBlank { parsedRole.displayName }
+
                 Result.success(
                     User(
                         id = uid,
                         email = email,
                         name = name,
-                        role = UserRole.fromString(roleStr),
+                        role = parsedRole,
                         branchId = branchId,
                         photoUrl = photoUrl,
                         address = address,
                         phone = phone,
-                        lastLogin = lastLogin
+                        lastLogin = lastLogin,
+                        roleTitle = resolvedRoleTitle
                     )
                 )
             } else {

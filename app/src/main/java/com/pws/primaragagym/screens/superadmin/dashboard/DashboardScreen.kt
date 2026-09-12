@@ -93,6 +93,7 @@ private data class DashboardData(
     val summaryDate: String,
     val totalPengguna: Int,
     val totalCabang: Int,
+    val totalMember: Int = 0,
     val pendapatan: String,
     val systemStatus: String,
     val lastLogin: String
@@ -174,7 +175,7 @@ enum class BottomNavItem(
 ) {
     DASHBOARD("Dashboard", Icons.Filled.Home),
     KEUANGAN("Keuangan", Icons.Filled.TrendingUp),
-    PENGATURAN_AKUN("Pengaturan Akun", Icons.Filled.Person)
+    PENGATURAN_AKUN("Profil", Icons.Filled.Person)
 }
 
 // ============================================================================
@@ -204,16 +205,22 @@ fun SuperAdminDashboardContent(
         viewModel.loadDashboard()
     }
 
+    val displayName = authState.currentUser?.name?.ifBlank { null }
+        ?: authState.currentUser?.roleTitle?.ifBlank { null }
+        ?: authState.currentUser?.role?.displayName
+        ?: "Pengguna"
+
     val data = DashboardData(
         greeting = "Selamat datang kembali,",
-        title = authState.currentUser?.name ?: "Super Admin",
+        title = displayName,
         subtitle = "Kelola gym Anda dengan mudah dan efisien.",
         summaryDate = LocalDate.now().format(DateTimeFormatter.ofPattern("d MMM yyyy")),
         totalPengguna = uiState.totalUsers,
         totalCabang = uiState.totalBranches,
+        totalMember = uiState.totalMembers,
         pendapatan = "Rp 0",
         systemStatus = "Sistem aman dan terproteksi",
-        lastLogin = authState.currentUser?.lastLogin ?: "Belum pernah login"
+        lastLogin = authState.currentUser?.lastLogin?.ifBlank { null } ?: "Baru saja"
     )
 
     LazyColumn(
@@ -237,7 +244,7 @@ fun SuperAdminDashboardContent(
                     .padding(horizontal = if (isTablet) 0.dp else 24.dp)
                     .padding(top = 24.dp)
             ) {
-                SummaryCard(data = data, isTablet = isTablet)
+                SummaryCard(data = data, authViewModel = authViewModel, isTablet = isTablet)
                 Spacer(modifier = Modifier.height(24.dp))
                 if (!isTablet) {
                     val allowedMenuItems = remember(authState.permissions, authState.currentUser) {
@@ -362,6 +369,7 @@ private fun DashboardHeader(
 @Composable
 private fun SummaryCard(
     data: DashboardData,
+    authViewModel: AuthViewModel,
     isTablet: Boolean = false
 ) {
     Card(
@@ -406,28 +414,37 @@ private fun SummaryCard(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Statistics Row
+            // Dynamic Statistics Row based on permissions
+            data class StatEntry(val value: String, val label: String, val icon: ImageVector)
+            val statList = buildList {
+                if (authViewModel.hasPermission("manajemen_pengguna")) {
+                    add(StatEntry("${data.totalPengguna}", "Total Pengguna", Icons.Filled.Group))
+                }
+                if (authViewModel.hasPermission("manajemen_cabang")) {
+                    add(StatEntry("${data.totalCabang}", "Total Cabang", Icons.Filled.Business))
+                }
+                if (authViewModel.hasPermission("manajemen_member")) {
+                    add(StatEntry("${data.totalMember}", "Total Member", Icons.Filled.Person))
+                }
+                if (authViewModel.hasPermission("laporan")) {
+                    add(StatEntry(data.pendapatan, "Pendapatan", Icons.Filled.Payments))
+                }
+                if (isEmpty()) {
+                    add(StatEntry("Aktif", "Status Sistem", Icons.Filled.Security))
+                }
+            }.take(3)
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                StatisticItem(
-                    value = "${data.totalPengguna}",
-                    label = "Total Pengguna",
-                    icon = Icons.Filled.Group
-                )
-
-                StatisticItem(
-                    value = "${data.totalCabang}",
-                    label = "Total Cabang",
-                    icon = Icons.Filled.Business
-                )
-
-                StatisticItem(
-                    value = data.pendapatan,
-                    label = "Pendapatan",
-                    icon = Icons.Filled.Payments
-                )
+                statList.forEach { stat ->
+                    StatisticItem(
+                        value = stat.value,
+                        label = stat.label,
+                        icon = stat.icon
+                    )
+                }
             }
         }
     }

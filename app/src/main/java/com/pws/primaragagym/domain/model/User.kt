@@ -9,5 +9,6 @@ data class User(
     val photoUrl: String? = null,
     val address: String = "",
     val phone: String = "",
-    val lastLogin: String = ""
+    val lastLogin: String = "",
+    val roleTitle: String = role.displayName
 )

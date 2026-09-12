@@ -27,7 +27,6 @@ import com.pws.primaragagym.navigation.AppScreen
 import com.pws.primaragagym.screens.ProfileScreen
 import com.pws.primaragagym.screens.SplashScreen
 import com.pws.primaragagym.navigation.LoginNavHost
-import com.pws.primaragagym.screens.admin.dashboard.AdminDashboardScreen
 import com.pws.primaragagym.screens.admin.member.DetailMemberScreen
 import com.pws.primaragagym.screens.admin.member.MemberManagementScreen
 import com.pws.primaragagym.screens.admin.member.MemberScreen
@@ -116,39 +115,11 @@ fun AppNavHost(
             )
         }
 
-        // ==================== ADMIN ====================
+        // ==================== ADMIN (Unified Dashboard) ====================
         composable(AppScreen.AdminDashboard.route) {
-            AdminDashboardScreen(
-                onMemberClick = {
-                    navController.navigate(AppScreen.Member.route) {
-                        launchSingleTop = true
-                    }
-                },
-                onCheckInOutClick = {
-                    navController.navigate(AppScreen.CheckInCheckout.route) {
-                        launchSingleTop = true
-                    }
-                },
-                onFinanceClick = {
-                    navController.navigate(AppScreen.Keuangan.route) {
-                        launchSingleTop = true
-                    }
-                },
-                onNotificationClick = {
-                    navController.navigate(AppScreen.Notifikasi.route) {
-                        launchSingleTop = true
-                    }
-                },
-                onReportClick = {
-                    navController.navigate(AppScreen.LaporanPemasukan.route) {
-                        launchSingleTop = true
-                    }
-                },
-                onProfileClick = {
-                    navController.navigate(AppScreen.Profil.route) {
-                        launchSingleTop = true
-                    }
-                }
+            com.pws.primaragagym.screens.superadmin.dashboard.SuperAdminMainScreen(
+                rootNavController = navController,
+                authViewModel = authViewModel
             )
         }
         sharedAdminRoutes(navController, authViewModel, navController)

@@ -55,7 +55,10 @@ class AuthViewModel(
     }
 
     private suspend fun loadPermissionsForUser(user: User) {
-        val isSuperAdmin = user.role.name.equals("SUPER_ADMIN", ignoreCase = true)
+        val roleIdentifier = user.roleTitle.ifBlank { user.role.displayName }
+        val isSuperAdmin = user.role.name.equals("SUPER_ADMIN", ignoreCase = true) ||
+                roleIdentifier.equals("Super Admin", ignoreCase = true) ||
+                roleIdentifier.equals("SUPER_ADMIN", ignoreCase = true)
         if (isSuperAdmin) {
             val allPerms = mapOf(
                 "dashboard" to true,
@@ -75,7 +78,7 @@ class AuthViewModel(
             )
         } else {
             // Load permissions from Firestore roles collection
-            val roleResult = ServiceLocator.roleRepository.getRoleByName(user.role.displayName)
+            val roleResult = ServiceLocator.roleRepository.getRoleByName(roleIdentifier)
             val perms = roleResult.getOrNull()?.permissions ?: mapOf(
                 "dashboard" to true,
                 "manajemen_pengguna" to false,
@@ -97,8 +100,11 @@ class AuthViewModel(
 
     fun hasPermission(permissionKey: String): Boolean {
         val user = _uiState.value.currentUser ?: return false
+        val roleIdentifier = user.roleTitle.ifBlank { user.role.displayName }
         val roleName = user.role.name.replace(" ", "_")
-        if (roleName.equals("SUPER_ADMIN", ignoreCase = true) || user.role.displayName.equals("Super Admin", ignoreCase = true)) {
+        if (roleName.equals("SUPER_ADMIN", ignoreCase = true) ||
+            roleIdentifier.equals("Super Admin", ignoreCase = true) ||
+            roleIdentifier.equals("SUPER_ADMIN", ignoreCase = true)) {
             return true
         }
         val perms = _uiState.value.permissions
