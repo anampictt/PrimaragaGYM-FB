@@ -22,8 +22,7 @@ import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.FitnessCenter
-import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
@@ -77,7 +76,7 @@ private val GreenAccent = Color(0xFF32A060)
 private val GreenLight = Color(0xFFE8F5E9)
 
 // ============================================================================
-// ACCESS MENU MODEL
+// ACCESS MENU MODEL - Sesuai menu nyata aplikasi (8 menu)
 // ============================================================================
 data class RoleAccessMenuItem(
     val id: String,
@@ -88,17 +87,13 @@ data class RoleAccessMenuItem(
 
 private fun getInitialRoleAccessMenus(): List<RoleAccessMenuItem> = listOf(
     RoleAccessMenuItem("dashboard", "Dashboard", Icons.Filled.Dashboard, false),
-    RoleAccessMenuItem("manajemen_pengguna", "Manajemen Pengguna", Icons.Filled.Group, false),
-    RoleAccessMenuItem("manajemen_role", "Manajemen Role", Icons.Filled.AdminPanelSettings, false),
+    RoleAccessMenuItem("manajemen_pengguna", "Manajemen Pengguna", Icons.Filled.Person, false),
+    RoleAccessMenuItem("manajemen_role", "Manajemen Role", Icons.Filled.Security, false),
     RoleAccessMenuItem("manajemen_cabang", "Manajemen Cabang", Icons.Filled.Home, false),
-    RoleAccessMenuItem("manajemen_member", "Member", Icons.Filled.Person, false),
-    RoleAccessMenuItem("membership", "Membership", Icons.Filled.FitnessCenter, false),
-    RoleAccessMenuItem("check_in", "Check In", Icons.Filled.QrCodeScanner, false),
-    RoleAccessMenuItem("check_out", "Check Out", Icons.AutoMirrored.Filled.Logout, false),
-    RoleAccessMenuItem("keuangan", "Catatan Keuangan", Icons.Filled.AccountBalanceWallet, false),
+    RoleAccessMenuItem("manajemen_member", "Member", Icons.Filled.Groups, false),
+    RoleAccessMenuItem("check_in_out", "Check In & Check Out", Icons.Filled.QrCodeScanner, false),
     RoleAccessMenuItem("notifikasi", "Notifikasi", Icons.Filled.Notifications, false),
-    RoleAccessMenuItem("laporan", "Laporan Keuangan", Icons.Filled.Description, false),
-    RoleAccessMenuItem("pengaturan", "Pengaturan Akun", Icons.Filled.AdminPanelSettings, false)
+    RoleAccessMenuItem("laporan", "Laporan Keuangan", Icons.Filled.Description, false)
 )
 
 // ============================================================================
@@ -131,7 +126,12 @@ fun HakAksesScreen(
             if (cachedRole != null) {
                 currentRole = cachedRole
                 accessMenus = getInitialRoleAccessMenus().map { menu ->
-                    val isEnabled = cachedRole.permissions[menu.id] == true
+                    val isEnabled = when (menu.id) {
+                        "check_in_out" -> cachedRole.permissions["check_in_out"] == true ||
+                                cachedRole.permissions["check_in"] == true ||
+                                cachedRole.permissions["check_out"] == true
+                        else -> cachedRole.permissions[menu.id] == true
+                    }
                     menu.copy(enabled = isEnabled)
                 }
                 isLoading = false
@@ -142,7 +142,12 @@ fun HakAksesScreen(
             result.onSuccess { role ->
                 currentRole = role
                 accessMenus = getInitialRoleAccessMenus().map { menu ->
-                    val isEnabled = role.permissions[menu.id] == true
+                    val isEnabled = when (menu.id) {
+                        "check_in_out" -> role.permissions["check_in_out"] == true ||
+                                role.permissions["check_in"] == true ||
+                                role.permissions["check_out"] == true
+                        else -> role.permissions[menu.id] == true
+                    }
                     menu.copy(enabled = isEnabled)
                 }
                 isLoading = false
@@ -318,7 +323,12 @@ fun HakAksesScreen(
                         isSubmitting = true
                         errorMessage = null
 
-                        val permissionsMap = accessMenus.associate { it.id to it.enabled }
+                        val permissionsMap = accessMenus.associate { it.id to it.enabled }.toMutableMap()
+                        if (permissionsMap.containsKey("check_in_out")) {
+                            val checkVal = permissionsMap["check_in_out"] ?: false
+                            permissionsMap["check_in"] = checkVal
+                            permissionsMap["check_out"] = checkVal
+                        }
                         viewModel.updateRolePermissions(roleId, permissionsMap) { success, errorMsg ->
                             isSubmitting = false
                             if (success) {

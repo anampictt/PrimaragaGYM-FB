@@ -152,12 +152,6 @@ val allMenuItems = listOf(
         icon = Icons.Filled.QrCodeScanner
     ),
     MenuItem(
-        id = "keuangan",
-        title = "Catatan Keuangan",
-        description = "Catat dan kelola transaksi\nkeuangan gym.",
-        icon = Icons.Filled.AccountBalanceWallet
-    ),
-    MenuItem(
         id = "notifikasi",
         title = "Notifikasi",
         description = "Lihat informasi dan\npemberitahuan terbaru.",
@@ -523,7 +517,6 @@ private fun MenuUtamaSection(
                 "manajemen_cabang" -> onBranchManagementClick
                 "manajemen_member" -> onMemberClick
                 "check_in_out" -> onCheckInOutClick
-                "keuangan" -> onCatatanKeuanganClick
                 "notifikasi" -> onNotificationClick
                 "laporan" -> onReportClick
                 else -> ({})
@@ -848,7 +841,6 @@ fun TabletSidebar(
                         "manajemen_cabang" -> onBranchManagementClick
                         "manajemen_member" -> onMemberClick
                         "check_in_out" -> onCheckInOutClick
-                        "keuangan" -> onCatatanKeuanganClick
                         "notifikasi" -> onNotificationClick
                         "laporan" -> onReportClick
                         else -> ({})

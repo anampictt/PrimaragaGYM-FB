@@ -64,10 +64,8 @@ class AuthViewModel(
                 "manajemen_cabang" to true,
                 "manajemen_member" to true,
                 "check_in_out" to true,
-                "keuangan" to true,
                 "notifikasi" to true,
-                "laporan" to true,
-                "pengaturan" to true
+                "laporan" to true
             )
             _uiState.value = _uiState.value.copy(
                 currentUser = user,
@@ -85,10 +83,8 @@ class AuthViewModel(
                 "manajemen_cabang" to false,
                 "manajemen_member" to true,
                 "check_in_out" to true,
-                "keuangan" to true,
                 "notifikasi" to true,
-                "laporan" to true,
-                "pengaturan" to true
+                "laporan" to true
             )
             _uiState.value = _uiState.value.copy(
                 currentUser = user,
@@ -108,11 +104,9 @@ class AuthViewModel(
         val perms = _uiState.value.permissions
         if (perms[permissionKey] == true) return true
         return when (permissionKey) {
-            "check_in_out" -> perms["check_in"] == true || perms["check_out"] == true
-            "manajemen_member", "member" -> perms["member"] == true || perms["manajemen_member"] == true || perms["membership"] == true
-            "keuangan", "catatan_keuangan" -> perms["keuangan"] == true || perms["catatan_keuangan"] == true
+            "check_in_out" -> perms["check_in_out"] == true || perms["check_in"] == true || perms["check_out"] == true
+            "manajemen_member", "member" -> perms["manajemen_member"] == true || perms["member"] == true
             "laporan", "laporan_keuangan" -> perms["laporan"] == true || perms["laporan_keuangan"] == true
-            "pengaturan", "pengaturan_akun" -> perms["pengaturan"] == true || perms["pengaturan_akun"] == true
             else -> false
         }
     }

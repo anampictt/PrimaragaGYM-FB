@@ -24,13 +24,12 @@ import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.FitnessCenter
-import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QrCodeScanner
-import androidx.compose.material.icons.filled.AccountBalanceWallet
-import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -115,17 +114,13 @@ data class AddRoleUiState(
 // ============================================================================
 private fun getDefaultAccessMenus(): List<AccessMenuUiModel> = listOf(
     AccessMenuUiModel("dashboard", "Dashboard", Icons.Filled.Dashboard, false),
-    AccessMenuUiModel("manajemen_pengguna", "Manajemen Pengguna", Icons.Filled.Group, false),
-    AccessMenuUiModel("manajemen_role", "Manajemen Role", Icons.Filled.AdminPanelSettings, false),
+    AccessMenuUiModel("manajemen_pengguna", "Manajemen Pengguna", Icons.Filled.Person, false),
+    AccessMenuUiModel("manajemen_role", "Manajemen Role", Icons.Filled.Security, false),
     AccessMenuUiModel("manajemen_cabang", "Manajemen Cabang", Icons.Filled.Home, false),
-    AccessMenuUiModel("manajemen_member", "Member", Icons.Filled.Person, false),
-    AccessMenuUiModel("membership", "Membership", Icons.Filled.FitnessCenter, false),
-    AccessMenuUiModel("check_in", "Check In", Icons.Filled.QrCodeScanner, false),
-    AccessMenuUiModel("check_out", "Check Out", Icons.AutoMirrored.Filled.Logout, false),
-    AccessMenuUiModel("keuangan", "Catatan Keuangan", Icons.Filled.AccountBalanceWallet, false),
+    AccessMenuUiModel("manajemen_member", "Member", Icons.Filled.Groups, false),
+    AccessMenuUiModel("check_in_out", "Check In & Check Out", Icons.Filled.QrCodeScanner, false),
     AccessMenuUiModel("notifikasi", "Notifikasi", Icons.Filled.Notifications, false),
-    AccessMenuUiModel("laporan", "Laporan Keuangan", Icons.Filled.Description, false),
-    AccessMenuUiModel("pengaturan", "Pengaturan Akun", Icons.Filled.AdminPanelSettings, false)
+    AccessMenuUiModel("laporan", "Laporan Keuangan", Icons.Filled.Description, false)
 )
 
 // ============================================================================
@@ -162,7 +157,12 @@ fun TambahRoleScreen(
                 roleName = cachedRole.name
                 roleDescription = cachedRole.description
                 accessMenus = getDefaultAccessMenus().map { menu ->
-                    val isEnabled = cachedRole.permissions[menu.id] == true
+                    val isEnabled = when (menu.id) {
+                        "check_in_out" -> cachedRole.permissions["check_in_out"] == true ||
+                                cachedRole.permissions["check_in"] == true ||
+                                cachedRole.permissions["check_out"] == true
+                        else -> cachedRole.permissions[menu.id] == true
+                    }
                     menu.copy(enabled = isEnabled)
                 }
             }
@@ -173,7 +173,12 @@ fun TambahRoleScreen(
                     roleName = freshRole.name
                     roleDescription = freshRole.description
                     accessMenus = getDefaultAccessMenus().map { menu ->
-                        val isEnabled = freshRole.permissions[menu.id] == true
+                        val isEnabled = when (menu.id) {
+                            "check_in_out" -> freshRole.permissions["check_in_out"] == true ||
+                                    freshRole.permissions["check_in"] == true ||
+                                    freshRole.permissions["check_out"] == true
+                            else -> freshRole.permissions[menu.id] == true
+                        }
                         menu.copy(enabled = isEnabled)
                     }
                 }
@@ -307,7 +312,12 @@ fun TambahRoleScreen(
                         isSubmitting = true
                         errors = emptyMap()
 
-                        val permissionsMap = accessMenus.associate { it.id to it.enabled }
+                        val permissionsMap = accessMenus.associate { it.id to it.enabled }.toMutableMap()
+                        if (permissionsMap.containsKey("check_in_out")) {
+                            val checkVal = permissionsMap["check_in_out"] ?: false
+                            permissionsMap["check_in"] = checkVal
+                            permissionsMap["check_out"] = checkVal
+                        }
                         val roleToSave = FirestoreRole(
                             roleId = roleId ?: "",
                             name = roleName.trim(),

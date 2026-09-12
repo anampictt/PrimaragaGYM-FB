@@ -73,7 +73,6 @@ fun SuperAdminMainScreen(
         currentRoute.startsWith("superadmin/manajemen-cabang") -> "manajemen_cabang"
         currentRoute.startsWith(AppScreen.Member.route) -> "manajemen_member"
         currentRoute.startsWith(AppScreen.CheckInCheckout.route) -> "check_in_out"
-        currentRoute.startsWith(AppScreen.Keuangan.route) || currentRoute.startsWith("admin/keuangan") -> "keuangan"
         currentRoute.startsWith(AppScreen.Notifikasi.route) -> "notifikasi"
         currentRoute.startsWith(AppScreen.LaporanKeuangan.route) || currentRoute.startsWith(AppScreen.LaporanPemasukan.route) -> "laporan"
         else -> null
@@ -85,9 +84,8 @@ fun SuperAdminMainScreen(
         "manajemen_cabang" -> 2
         "manajemen_member" -> 3
         "check_in_out" -> 4
-        "keuangan" -> 5
-        "notifikasi" -> 6
-        "laporan" -> 7
+        "notifikasi" -> 5
+        "laporan" -> 6
         else -> null
     }
 

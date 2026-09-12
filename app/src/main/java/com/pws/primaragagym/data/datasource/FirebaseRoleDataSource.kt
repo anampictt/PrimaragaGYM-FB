@@ -102,13 +102,11 @@ class FirebaseRoleDataSource {
             "manajemen_role" to true,
             "manajemen_cabang" to true,
             "manajemen_member" to true,
-            "membership" to true,
+            "check_in_out" to true,
             "check_in" to true,
             "check_out" to true,
-            "keuangan" to true,
             "notifikasi" to true,
-            "laporan" to true,
-            "pengaturan" to true
+            "laporan" to true
         )
         val adminPermissions = mapOf(
             "dashboard" to true,
@@ -116,13 +114,11 @@ class FirebaseRoleDataSource {
             "manajemen_role" to false,
             "manajemen_cabang" to false,
             "manajemen_member" to true,
-            "membership" to false,
+            "check_in_out" to true,
             "check_in" to true,
             "check_out" to true,
-            "keuangan" to true,
             "notifikasi" to true,
-            "laporan" to true,
-            "pengaturan" to true
+            "laporan" to true
         )
         val staffPermissions = mapOf(
             "dashboard" to true,
@@ -130,13 +126,11 @@ class FirebaseRoleDataSource {
             "manajemen_role" to false,
             "manajemen_cabang" to false,
             "manajemen_member" to true,
-            "membership" to false,
+            "check_in_out" to true,
             "check_in" to true,
             "check_out" to true,
-            "keuangan" to false,
             "notifikasi" to true,
-            "laporan" to false,
-            "pengaturan" to true
+            "laporan" to false
         )
 
         val defaultRoles = listOf(
