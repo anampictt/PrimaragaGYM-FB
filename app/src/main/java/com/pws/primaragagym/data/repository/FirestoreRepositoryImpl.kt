@@ -43,6 +43,9 @@ class MemberRepositoryImpl : MemberRepository {
 class MembershipPlanRepositoryImpl : MembershipPlanRepository {
     private val dataSource = FirebaseMembershipPlanDataSource()
 
+    override fun observeMembershipPlans(isActive: Boolean?): Flow<List<FirestoreMembershipPlan>> =
+        dataSource.observeMembershipPlans(isActive)
+
     override suspend fun getMembershipPlans(isActive: Boolean?, limit: Int): Result<List<FirestoreMembershipPlan>> =
         dataSource.getMembershipPlans(isActive, limit)
 

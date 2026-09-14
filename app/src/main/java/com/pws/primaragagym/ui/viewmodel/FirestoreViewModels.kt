@@ -205,6 +205,7 @@ class MemberListViewModel : ViewModel() {
 data class PlanListUiState(
     val isLoading: Boolean = true,
     val plans: List<MembershipPlanUiModel> = emptyList(),
+    val rawPlans: List<FirestoreMembershipPlan> = emptyList(),
     val error: String? = null
 )
 
@@ -215,51 +216,104 @@ class PlanListViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(PlanListUiState())
     val uiState: StateFlow<PlanListUiState> = _uiState.asStateFlow()
 
+    init {
+        observePlans()
+    }
+
+    fun observePlans() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            membershipPlanRepository.observeMembershipPlans(isActive = null)
+                .catch { e ->
+                    android.util.Log.e("PlanListVM", "observePlans error: ${e.message}", e)
+                    _uiState.update { it.copy(isLoading = false, error = e.message) }
+                }
+                .collect { plans ->
+                    android.util.Log.d("PlanListVM", "observePlans collected ${plans.size} plans")
+                    _uiState.update { state ->
+                        state.copy(
+                            isLoading = false,
+                            plans = plans.map { it.toUiModel() },
+                            rawPlans = plans,
+                            error = null
+                        )
+                    }
+                }
+        }
+    }
+
     fun loadPlans() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
 
             try {
-                membershipPlanRepository.getMembershipPlans()
+                membershipPlanRepository.getMembershipPlans(isActive = null)
                     .onSuccess { plans ->
+                        android.util.Log.d("PlanListVM", "loadPlans loaded ${plans.size} plans")
                         _uiState.update { it.copy(
                             isLoading = false,
-                            plans = plans.map { p -> p.toUiModel() }
+                            plans = plans.map { p -> p.toUiModel() },
+                            rawPlans = plans,
+                            error = null
                         )}
                     }
                     .onFailure { e ->
+                        android.util.Log.e("PlanListVM", "loadPlans error: ${e.message}", e)
                         _uiState.update { it.copy(isLoading = false, error = e.message) }
                     }
             } catch (e: Exception) {
+                android.util.Log.e("PlanListVM", "loadPlans exception: ${e.message}", e)
                 _uiState.update { it.copy(isLoading = false, error = e.message) }
             }
         }
     }
 
-    fun createPlan(plan: FirestoreMembershipPlan) {
+    suspend fun getPlanById(planId: String): Result<FirestoreMembershipPlan> {
+        return membershipPlanRepository.getMembershipPlanById(planId)
+    }
+
+    fun createPlan(plan: FirestoreMembershipPlan, onComplete: ((Boolean, String?) -> Unit)? = null) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             membershipPlanRepository.createMembershipPlan(plan)
-                .onSuccess { loadPlans() }
-                .onFailure { e -> _uiState.update { it.copy(isLoading = false, error = e.message) } }
+                .onSuccess {
+                    loadPlans()
+                    onComplete?.invoke(true, null)
+                }
+                .onFailure { e ->
+                    _uiState.update { it.copy(isLoading = false, error = e.message) }
+                    onComplete?.invoke(false, e.message)
+                }
         }
     }
 
-    fun updatePlan(plan: FirestoreMembershipPlan) {
+    fun updatePlan(plan: FirestoreMembershipPlan, onComplete: ((Boolean, String?) -> Unit)? = null) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             membershipPlanRepository.updateMembershipPlan(plan)
-                .onSuccess { loadPlans() }
-                .onFailure { e -> _uiState.update { it.copy(isLoading = false, error = e.message) } }
+                .onSuccess {
+                    loadPlans()
+                    onComplete?.invoke(true, null)
+                }
+                .onFailure { e ->
+                    _uiState.update { it.copy(isLoading = false, error = e.message) }
+                    onComplete?.invoke(false, e.message)
+                }
         }
     }
 
-    fun deletePlan(planId: String) {
+    fun deletePlan(planId: String, onComplete: ((Boolean, String?) -> Unit)? = null) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             membershipPlanRepository.deleteMembershipPlan(planId)
-                .onSuccess { loadPlans() }
-                .onFailure { e -> _uiState.update { it.copy(isLoading = false, error = e.message) } }
+                .onSuccess {
+                    loadPlans()
+                    onComplete?.invoke(true, null)
+                }
+                .onFailure { e ->
+                    _uiState.update { it.copy(isLoading = false, error = e.message) }
+                    onComplete?.invoke(false, e.message)
+                }
         }
     }
 }
@@ -913,18 +967,20 @@ private fun FirestoreMember.toUiModel(): MemberUiModel {
 }
 
 private fun FirestoreMembershipPlan.toUiModel(): MembershipPlanUiModel {
-    val planType = when (durationType.uppercase()) {
-        "DAY" -> PlanType.DAILY
-        "MONTH" -> PlanType.MONTHLY
-        "YEAR" -> PlanType.YEARLY
+    val planType = when {
+        type.equals("DAILY", ignoreCase = true) || durationType.equals("DAY", ignoreCase = true) -> PlanType.DAILY
+        type.equals("YEARLY", ignoreCase = true) || durationType.equals("YEAR", ignoreCase = true) -> PlanType.YEARLY
         else -> PlanType.MONTHLY
     }
 
-    val durationStr = when (durationType.uppercase()) {
-        "DAY" -> "$durationValue Hari"
-        "MONTH" -> "$durationValue Bulan"
-        "YEAR" -> "$durationValue Tahun"
-        else -> "$durationValue"
+    val durationStr = if (duration.isNotBlank()) {
+        duration
+    } else {
+        when (planType) {
+            PlanType.DAILY -> "$durationValue Hari"
+            PlanType.YEARLY -> "$durationValue Tahun"
+            PlanType.MONTHLY -> "$durationValue Bulan"
+        }
     }
 
     return MembershipPlanUiModel(

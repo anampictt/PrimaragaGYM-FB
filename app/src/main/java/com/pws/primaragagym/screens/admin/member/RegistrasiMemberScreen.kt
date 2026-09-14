@@ -45,10 +45,13 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.pws.primaragagym.ui.viewmodel.PlanListViewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -65,6 +68,10 @@ import com.pws.primaragagym.screens.admin.member.MemberColors.TextMuted
 import com.pws.primaragagym.screens.admin.member.MemberColors.TextPrimary
 import com.pws.primaragagym.screens.admin.member.MemberColors.TextSecondary
 import com.pws.primaragagym.ui.theme.Dimens
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 // ============================================================================
 // PAYMENT METHOD
@@ -82,11 +89,15 @@ private enum class PaymentMethod(val displayName: String) {
 @Composable
 fun RegistrasiMemberScreen(
     onBackClick: () -> Unit = {},
-    onSubmitSuccess: () -> Unit = {}
+    onSubmitSuccess: () -> Unit = {},
+    planViewModel: PlanListViewModel = viewModel()
 ) {
     val configuration = LocalConfiguration.current
     val screenWidthDp = configuration.screenWidthDp
     val isTablet = screenWidthDp >= 600
+
+    val planState by planViewModel.uiState.collectAsState()
+    val availablePlans = if (planState.plans.isNotEmpty()) planState.plans else dummyMembershipPlans
 
     val horizontalPadding = if (isTablet) 32.dp else Dimens.screen_padding_horizontal
 
@@ -98,7 +109,11 @@ fun RegistrasiMemberScreen(
     var address by remember { mutableStateOf("") }
     var selectedPlan by remember { mutableStateOf<MembershipPlanUiModel?>(null) }
     var paymentMethod by remember { mutableStateOf<PaymentMethod?>(null) }
-    var startDate by remember { mutableStateOf("01 September 2026") }
+    val todayFormatted = remember {
+        val sdf = SimpleDateFormat("dd MMMM yyyy", Locale("id", "ID"))
+        sdf.format(Date())
+    }
+    var startDate by remember { mutableStateOf(todayFormatted) }
 
     // Validation errors
     var nameError by remember { mutableStateOf<String?>(null) }
@@ -315,11 +330,13 @@ fun RegistrasiMemberScreen(
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = TextSecondary
                             )
-                            val endDate = calculateEndDate(startDate, selectedPlan!!.type)
+                            val endDate = calculateEndDate(startDate, selectedPlan!!)
                             Text(
                                 text = "Tanggal Berakhir: $endDate",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = TextSecondary
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = FontWeight.SemiBold
+                                ),
+                                color = GreenAccent
                             )
                         }
                     }
@@ -425,7 +442,7 @@ fun RegistrasiMemberScreen(
     // Plan Picker Dialog
     if (showPlanPicker) {
         PlanPickerDialog(
-            plans = dummyMembershipPlans,
+            plans = availablePlans,
             onPlanSelected = {
                 selectedPlan = it
                 planError = null
@@ -694,44 +711,67 @@ private fun PlanPickerDialog(
             )
         },
         text = {
-            Column {
-                plans.forEach { plan ->
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp)
-                            .clickable { onPlanSelected(plan) },
-                        shape = RoundedCornerShape(8.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = CardBackground
-                        )
-                    ) {
-                        Row(
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+            ) {
+                if (plans.isEmpty()) {
+                    Text(
+                        text = "Belum ada paket membership tersedia",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextSecondary,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                } else {
+                    plans.forEach { plan ->
+                        Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                                .padding(vertical = 4.dp)
+                                .clickable { onPlanSelected(plan) },
+                            shape = RoundedCornerShape(8.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = CardBackground
+                            )
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = plan.name,
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        fontWeight = FontWeight.SemiBold
-                                    ),
-                                    color = TextPrimary
-                                )
-                                Text(
-                                    text = "${plan.price} - ${plan.duration}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = TextSecondary
-                                )
-                            }
-                            if (plan.type == PlanType.MONTHLY) {
-                                Text(
-                                    text = plan.type.displayName,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = GreenAccent
-                                )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = plan.name,
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            fontWeight = FontWeight.SemiBold
+                                        ),
+                                        color = TextPrimary
+                                    )
+                                    Text(
+                                        text = "${plan.price} - ${plan.duration}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = TextSecondary
+                                    )
+                                }
+                                val (badgeBg, badgeText) = when (plan.type) {
+                                    PlanType.DAILY -> Pair(Color(0xFFE3F2FD), Color(0xFF1976D2))
+                                    PlanType.MONTHLY -> Pair(Color(0xFFE8F5E9), GreenAccent)
+                                    PlanType.YEARLY -> Pair(Color(0xFFFFF3E0), Color(0xFFF57C00))
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(badgeBg)
+                                        .padding(horizontal = 6.dp, vertical = 3.dp)
+                                ) {
+                                    Text(
+                                        text = plan.type.displayName,
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                                        color = badgeText
+                                    )
+                                }
                             }
                         }
                     }
@@ -792,10 +832,53 @@ private fun PaymentChip(
 // ============================================================================
 // HELPER
 // ============================================================================
-private fun calculateEndDate(startDate: String, type: PlanType): String {
-    return when (type) {
-        PlanType.DAILY -> "02 September 2026"
-        PlanType.MONTHLY -> "01 Oktober 2026"
-        PlanType.YEARLY -> "01 September 2027"
+private fun calculateEndDate(startDateStr: String, plan: MembershipPlanUiModel): String {
+    val supportedFormats = listOf(
+        SimpleDateFormat("dd MMMM yyyy", Locale("id", "ID")),
+        SimpleDateFormat("dd-MM-yyyy", Locale("id", "ID")),
+        SimpleDateFormat("dd/MM/yyyy", Locale("id", "ID")),
+        SimpleDateFormat("yyyy-MM-dd", Locale("id", "ID")),
+        SimpleDateFormat("d MMMM yyyy", Locale("id", "ID"))
+    )
+
+    var parsedDate: Date? = null
+    for (sdf in supportedFormats) {
+        try {
+            parsedDate = sdf.parse(startDateStr.trim())
+            if (parsedDate != null) break
+        } catch (_: Exception) {}
     }
+
+    val cal = Calendar.getInstance().apply {
+        time = parsedDate ?: Date()
+    }
+
+    val durationLower = plan.duration.lowercase().trim()
+    val digitsOnly = plan.duration.filter { it.isDigit() }
+    val extractedNumber = digitsOnly.toIntOrNull()
+
+    when {
+        // e.g. "30 Hari" or "15 Hari"
+        durationLower.contains("hari") || durationLower.contains("day") -> {
+            val days = extractedNumber ?: 1
+            cal.add(Calendar.DAY_OF_YEAR, days)
+        }
+        // e.g. "1 Bulan" or "3 Bulan" or "6 Bulan"
+        durationLower.contains("bulan") || durationLower.contains("month") -> {
+            val months = extractedNumber ?: 1
+            cal.add(Calendar.MONTH, months)
+        }
+        // e.g. "1 Tahun" or "Year"
+        durationLower.contains("tahun") || durationLower.contains("year") -> {
+            val years = extractedNumber ?: 1
+            cal.add(Calendar.YEAR, years)
+        }
+        // Fallback by PlanType
+        plan.type == PlanType.DAILY -> cal.add(Calendar.DAY_OF_YEAR, 1)
+        plan.type == PlanType.YEARLY -> cal.add(Calendar.YEAR, 1)
+        else -> cal.add(Calendar.MONTH, 1) // default monthly
+    }
+
+    val outputFormat = SimpleDateFormat("dd MMMM yyyy", Locale("id", "ID"))
+    return outputFormat.format(cal.time)
 }

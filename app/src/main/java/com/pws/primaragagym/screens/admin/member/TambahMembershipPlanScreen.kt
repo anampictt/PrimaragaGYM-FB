@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -47,6 +48,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -59,6 +62,8 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.pws.primaragagym.domain.model.FirestoreMembershipPlan
 import com.pws.primaragagym.screens.admin.member.MemberColors.BackgroundColor
 import com.pws.primaragagym.screens.admin.member.MemberColors.CardBackground
 import com.pws.primaragagym.screens.admin.member.MemberColors.GreenAccent
@@ -67,11 +72,13 @@ import com.pws.primaragagym.screens.admin.member.MemberColors.TextMuted
 import com.pws.primaragagym.screens.admin.member.MemberColors.TextPrimary
 import com.pws.primaragagym.screens.admin.member.MemberColors.TextSecondary
 import com.pws.primaragagym.ui.theme.Dimens
+import com.pws.primaragagym.ui.viewmodel.PlanListViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TambahMembershipPlanScreen(
     planId: String? = null,
+    viewModel: PlanListViewModel = viewModel(),
     onBackClick: () -> Unit = {},
     onSubmitSuccess: () -> Unit = {}
 ) {
@@ -79,22 +86,52 @@ fun TambahMembershipPlanScreen(
     val isTablet = configuration.screenWidthDp >= 600
     val horizontalPadding = if (isTablet) 32.dp else Dimens.screen_padding_horizontal
 
-    val isEditMode = planId != null
-    val existingPlan = planId?.let { id -> dummyMembershipPlans.find { it.id == id } }
+    val isEditMode = !planId.isNullOrBlank()
+    val planState by viewModel.uiState.collectAsState()
 
-    var name by remember { mutableStateOf(existingPlan?.name ?: "") }
-    var selectedType by remember { mutableStateOf(existingPlan?.type ?: PlanType.MONTHLY) }
-    var price by remember { mutableStateOf(existingPlan?.price?.replace("Rp ", "")?.replace(".", "") ?: "") }
-    var duration by remember { mutableStateOf(existingPlan?.duration ?: "30 Hari") }
-    var maxMembers by remember { mutableStateOf(existingPlan?.maxMembers?.toString() ?: "50") }
-    var isActive by remember { mutableStateOf(existingPlan?.isActive ?: true) }
+    var existingPlan by remember { mutableStateOf<FirestoreMembershipPlan?>(null) }
+    var name by remember { mutableStateOf("") }
+    var selectedType by remember { mutableStateOf(PlanType.MONTHLY) }
+    var price by remember { mutableStateOf("") }
+    var isActive by remember { mutableStateOf(true) }
 
+    var isSubmitting by remember { mutableStateOf(false) }
+    var generalError by remember { mutableStateOf<String?>(null) }
     var nameError by remember { mutableStateOf<String?>(null) }
     var priceError by remember { mutableStateOf<String?>(null) }
-    var durationError by remember { mutableStateOf<String?>(null) }
-    var maxMembersError by remember { mutableStateOf<String?>(null) }
 
     var showSuccessDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(planId, planState.rawPlans) {
+        if (isEditMode && planId != null) {
+            val cached = planState.rawPlans.find { it.planId == planId || it.id == planId }
+            if (cached != null) {
+                existingPlan = cached
+                name = cached.name
+                selectedType = when {
+                    cached.type.equals("DAILY", ignoreCase = true) || cached.durationType.equals("DAY", ignoreCase = true) -> PlanType.DAILY
+                    cached.type.equals("YEARLY", ignoreCase = true) || cached.durationType.equals("YEAR", ignoreCase = true) -> PlanType.YEARLY
+                    else -> PlanType.MONTHLY
+                }
+                price = cached.price.toString()
+                isActive = cached.isActive
+            }
+
+            val freshResult = viewModel.getPlanById(planId)
+            val fresh = freshResult.getOrNull()
+            if (fresh != null) {
+                existingPlan = fresh
+                name = fresh.name
+                selectedType = when {
+                    fresh.type.equals("DAILY", ignoreCase = true) || fresh.durationType.equals("DAY", ignoreCase = true) -> PlanType.DAILY
+                    fresh.type.equals("YEARLY", ignoreCase = true) || fresh.durationType.equals("YEAR", ignoreCase = true) -> PlanType.YEARLY
+                    else -> PlanType.MONTHLY
+                }
+                price = fresh.price.toString()
+                isActive = fresh.isActive
+            }
+        }
+    }
 
     Scaffold(
         containerColor = BackgroundColor,
@@ -134,6 +171,16 @@ fun TambahMembershipPlanScreen(
                     .fillMaxWidth()
                     .padding(horizontal = horizontalPadding)
             ) {
+                // General error
+                if (generalError != null) {
+                    Text(
+                        text = generalError ?: "",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                }
+
                 // Nama Paket
                 FormField(
                     label = "Nama Paket",
@@ -141,6 +188,7 @@ fun TambahMembershipPlanScreen(
                     onValueChange = {
                         name = it
                         nameError = null
+                        generalError = null
                     },
                     placeholder = "Contoh: Premium Monthly",
                     error = nameError
@@ -157,7 +205,10 @@ fun TambahMembershipPlanScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 PlanTypeDropdown(
                     selectedType = selectedType,
-                    onTypeSelected = { selectedType = it }
+                    onTypeSelected = { newType ->
+                        selectedType = newType
+                        generalError = null
+                    }
                 )
 
                 Spacer(modifier = Modifier.height(Dimens.spacing_4))
@@ -169,40 +220,12 @@ fun TambahMembershipPlanScreen(
                     onValueChange = {
                         price = it.filter { c -> c.isDigit() }
                         priceError = null
+                        generalError = null
                     },
                     placeholder = "Contoh: 350000",
                     error = priceError,
                     keyboardType = KeyboardType.Number,
                     prefix = "Rp "
-                )
-
-                Spacer(modifier = Modifier.height(Dimens.spacing_4))
-
-                // Durasi
-                FormField(
-                    label = "Durasi",
-                    value = duration,
-                    onValueChange = {
-                        duration = it
-                        durationError = null
-                    },
-                    placeholder = "Contoh: 30 Hari",
-                    error = durationError
-                )
-
-                Spacer(modifier = Modifier.height(Dimens.spacing_4))
-
-                // Batas Maks Member
-                FormField(
-                    label = "Batas Maks Member",
-                    value = maxMembers,
-                    onValueChange = {
-                        maxMembers = it.filter { c -> c.isDigit() }
-                        maxMembersError = null
-                    },
-                    placeholder = "Contoh: 50",
-                    error = maxMembersError,
-                    keyboardType = KeyboardType.Number
                 )
 
                 Spacer(modifier = Modifier.height(Dimens.spacing_4))
@@ -257,25 +280,82 @@ fun TambahMembershipPlanScreen(
                             priceError = "Harga wajib diisi"
                             hasError = true
                         }
-                        if (duration.isBlank()) {
-                            durationError = "Durasi wajib diisi"
-                            hasError = true
+
+                        if (hasError) return@Button
+
+                        isSubmitting = true
+                        generalError = null
+
+                        val parsedPrice = price.filter { it.isDigit() }.toLongOrNull() ?: 0L
+                        val durationStr = when (selectedType) {
+                            PlanType.DAILY -> "1 Hari"
+                            PlanType.MONTHLY -> "30 Hari"
+                            PlanType.YEARLY -> "1 Tahun"
                         }
-                        if (maxMembers.isBlank()) {
-                            maxMembersError = "Batas member wajib diisi"
-                            hasError = true
+                        val durType = when (selectedType) {
+                            PlanType.DAILY -> "DAY"
+                            PlanType.MONTHLY -> "MONTH"
+                            PlanType.YEARLY -> "YEAR"
+                        }
+                        val durVal = when (selectedType) {
+                            PlanType.DAILY -> 1
+                            PlanType.MONTHLY -> 1
+                            PlanType.YEARLY -> 1
+                        }
+                        val planTypeStr = when (selectedType) {
+                            PlanType.DAILY -> "DAILY"
+                            PlanType.MONTHLY -> "MONTHLY"
+                            PlanType.YEARLY -> "YEARLY"
                         }
 
-                        if (!hasError) {
-                            showSuccessDialog = true
+                        val targetId = planId ?: existingPlan?.planId ?: ""
+                        val planObj = (existingPlan ?: FirestoreMembershipPlan(planId = targetId)).copy(
+                            planId = targetId,
+                            name = name.trim(),
+                            type = planTypeStr,
+                            durationType = durType,
+                            durationValue = durVal,
+                            duration = durationStr,
+                            price = parsedPrice,
+                            maxMembers = null,
+                            isActive = isActive
+                        )
+
+                        if (isEditMode) {
+                            viewModel.updatePlan(planObj) { success, errMsg ->
+                                isSubmitting = false
+                                if (success) {
+                                    showSuccessDialog = true
+                                } else {
+                                    generalError = errMsg ?: "Gagal memperbarui paket membership"
+                                }
+                            }
+                        } else {
+                            viewModel.createPlan(planObj) { success, errMsg ->
+                                isSubmitting = false
+                                if (success) {
+                                    showSuccessDialog = true
+                                } else {
+                                    generalError = errMsg ?: "Gagal membuat paket membership baru"
+                                }
+                            }
                         }
                     },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(Dimens.button_height),
+                    enabled = !isSubmitting,
                     colors = ButtonDefaults.buttonColors(containerColor = GreenAccent),
                     shape = RoundedCornerShape(Dimens.button_corner_radius)
                 ) {
+                    if (isSubmitting) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
                     Text(
                         text = if (isEditMode) "Simpan Perubahan" else "Simpan Paket",
                         style = MaterialTheme.typography.labelLarge
@@ -374,6 +454,17 @@ private fun FormField(
     }
 }
 
+private data class PlanTypeOption(
+    val type: PlanType,
+    val durationLabel: String
+)
+
+private val defaultPlanTypeOptions = listOf(
+    PlanTypeOption(PlanType.DAILY, "(1 Hari)"),
+    PlanTypeOption(PlanType.MONTHLY, "(30 Hari)"),
+    PlanTypeOption(PlanType.YEARLY, "(1 Tahun)")
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PlanTypeDropdown(
@@ -382,14 +473,37 @@ private fun PlanTypeDropdown(
 ) {
     var expanded by remember { mutableStateOf(false) }
 
+    val currentOption = defaultPlanTypeOptions.find { it.type == selectedType } ?: defaultPlanTypeOptions[1]
+
+    val (selectedBadgeBg, selectedBadgeText) = when (selectedType) {
+        PlanType.DAILY -> Pair(Color(0xFFE3F2FD), Color(0xFF1976D2))
+        PlanType.MONTHLY -> Pair(Color(0xFFE8F5E9), GreenAccent)
+        PlanType.YEARLY -> Pair(Color(0xFFFFF3E0), Color(0xFFF57C00))
+    }
+
     ExposedDropdownMenuBox(
         expanded = expanded,
         onExpandedChange = { expanded = it }
     ) {
         OutlinedTextField(
-            value = selectedType.displayName,
+            value = currentOption.durationLabel,
             onValueChange = {},
             readOnly = true,
+            leadingIcon = {
+                Box(
+                    modifier = Modifier
+                        .padding(start = 12.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(selectedBadgeBg)
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                ) {
+                    Text(
+                        text = selectedType.displayName,
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = selectedBadgeText
+                    )
+                }
+            },
             trailingIcon = {
                 ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
             },
@@ -403,7 +517,10 @@ private fun PlanTypeDropdown(
                 focusedContainerColor = CardBackground,
                 unfocusedContainerColor = CardBackground
             ),
-            textStyle = MaterialTheme.typography.bodyMedium.copy(color = TextPrimary)
+            textStyle = MaterialTheme.typography.bodyMedium.copy(
+                color = TextPrimary,
+                fontWeight = FontWeight.Medium
+            )
         )
 
         ExposedDropdownMenu(
@@ -411,17 +528,41 @@ private fun PlanTypeDropdown(
             onDismissRequest = { expanded = false },
             modifier = Modifier.background(CardBackground)
         ) {
-            PlanType.entries.forEach { type ->
+            defaultPlanTypeOptions.forEach { option ->
+                val (badgeBg, badgeText) = when (option.type) {
+                    PlanType.DAILY -> Pair(Color(0xFFE3F2FD), Color(0xFF1976D2))
+                    PlanType.MONTHLY -> Pair(Color(0xFFE8F5E9), GreenAccent)
+                    PlanType.YEARLY -> Pair(Color(0xFFFFF3E0), Color(0xFFF57C00))
+                }
+
                 DropdownMenuItem(
                     text = {
-                        Text(
-                            text = type.displayName,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = TextPrimary
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(badgeBg)
+                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                            ) {
+                                Text(
+                                    text = option.type.displayName,
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                                    color = badgeText
+                                )
+                            }
+                            Text(
+                                text = option.durationLabel,
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                                color = TextPrimary
+                            )
+                        }
                     },
                     onClick = {
-                        onTypeSelected(type)
+                        onTypeSelected(option.type)
                         expanded = false
                     }
                 )

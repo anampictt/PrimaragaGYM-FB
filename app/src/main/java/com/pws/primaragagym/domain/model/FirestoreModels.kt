@@ -97,8 +97,10 @@ data class FirestoreMembershipPlan(
     val planId: String = "",
     val name: String = "",
     val description: String = "",
+    val type: String = "MONTHLY", // DAILY, MONTHLY, YEARLY
     val durationType: String = "MONTH", // DAY, MONTH, YEAR
     val durationValue: Int = 1,
+    val duration: String = "",
     val price: Long = 0,
     val maxMembers: Int? = null,
     val isActive: Boolean = true,
@@ -106,7 +108,9 @@ data class FirestoreMembershipPlan(
     val createdAt: Date? = null,
     @ServerTimestamp
     val updatedAt: Date? = null
-)
+) {
+    val id: String get() = planId
+}
 
 data class FirestoreMembership(
     @DocumentId

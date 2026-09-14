@@ -59,18 +59,20 @@ object FirestoreMapper {
     }
 
     fun FirestoreMembershipPlan.toUiModel(): MembershipPlanUiModel {
-        val planType = when (durationType.uppercase()) {
-            "DAY" -> PlanType.DAILY
-            "MONTH" -> PlanType.MONTHLY
-            "YEAR" -> PlanType.YEARLY
+        val planType = when {
+            type.equals("DAILY", ignoreCase = true) || durationType.equals("DAY", ignoreCase = true) -> PlanType.DAILY
+            type.equals("YEARLY", ignoreCase = true) || durationType.equals("YEAR", ignoreCase = true) -> PlanType.YEARLY
             else -> PlanType.MONTHLY
         }
 
-        val durationStr = when (durationType.uppercase()) {
-            "DAY" -> "$durationValue Hari"
-            "MONTH" -> "$durationValue Bulan"
-            "YEAR" -> "$durationValue Tahun"
-            else -> "$durationValue"
+        val durationStr = if (duration.isNotBlank()) {
+            duration
+        } else {
+            when (planType) {
+                PlanType.DAILY -> "$durationValue Hari"
+                PlanType.YEARLY -> "$durationValue Tahun"
+                PlanType.MONTHLY -> "$durationValue Bulan"
+            }
         }
 
         return MembershipPlanUiModel(

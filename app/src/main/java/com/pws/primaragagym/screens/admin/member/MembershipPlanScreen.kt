@@ -24,8 +24,12 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.RestoreFromTrash
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -37,9 +41,13 @@ import androidx.compose.material3.TabRow
 import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -50,9 +58,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pws.primaragagym.screens.admin.member.MemberColors.BackgroundColor
 import com.pws.primaragagym.screens.admin.member.MemberColors.CardBackground
 import com.pws.primaragagym.screens.admin.member.MemberColors.GreenAccent
@@ -61,10 +73,12 @@ import com.pws.primaragagym.screens.admin.member.MemberColors.TextMuted
 import com.pws.primaragagym.screens.admin.member.MemberColors.TextPrimary
 import com.pws.primaragagym.screens.admin.member.MemberColors.TextSecondary
 import com.pws.primaragagym.ui.theme.Dimens
+import com.pws.primaragagym.ui.viewmodel.PlanListViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MembershipPlanScreen(
+    viewModel: PlanListViewModel = viewModel(),
     onBackClick: () -> Unit = {},
     onAddPlanClick: () -> Unit = {},
     onEditPlan: (String) -> Unit = {}
@@ -73,15 +87,63 @@ fun MembershipPlanScreen(
     val isTablet = configuration.screenWidthDp >= 600
     val horizontalPadding = if (isTablet) 32.dp else Dimens.screen_padding_horizontal
 
+    val planState by viewModel.uiState.collectAsState()
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Harian", "Bulanan", "Tahunan")
+    val tabs = listOf("Semua", "Harian", "Bulanan", "Tahunan")
 
-    val filteredPlans = remember(selectedTab) {
-        when (selectedTab) {
-            0 -> dummyMembershipPlans.filter { it.type == PlanType.DAILY }
-            1 -> dummyMembershipPlans.filter { it.type == PlanType.MONTHLY }
-            else -> dummyMembershipPlans.filter { it.type == PlanType.YEARLY }
+    var planToDelete by remember { mutableStateOf<MembershipPlanUiModel?>(null) }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.loadPlans()
+            }
         }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.loadPlans()
+    }
+
+    val filteredPlans = remember(selectedTab, planState.plans) {
+        when (selectedTab) {
+            0 -> planState.plans
+            1 -> planState.plans.filter { it.type == PlanType.DAILY }
+            2 -> planState.plans.filter { it.type == PlanType.MONTHLY }
+            3 -> planState.plans.filter { it.type == PlanType.YEARLY }
+            else -> planState.plans
+        }
+    }
+
+    if (planToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { planToDelete = null },
+            title = { Text("Hapus Paket", fontWeight = FontWeight.Bold) },
+            text = { Text("Apakah Anda yakin ingin menghapus paket membership \"${planToDelete?.name}\"?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val target = planToDelete
+                        planToDelete = null
+                        if (target != null) {
+                            viewModel.deletePlan(target.id)
+                        }
+                    }
+                ) {
+                    Text("Hapus", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { planToDelete = null }) {
+                    Text("Batal")
+                }
+            }
+        )
     }
 
     Scaffold(
@@ -131,10 +193,12 @@ fun MembershipPlanScreen(
                 containerColor = CardBackground,
                 contentColor = GreenAccent,
                 indicator = { tabPositions ->
-                    TabRowDefaults.SecondaryIndicator(
-                        modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                        color = GreenAccent
-                    )
+                    if (selectedTab in tabPositions.indices) {
+                        TabRowDefaults.SecondaryIndicator(
+                            modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
+                            color = GreenAccent
+                        )
+                    }
                 }
             ) {
                 tabs.forEachIndexed { index, title ->
@@ -144,7 +208,7 @@ fun MembershipPlanScreen(
                         text = {
                             Text(
                                 text = title,
-                                style = MaterialTheme.typography.labelLarge,
+                                style = MaterialTheme.typography.labelMedium,
                                 fontWeight = if (selectedTab == index) FontWeight.SemiBold else FontWeight.Normal
                             )
                         }
@@ -152,37 +216,86 @@ fun MembershipPlanScreen(
                 }
             }
 
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(
-                    start = horizontalPadding,
-                    end = horizontalPadding,
-                    top = Dimens.spacing_5,
-                    bottom = 80.dp
-                )
-            ) {
-                if (filteredPlans.isEmpty()) {
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(200.dp),
-                            contentAlignment = Alignment.Center
+            if (planState.isLoading && planState.plans.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = 80.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        color = GreenAccent,
+                        modifier = Modifier.size(36.dp)
+                    )
+                }
+            } else if (planState.error != null && planState.plans.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontalPadding),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = planState.error ?: "Gagal memuat paket membership",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Button(
+                            onClick = { viewModel.loadPlans() },
+                            colors = ButtonDefaults.buttonColors(containerColor = GreenAccent)
                         ) {
-                            Text(
-                                text = "Belum ada paket membership",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = TextSecondary
-                            )
+                            Text("Coba Lagi")
                         }
                     }
-                } else {
-                    items(filteredPlans, key = { it.id }) { plan ->
-                        MembershipPlanCard(
-                            plan = plan,
-                            onEditClick = { onEditPlan(plan.id) }
-                        )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(
+                        start = horizontalPadding,
+                        end = horizontalPadding,
+                        top = Dimens.spacing_5,
+                        bottom = 80.dp
+                    )
+                ) {
+                    if (filteredPlans.isEmpty()) {
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(250.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        text = if (planState.plans.isEmpty()) {
+                                            "Belum ada paket membership"
+                                        } else {
+                                            "Tidak ada paket untuk kategori ini"
+                                        },
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = TextSecondary
+                                    )
+                                    if (selectedTab != 0 && planState.plans.isNotEmpty()) {
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        TextButton(onClick = { selectedTab = 0 }) {
+                                            Text("Lihat Semua Paket", color = GreenAccent)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        items(filteredPlans, key = { it.id }) { plan ->
+                            MembershipPlanCard(
+                                plan = plan,
+                                onEditClick = { onEditPlan(plan.id) },
+                                onDeleteClick = { planToDelete = plan }
+                            )
+                        }
                     }
                 }
             }
@@ -193,7 +306,8 @@ fun MembershipPlanScreen(
 @Composable
 private fun MembershipPlanCard(
     plan: MembershipPlanUiModel,
-    onEditClick: () -> Unit
+    onEditClick: () -> Unit,
+    onDeleteClick: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -252,11 +366,7 @@ private fun MembershipPlanCard(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "Maks. ${plan.maxMembers} Member",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = TextMuted
-                    )
+                    PlanTypeBadge(type = plan.type)
                     PlanStatusBadge(isActive = plan.isActive)
                 }
             }
@@ -274,7 +384,7 @@ private fun MembershipPlanCard(
             }
 
             IconButton(
-                onClick = onEditClick,
+                onClick = onDeleteClick,
                 modifier = Modifier.size(36.dp)
             ) {
                 Icon(
@@ -285,6 +395,28 @@ private fun MembershipPlanCard(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun PlanTypeBadge(type: PlanType) {
+    val (bgColor, textColor) = when (type) {
+        PlanType.DAILY -> Pair(Color(0xFFE3F2FD), Color(0xFF1976D2))
+        PlanType.MONTHLY -> Pair(Color(0xFFE8F5E9), GreenAccent)
+        PlanType.YEARLY -> Pair(Color(0xFFFFF3E0), Color(0xFFF57C00))
+    }
+
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(bgColor)
+            .padding(horizontal = 6.dp, vertical = 3.dp)
+    ) {
+        Text(
+            text = type.displayName,
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+            color = textColor
+        )
     }
 }
 
@@ -314,6 +446,5 @@ private fun PlanStatusBadge(isActive: Boolean) {
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 private fun MembershipPlanScreenPreview() {
-    MembershipPlanScreen {  }
-
+    MembershipPlanScreen(onBackClick = { })
 }

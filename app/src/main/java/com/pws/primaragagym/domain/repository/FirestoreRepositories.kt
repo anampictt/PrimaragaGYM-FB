@@ -17,6 +17,7 @@ interface MemberRepository {
 }
 
 interface MembershipPlanRepository {
+    fun observeMembershipPlans(isActive: Boolean? = null): Flow<List<FirestoreMembershipPlan>>
     suspend fun getMembershipPlans(isActive: Boolean? = true, limit: Int = 50): Result<List<FirestoreMembershipPlan>>
     suspend fun getMembershipPlanById(planId: String): Result<FirestoreMembershipPlan>
     suspend fun createMembershipPlan(plan: FirestoreMembershipPlan): Result<String>
