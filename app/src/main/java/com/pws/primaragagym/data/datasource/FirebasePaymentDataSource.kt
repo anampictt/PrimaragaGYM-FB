@@ -27,13 +27,11 @@ class FirebasePaymentDataSource {
         return try {
             val invoiceNumber = generateInvoiceNumber()
 
-            val paymentData = mapOf(
+            val paymentData = mutableMapOf<String, Any>(
                 "invoiceNumber" to invoiceNumber,
                 "memberId" to memberId,
                 "memberName" to memberName,
-                "membershipId" to membershipId,
                 "planName" to planName,
-                "branchId" to branchId,
                 "amount" to amount,
                 "paymentMethod" to paymentMethod,
                 "paymentType" to paymentType,
@@ -42,6 +40,12 @@ class FirebasePaymentDataSource {
                 "createdAt" to Date(),
                 "updatedAt" to Date()
             )
+            if (!branchId.isNullOrBlank()) {
+                paymentData["branchId"] = branchId.trim()
+            }
+            if (!membershipId.isNullOrBlank()) {
+                paymentData["membershipId"] = membershipId.trim()
+            }
 
             val docRef = paymentsCollection.document()
             docRef.set(paymentData).await()
@@ -92,15 +96,23 @@ class FirebasePaymentDataSource {
 
     suspend fun getPaymentsByMember(memberId: String): Result<List<com.pws.primaragagym.domain.model.FirestorePayment>> {
         return try {
-            val snapshot = paymentsCollection
-                .whereEqualTo("memberId", memberId)
-                .orderBy("paidAt", Query.Direction.DESCENDING)
-                .get()
-                .await()
+            val snapshot = try {
+                paymentsCollection
+                    .whereEqualTo("memberId", memberId)
+                    .orderBy("paidAt", Query.Direction.DESCENDING)
+                    .get()
+                    .await()
+            } catch (_: Exception) {
+                paymentsCollection
+                    .whereEqualTo("memberId", memberId)
+                    .get()
+                    .await()
+            }
 
             val payments = snapshot.documents.mapNotNull { doc ->
                 doc.toObject(com.pws.primaragagym.domain.model.FirestorePayment::class.java)
-            }
+            }.sortedByDescending { it.paidAt ?: it.createdAt }
+
             Result.success(payments)
         } catch (e: Exception) {
             Result.failure(Exception("Gagal memuat riwayat pembayaran. ${e.message}"))

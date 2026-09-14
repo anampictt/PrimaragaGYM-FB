@@ -250,7 +250,14 @@ class FirebaseMemberDataSource {
                 "createdAt" to FieldValue.serverTimestamp(),
                 "updatedAt" to FieldValue.serverTimestamp()
             )
-            docRef.set(memberData).await()
+            val cleanMemberData = memberData.filterValues { value ->
+                when (value) {
+                    null -> false
+                    is String -> value.isNotBlank()
+                    else -> true
+                }
+            }
+            docRef.set(cleanMemberData).await()
             Result.success(docRef.id)
         } catch (e: Exception) {
             Result.failure(Exception("Gagal membuat member baru: ${e.message}"))
@@ -276,10 +283,18 @@ class FirebaseMemberDataSource {
                 "startDate" to member.startDate,
                 "expiredDate" to member.expiredDate,
                 "paymentMethod" to member.paymentMethod,
+                "branchId" to member.branchId,
                 "status" to member.status,
                 "updatedAt" to FieldValue.serverTimestamp()
             )
-            membersCollection.document(targetId).set(updates, SetOptions.merge()).await()
+            val cleanUpdates = updates.filterValues { value ->
+                when (value) {
+                    null -> false
+                    is String -> value.isNotBlank()
+                    else -> true
+                }
+            }
+            membersCollection.document(targetId).set(cleanUpdates, SetOptions.merge()).await()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(Exception("Gagal memperbarui member: ${e.message}"))

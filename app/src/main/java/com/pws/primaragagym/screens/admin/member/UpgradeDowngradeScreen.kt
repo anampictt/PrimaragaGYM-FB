@@ -179,10 +179,47 @@ fun UpgradeDowngradeScreen(
         selected.planId != currentMember?.planId &&
         !selected.name.equals(currentMember?.planName, ignoreCase = true)
 
+    val currentTier = run {
+        val t = (currentMember?.planType ?: "").lowercase().trim()
+        val d = currentDuration.lowercase().trim()
+        when {
+            t == "yearly" || d.contains("tahun") || d.contains("year") || d.contains("365") -> 3
+            t == "monthly" || d.contains("bulan") || d.contains("month") || d.contains("30") -> 2
+            t == "daily" || d.contains("hari") || d.contains("day") -> 1
+            else -> 2
+        }
+    }
+
+    val selectedTier = if (selected != null) {
+        val t = selected.type.lowercase().trim()
+        val d = selected.duration.lowercase().trim()
+        when {
+            t == "yearly" || d.contains("tahun") || d.contains("year") || d.contains("365") -> 3
+            t == "monthly" || d.contains("bulan") || d.contains("month") || d.contains("30") -> 2
+            t == "daily" || d.contains("hari") || d.contains("day") -> 1
+            else -> 2
+        }
+    } else currentTier
+
     val priceDiff = if (selected != null) selected.price - currentPrice else 0L
+
+    val isDowngrade = if (selected != null && isDifferentPlan) {
+        when {
+            selectedTier < currentTier -> true
+            selectedTier > currentTier -> false
+            else -> priceDiff < 0L
+        }
+    } else false
+
+    val actionTitle = if (isDowngrade) "Downgrade Membership" else "Upgrade Membership"
+    val actionVerb = if (isDowngrade) "di-downgrade" else "di-upgrade"
+    val actionPlanPrefix = if (isDowngrade) "Downgrade ke" else "Upgrade ke"
+    val paymentType = if (isDowngrade) "DOWNGRADE" else "UPGRADE"
+
     val selisihText = when {
+        isDowngrade -> "Hemat ${formatRupiah(-priceDiff)} (Downgrade)"
         priceDiff > 0L -> "+ ${formatRupiah(priceDiff)} (Biaya Upgrade)"
-        priceDiff < 0L -> "Hemat ${formatRupiah(-priceDiff)}"
+        priceDiff < 0L -> "Hemat ${formatRupiah(-priceDiff)} (Downgrade)"
         else -> "Rp 0 (Harga Sama)"
     }
 
@@ -202,7 +239,7 @@ fun UpgradeDowngradeScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "Upgrade Membership",
+                        text = if (isDifferentPlan) actionTitle else "Upgrade / Downgrade",
                         style = MaterialTheme.typography.titleLarge.copy(
                             fontWeight = FontWeight.SemiBold
                         ),
@@ -521,7 +558,7 @@ fun UpgradeDowngradeScreen(
                                 .padding(Dimens.spacing_5)
                         ) {
                             Text(
-                                text = "Rincian Upgrade Paket",
+                                text = "Rincian $actionTitle",
                                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                                 color = TextPrimary
                             )
@@ -552,7 +589,7 @@ fun UpgradeDowngradeScreen(
                                         isSubmitting = true
                                         paymentError = null
 
-                                        val amountToPay = if (priceDiff > 0L) priceDiff else selected.price
+                                        val amountToPay = if (!isDowngrade && priceDiff > 0L) priceDiff else selected.price
                                         val durationFormatted = getPlanDurationDisplay(selected)
 
                                         scope.launch {
@@ -575,7 +612,7 @@ fun UpgradeDowngradeScreen(
                                                         )
                                                     )
 
-                                                    // Catat transaksi pembayaran upgrade
+                                                    // Catat transaksi pembayaran upgrade/downgrade
                                                     paymentRepo.createPayment(
                                                         memberId = currentMember.memberId,
                                                         memberName = currentMember.fullName,
@@ -583,8 +620,8 @@ fun UpgradeDowngradeScreen(
                                                         branchId = currentMember.branchId,
                                                         amount = amountToPay,
                                                         paymentMethod = selectedPayment!!.displayName,
-                                                        paymentType = "UPGRADE",
-                                                        planName = "Upgrade ke ${selected.name} ($durationFormatted)"
+                                                        paymentType = paymentType,
+                                                        planName = "$actionPlanPrefix ${selected.name} ($durationFormatted)"
                                                     )
 
                                                     withContext(Dispatchers.Main) {
@@ -594,7 +631,7 @@ fun UpgradeDowngradeScreen(
                                                 } catch (e: Exception) {
                                                     withContext(Dispatchers.Main) {
                                                         isSubmitting = false
-                                                        paymentError = "Gagal meng-upgrade: ${e.message}"
+                                                        paymentError = "Gagal memproses $actionTitle: ${e.message}"
                                                     }
                                                 }
                                             }
@@ -615,7 +652,7 @@ fun UpgradeDowngradeScreen(
                                         strokeWidth = 2.dp
                                     )
                                 } else {
-                                    Text("Konfirmasi Upgrade Paket")
+                                    Text("Konfirmasi $actionTitle")
                                 }
                             }
                         }
@@ -656,14 +693,14 @@ fun UpgradeDowngradeScreen(
             },
             title = {
                 Text(
-                    text = "Upgrade Membership Berhasil",
+                    text = "$actionTitle Berhasil",
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
                 )
             },
             text = {
                 val memberName = member?.fullName ?: "Member"
                 val newPlan = selectedPlan?.name ?: "Paket Baru"
-                Text("Membership untuk $memberName telah berhasil di-upgrade ke paket $newPlan hingga $calculatedNewEndDate.")
+                Text("Membership untuk $memberName telah berhasil $actionVerb ke paket $newPlan hingga $calculatedNewEndDate.")
             }
         )
     }

@@ -65,6 +65,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import com.pws.primaragagym.screens.admin.member.MemberColors.BackgroundColor
 import com.pws.primaragagym.screens.admin.member.MemberColors.CardBackground
 import com.pws.primaragagym.screens.admin.member.MemberColors.GreenAccent
@@ -514,8 +515,26 @@ fun RegistrasiMemberScreen(
                             memberViewModel.createMember(memberObj) { success, createdIdOrError ->
                                 isSubmitting = false
                                 if (success) {
-                                    savedMemberId = if (!createdIdOrError.isNullOrBlank()) createdIdOrError else memberObj.memberId
+                                    val finalId = if (!createdIdOrError.isNullOrBlank()) createdIdOrError else memberObj.memberId
+                                    savedMemberId = finalId
                                     showSuccessDialog = true
+
+                                    // Catat transaksi registrasi ke Firestore
+                                    kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                                        try {
+                                            val paymentRepo = com.pws.primaragagym.data.repository.PaymentRepositoryImpl()
+                                            paymentRepo.createPayment(
+                                                memberId = finalId,
+                                                memberName = memberObj.fullName,
+                                                membershipId = null,
+                                                branchId = memberObj.branchId,
+                                                amount = memberObj.planPrice,
+                                                paymentMethod = memberObj.paymentMethod,
+                                                paymentType = "REGISTRASI",
+                                                planName = "Registrasi ${memberObj.planName} (${memberObj.duration})"
+                                            )
+                                        } catch (_: Exception) {}
+                                    }
                                 } else {
                                     generalError = createdIdOrError ?: "Gagal mendaftarkan member baru"
                                 }
