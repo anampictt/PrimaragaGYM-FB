@@ -130,8 +130,11 @@ sealed class AppScreen(
     data object RegistrasiMember : AppScreen(
         title = R.string.registrasi_member,
         icon = R.drawable.ic_launcher_background,
-        route = "admin/member-management/register"
-    )
+        route = "admin/member-management/register?memberId={memberId}"
+    ) {
+        fun createRoute(memberId: String? = null) =
+            if (memberId != null) "admin/member-management/register?memberId=$memberId" else "admin/member-management/register"
+    }
 
     // Membership Management
     data object MembershipManagement : AppScreen(

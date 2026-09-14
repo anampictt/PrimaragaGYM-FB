@@ -84,13 +84,25 @@ data class FirestoreMember(
     val branchId: String = "",
     val status: String = "ACTIVE", // ACTIVE, EXPIRED, SUSPENDED, INACTIVE
     val activeMembershipId: String? = null,
+    val planId: String = "",
+    val planName: String = "",
+    val planPrice: Long = 0,
+    val planType: String = "",
+    val duration: String = "",
+    val startDate: String = "",
+    val expiredDate: String = "",
+    val paymentMethod: String = "",
     @ServerTimestamp
     val joinedAt: Date? = null,
     @ServerTimestamp
     val createdAt: Date? = null,
     @ServerTimestamp
     val updatedAt: Date? = null
-)
+) {
+    val id: String get() = memberId
+    val name: String get() = fullName
+    val phone: String get() = phoneNumber
+}
 
 data class FirestoreMembershipPlan(
     @DocumentId

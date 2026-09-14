@@ -43,6 +43,12 @@ object FirestoreMapper {
             .joinToString("")
             .ifEmpty { "?" }
 
+        val priceStr = if (planPrice > 0) {
+            "Rp " + java.text.NumberFormat.getNumberInstance(java.util.Locale("id", "ID")).format(planPrice)
+        } else {
+            "Rp 0"
+        }
+
         return MemberUiModel(
             id = memberId,
             memberCode = memberCode,
@@ -50,11 +56,12 @@ object FirestoreMapper {
             phone = phoneNumber,
             email = email,
             address = address,
-            planName = "",
+            planName = planName,
             status = status,
-            startDate = joinedAt?.toDisplayDate() ?: "",
-            expiredDate = "",
-            avatarInitial = initials
+            startDate = startDate.ifEmpty { joinedAt?.toDisplayDate() ?: "" },
+            expiredDate = expiredDate,
+            avatarInitial = initials,
+            planPrice = priceStr
         )
     }
 

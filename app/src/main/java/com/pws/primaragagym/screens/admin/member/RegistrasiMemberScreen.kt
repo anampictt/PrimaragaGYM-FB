@@ -44,6 +44,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.material3.CircularProgressIndicator
+import com.pws.primaragagym.domain.model.FirestoreMember
+import com.pws.primaragagym.ui.viewmodel.MemberListViewModel
+import com.pws.primaragagym.ui.viewmodel.AuthViewModel
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -88,22 +93,29 @@ private enum class PaymentMethod(val displayName: String) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RegistrasiMemberScreen(
+    memberId: String? = null,
     onBackClick: () -> Unit = {},
     onSubmitSuccess: () -> Unit = {},
-    planViewModel: PlanListViewModel = viewModel()
+    planViewModel: PlanListViewModel = viewModel(),
+    memberViewModel: MemberListViewModel = viewModel(),
+    authViewModel: AuthViewModel = viewModel(),
+    onPreviewCardClick: (String) -> Unit = {}
 ) {
     val configuration = LocalConfiguration.current
     val screenWidthDp = configuration.screenWidthDp
     val isTablet = screenWidthDp >= 600
 
+    val isEditMode = !memberId.isNullOrBlank()
+    val authState by authViewModel.uiState.collectAsState()
     val planState by planViewModel.uiState.collectAsState()
     val availablePlans = if (planState.plans.isNotEmpty()) planState.plans else dummyMembershipPlans
 
     val horizontalPadding = if (isTablet) 32.dp else Dimens.screen_padding_horizontal
 
     // Form state
+    var existingMember by remember { mutableStateOf<FirestoreMember?>(null) }
     var name by remember { mutableStateOf("") }
-    var memberId by remember { mutableStateOf("") }
+    var memberCodeInput by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var address by remember { mutableStateOf("") }
@@ -114,6 +126,10 @@ fun RegistrasiMemberScreen(
         sdf.format(Date())
     }
     var startDate by remember { mutableStateOf(todayFormatted) }
+
+    var isSubmitting by remember { mutableStateOf(false) }
+    var generalError by remember { mutableStateOf<String?>(null) }
+    var savedMemberId by remember { mutableStateOf("") }
 
     // Validation errors
     var nameError by remember { mutableStateOf<String?>(null) }
@@ -126,13 +142,42 @@ fun RegistrasiMemberScreen(
     var showSuccessDialog by remember { mutableStateOf(false) }
     var showPlanPicker by remember { mutableStateOf(false) }
 
+    LaunchedEffect(memberId, availablePlans) {
+        if (isEditMode && memberId != null) {
+            val freshResult = memberViewModel.getMemberById(memberId)
+            val fresh = freshResult.getOrNull()
+            if (fresh != null) {
+                existingMember = fresh
+                name = fresh.fullName
+                memberCodeInput = fresh.memberCode
+                phone = fresh.phoneNumber
+                email = fresh.email
+                address = fresh.address
+                if (fresh.startDate.isNotBlank()) {
+                    startDate = fresh.startDate
+                }
+                paymentMethod = PaymentMethod.entries.find {
+                    it.name.equals(fresh.paymentMethod, ignoreCase = true) ||
+                    it.displayName.equals(fresh.paymentMethod, ignoreCase = true)
+                } ?: PaymentMethod.CASH
+
+                val matchingPlan = availablePlans.find {
+                    it.id == fresh.planId || it.name.equals(fresh.planName, ignoreCase = true)
+                }
+                if (matchingPlan != null) {
+                    selectedPlan = matchingPlan
+                }
+            }
+        }
+    }
+
     Scaffold(
         containerColor = BackgroundColor,
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        text = "Registrasi Member Baru",
+                        text = if (isEditMode) "Edit Member" else "Registrasi Member Baru",
                         style = MaterialTheme.typography.titleLarge.copy(
                             fontWeight = FontWeight.SemiBold
                         ),
@@ -216,10 +261,11 @@ fun RegistrasiMemberScreen(
                 // Member ID
                 FormTextField(
                     label = "ID Member",
-                    value = memberId,
+                    value = memberCodeInput,
                     onValueChange = {
-                        memberId = it
+                        memberCodeInput = it
                         memberIdError = null
+                        generalError = null
                     },
                     error = memberIdError,
                     placeholder = "Contoh: MBR-001"
@@ -388,6 +434,15 @@ fun RegistrasiMemberScreen(
                     )
                 }
 
+                if (generalError != null) {
+                    Spacer(modifier = Modifier.height(Dimens.spacing_4))
+                    Text(
+                        text = generalError!!,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFFE53935)
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(Dimens.spacing_6))
 
                 // Submit Button
@@ -399,7 +454,7 @@ fun RegistrasiMemberScreen(
                             nameError = "Nama wajib diisi"
                             hasError = true
                         }
-                        if (memberId.isBlank()) {
+                        if (memberCodeInput.isBlank()) {
                             memberIdError = "ID Member wajib diisi"
                             hasError = true
                         }
@@ -416,20 +471,76 @@ fun RegistrasiMemberScreen(
                             hasError = true
                         }
 
-                        if (!hasError) {
-                            showSuccessDialog = true
+                        if (hasError) return@Button
+
+                        isSubmitting = true
+                        generalError = null
+
+                        val endDate = if (selectedPlan != null) calculateEndDate(startDate, selectedPlan!!) else ""
+                        val planPriceNum = selectedPlan?.price?.filter { it.isDigit() }?.toLongOrNull() ?: 0L
+                        val branchId = existingMember?.branchId?.ifBlank { null } ?: authState.currentUser?.branchId ?: ""
+                        val targetId = memberId ?: existingMember?.memberId ?: ""
+
+                        val memberObj = (existingMember ?: FirestoreMember(memberId = targetId)).copy(
+                            memberId = targetId,
+                            memberCode = memberCodeInput.trim(),
+                            fullName = name.trim(),
+                            phoneNumber = phone.trim(),
+                            email = email.trim(),
+                            address = address.trim(),
+                            planId = selectedPlan?.id ?: "",
+                            planName = selectedPlan?.name ?: "",
+                            planPrice = planPriceNum,
+                            planType = selectedPlan?.type?.name ?: "MONTHLY",
+                            duration = selectedPlan?.duration ?: "",
+                            startDate = startDate.trim(),
+                            expiredDate = endDate.trim(),
+                            paymentMethod = paymentMethod?.displayName ?: "Cash",
+                            branchId = branchId,
+                            status = "ACTIVE"
+                        )
+
+                        if (isEditMode) {
+                            memberViewModel.updateMember(memberObj) { success, errMsg ->
+                                isSubmitting = false
+                                if (success) {
+                                    savedMemberId = memberObj.memberId
+                                    showSuccessDialog = true
+                                } else {
+                                    generalError = errMsg ?: "Gagal memperbarui data member"
+                                }
+                            }
+                        } else {
+                            memberViewModel.createMember(memberObj) { success, createdIdOrError ->
+                                isSubmitting = false
+                                if (success) {
+                                    savedMemberId = if (!createdIdOrError.isNullOrBlank()) createdIdOrError else memberObj.memberId
+                                    showSuccessDialog = true
+                                } else {
+                                    generalError = createdIdOrError ?: "Gagal mendaftarkan member baru"
+                                }
+                            }
                         }
                     },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(Dimens.button_height),
+                    enabled = !isSubmitting,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = GreenAccent
                     ),
                     shape = RoundedCornerShape(Dimens.button_corner_radius)
                 ) {
+                    if (isSubmitting) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
                     Text(
-                        text = "Simpan Member",
+                        text = if (isEditMode) "Simpan Perubahan" else "Simpan Member",
                         style = MaterialTheme.typography.labelLarge
                     )
                 }
@@ -482,7 +593,7 @@ fun RegistrasiMemberScreen(
             },
             title = {
                 Text(
-                    text = "Member berhasil didaftarkan",
+                    text = if (isEditMode) "Member berhasil diperbarui" else "Member berhasil didaftarkan",
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.SemiBold
                     )
@@ -490,22 +601,21 @@ fun RegistrasiMemberScreen(
             },
             text = {
                 Column {
-                    Text("Apa yang ingin Anda lakukan selanjutnya?")
+                    Text(if (isEditMode) "Perubahan data member $name telah disimpan ke Firestore." else "Data member $name telah berhasil disimpan ke Firestore.")
                     Spacer(modifier = Modifier.height(Dimens.spacing_4))
                     OutlinedButton(
-                        onClick = { },
+                        onClick = {
+                            showSuccessDialog = false
+                            if (savedMemberId.isNotBlank()) {
+                                onPreviewCardClick(savedMemberId)
+                            } else {
+                                onSubmitSuccess()
+                            }
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(8.dp)
                     ) {
-                        Text("Cetak Kartu")
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedButton(
-                        onClick = { },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text("Kirim via WhatsApp")
+                        Text("Lihat Kartu Member")
                     }
                 }
             }

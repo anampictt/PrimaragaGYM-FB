@@ -5,6 +5,8 @@ import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.ServerTimestamp
 import com.google.firebase.firestore.WriteBatch
 import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.SetOptions
+import com.google.firebase.firestore.DocumentSnapshot
 import kotlinx.coroutines.tasks.await
 import java.util.Calendar
 import java.util.Date
@@ -29,35 +31,113 @@ class FirebaseMemberDataSource {
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
     private val membersCollection = firestore.collection(FirestoreCollections.MEMBERS)
 
+    private fun documentToFirestoreMember(doc: DocumentSnapshot): com.pws.primaragagym.domain.model.FirestoreMember {
+        val data = doc.data ?: emptyMap<String, Any?>()
+        val fullName = (data["fullName"] as? String)
+            ?: (data["name"] as? String)
+            ?: (data["nama"] as? String)
+            ?: ""
+        val memberCode = (data["memberCode"] as? String)
+            ?: (data["code"] as? String)
+            ?: (data["kode"] as? String)
+            ?: (data["barcode"] as? String)
+            ?: doc.id
+        val phoneNumber = (data["phoneNumber"] as? String)
+            ?: (data["phone"] as? String)
+            ?: (data["noHp"] as? String)
+            ?: (data["telepon"] as? String)
+            ?: ""
+        val email = (data["email"] as? String) ?: ""
+        val address = (data["address"] as? String) ?: (data["alamat"] as? String) ?: ""
+        val photoUrl = data["photoUrl"] as? String
+        val gender = (data["gender"] as? String) ?: ""
+        val branchId = (data["branchId"] as? String) ?: ""
+        val status = (data["status"] as? String)?.uppercase() ?: "ACTIVE"
+        val activeMembershipId = data["activeMembershipId"] as? String
+        val planId = (data["planId"] as? String) ?: ""
+        val planName = (data["planName"] as? String)
+            ?: (data["packageName"] as? String)
+            ?: (data["membershipType"] as? String)
+            ?: ((data["membership"] as? Map<*, *>)?.get("planName") as? String)
+            ?: ""
+        val planPrice = when (val p = data["planPrice"] ?: data["price"]) {
+            is Number -> p.toLong()
+            is String -> p.filter { it.isDigit() }.toLongOrNull() ?: 0L
+            else -> 0L
+        }
+        val planType = (data["planType"] as? String) ?: (data["type"] as? String) ?: ""
+        val duration = (data["duration"] as? String) ?: ""
+
+        val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+
+        val startDate = when (val s = data["startDate"] ?: data["start_date"] ?: data["joinedAt"]) {
+            is String -> s
+            is com.google.firebase.Timestamp -> dateFormat.format(s.toDate())
+            is java.util.Date -> dateFormat.format(s)
+            else -> ""
+        }
+
+        val expiredDate = when (val e = data["expiredDate"] ?: data["endDate"] ?: data["expired_date"] ?: data["end_date"]) {
+            is String -> e
+            is com.google.firebase.Timestamp -> dateFormat.format(e.toDate())
+            is java.util.Date -> dateFormat.format(e)
+            else -> ""
+        }
+
+        val paymentMethod = (data["paymentMethod"] as? String) ?: (data["metodePembayaran"] as? String) ?: ""
+        val createdAt = (data["createdAt"] as? com.google.firebase.Timestamp)?.toDate()
+        val updatedAt = (data["updatedAt"] as? com.google.firebase.Timestamp)?.toDate()
+
+        return com.pws.primaragagym.domain.model.FirestoreMember(
+            memberId = doc.id,
+            memberCode = memberCode,
+            fullName = fullName,
+            phoneNumber = phoneNumber,
+            email = email,
+            address = address,
+            photoUrl = photoUrl,
+            gender = gender,
+            branchId = branchId,
+            status = status,
+            activeMembershipId = activeMembershipId,
+            planId = planId,
+            planName = planName,
+            planPrice = planPrice,
+            planType = planType,
+            duration = duration,
+            startDate = startDate,
+            expiredDate = expiredDate,
+            paymentMethod = paymentMethod,
+            createdAt = createdAt,
+            updatedAt = updatedAt
+        )
+    }
+
     suspend fun getMembers(
         branchId: String? = null,
         status: String? = null,
-        limit: Int = 25,
+        limit: Int = 100,
         lastDocumentId: String? = null
     ): Result<List<com.pws.primaragagym.domain.model.FirestoreMember>> {
         return try {
             var query: Query = membersCollection
-                .orderBy("createdAt", Query.Direction.DESCENDING)
-                .limit(limit.toLong())
 
-            if (branchId != null) {
+            if (!branchId.isNullOrBlank()) {
                 query = query.whereEqualTo("branchId", branchId)
             }
 
-            if (status != null) {
+            if (!status.isNullOrBlank()) {
                 query = query.whereEqualTo("status", status)
             }
 
-            if (lastDocumentId != null) {
-                val lastDoc = membersCollection.document(lastDocumentId).get().await()
-                if (lastDoc.exists()) {
-                    query = query.startAfter(lastDoc)
-                }
+            val snapshot = try {
+                query.orderBy("createdAt", Query.Direction.DESCENDING).limit(limit.toLong()).get().await()
+            } catch (e: Exception) {
+                query.limit(limit.toLong()).get().await()
             }
 
-            val snapshot = query.get().await()
-            val members = snapshot.documents.mapNotNull { doc ->
-                doc.toObject(com.pws.primaragagym.domain.model.FirestoreMember::class.java)
+            val members = snapshot.documents.map { doc ->
+                documentToFirestoreMember(doc)
             }
             Result.success(members)
         } catch (e: Exception) {
@@ -69,17 +149,32 @@ class FirebaseMemberDataSource {
         return try {
             val doc = membersCollection.document(memberId).get().await()
             if (doc.exists()) {
-                val member = doc.toObject(com.pws.primaragagym.domain.model.FirestoreMember::class.java)
-                if (member != null) {
-                    Result.success(member)
-                } else {
-                    Result.failure(Exception("Data member tidak ditemukan."))
-                }
+                val member = documentToFirestoreMember(doc)
+                Result.success(member)
             } else {
-                Result.failure(Exception("Member tidak ditemukan."))
+                // Fallback: check by memberCode or memberId field
+                val codeSnapshot = membersCollection
+                    .whereEqualTo("memberCode", memberId)
+                    .limit(1)
+                    .get()
+                    .await()
+                if (!codeSnapshot.isEmpty) {
+                    Result.success(documentToFirestoreMember(codeSnapshot.documents[0]))
+                } else {
+                    val idSnapshot = membersCollection
+                        .whereEqualTo("memberId", memberId)
+                        .limit(1)
+                        .get()
+                        .await()
+                    if (!idSnapshot.isEmpty) {
+                        Result.success(documentToFirestoreMember(idSnapshot.documents[0]))
+                    } else {
+                        Result.failure(Exception("Member tidak ditemukan."))
+                    }
+                }
             }
         } catch (e: Exception) {
-            Result.failure(Exception("Gagal memuat detail member. ${e.message}"))
+            Result.failure(Exception("Gagal memuat detail member: ${e.message}"))
         }
     }
 
@@ -92,13 +187,8 @@ class FirebaseMemberDataSource {
                 .await()
 
             if (!snapshot.isEmpty) {
-                val member = snapshot.documents[0]
-                    .toObject(com.pws.primaragagym.domain.model.FirestoreMember::class.java)
-                if (member != null) {
-                    Result.success(member)
-                } else {
-                    Result.failure(Exception("Data member tidak ditemukan."))
-                }
+                val member = documentToFirestoreMember(snapshot.documents[0])
+                Result.success(member)
             } else {
                 Result.failure(Exception("Member dengan kode $memberCode tidak ditemukan."))
             }
@@ -110,20 +200,17 @@ class FirebaseMemberDataSource {
     suspend fun searchMembers(
         query: String,
         branchId: String? = null,
-        limit: Int = 25
+        limit: Int = 100
     ): Result<List<com.pws.primaragagym.domain.model.FirestoreMember>> {
         return try {
-            // Simple search by name - Firestore doesn't support LIKE queries
-            // For production, consider Algolia or similar for advanced search
-            val snapshot = membersCollection
-                .whereEqualTo("branchId", branchId ?: "")
-                .orderBy("fullName")
-                .limit(limit.toLong())
-                .get()
-                .await()
+            var baseQuery: Query = membersCollection
+            if (!branchId.isNullOrBlank()) {
+                baseQuery = baseQuery.whereEqualTo("branchId", branchId)
+            }
 
+            val snapshot = baseQuery.limit(limit.toLong()).get().await()
             val members = snapshot.documents
-                .mapNotNull { it.toObject(com.pws.primaragagym.domain.model.FirestoreMember::class.java) }
+                .map { documentToFirestoreMember(it) }
                 .filter { member ->
                     member.fullName.contains(query, ignoreCase = true) ||
                     member.memberCode.contains(query, ignoreCase = true) ||
@@ -138,43 +225,64 @@ class FirebaseMemberDataSource {
 
     suspend fun createMember(member: com.pws.primaragagym.domain.model.FirestoreMember): Result<String> {
         return try {
-            val memberCode = generateMemberCode()
-            val memberWithCode = member.copy(
-                memberCode = memberCode,
-                createdAt = Date(),
-                updatedAt = Date()
-            )
-
             val docRef = membersCollection.document()
-            docRef.set(memberWithCode).await()
-
-            // Update the document with the generated ID
-            docRef.update("memberId", docRef.id).await()
-
+            val memberCode = if (member.memberCode.isNotBlank()) member.memberCode.trim() else generateMemberCode()
+            val memberData = hashMapOf<String, Any?>(
+                "memberId" to docRef.id,
+                "memberCode" to memberCode,
+                "fullName" to member.fullName.trim(),
+                "name" to member.fullName.trim(),
+                "phoneNumber" to member.phoneNumber.trim(),
+                "phone" to member.phoneNumber.trim(),
+                "email" to member.email.trim(),
+                "address" to member.address.trim(),
+                "planId" to member.planId,
+                "planName" to member.planName,
+                "planPrice" to member.planPrice,
+                "planType" to member.planType,
+                "duration" to member.duration,
+                "startDate" to member.startDate,
+                "expiredDate" to member.expiredDate,
+                "paymentMethod" to member.paymentMethod,
+                "branchId" to member.branchId,
+                "status" to member.status.ifEmpty { "ACTIVE" },
+                "photoUrl" to member.photoUrl,
+                "createdAt" to FieldValue.serverTimestamp(),
+                "updatedAt" to FieldValue.serverTimestamp()
+            )
+            docRef.set(memberData).await()
             Result.success(docRef.id)
         } catch (e: Exception) {
-            Result.failure(Exception("Gagal membuat member baru. ${e.message}"))
+            Result.failure(Exception("Gagal membuat member baru: ${e.message}"))
         }
     }
 
     suspend fun updateMember(member: com.pws.primaragagym.domain.model.FirestoreMember): Result<Unit> {
         return try {
-            val updates = mapOf(
-                "fullName" to member.fullName,
-                "phoneNumber" to member.phoneNumber,
-                "email" to member.email,
-                "address" to member.address,
-                "photoUrl" to member.photoUrl,
-                "gender" to member.gender,
-                "dateOfBirth" to member.dateOfBirth,
+            val targetId = member.memberId.ifBlank { member.id }
+            val updates = hashMapOf<String, Any?>(
+                "fullName" to member.fullName.trim(),
+                "name" to member.fullName.trim(),
+                "memberCode" to member.memberCode.trim(),
+                "phoneNumber" to member.phoneNumber.trim(),
+                "phone" to member.phoneNumber.trim(),
+                "email" to member.email.trim(),
+                "address" to member.address.trim(),
+                "planId" to member.planId,
+                "planName" to member.planName,
+                "planPrice" to member.planPrice,
+                "planType" to member.planType,
+                "duration" to member.duration,
+                "startDate" to member.startDate,
+                "expiredDate" to member.expiredDate,
+                "paymentMethod" to member.paymentMethod,
                 "status" to member.status,
-                "activeMembershipId" to member.activeMembershipId,
                 "updatedAt" to FieldValue.serverTimestamp()
             )
-            membersCollection.document(member.memberId).update(updates).await()
+            membersCollection.document(targetId).set(updates, SetOptions.merge()).await()
             Result.success(Unit)
         } catch (e: Exception) {
-            Result.failure(Exception("Gagal memperbarui member. ${e.message}"))
+            Result.failure(Exception("Gagal memperbarui member: ${e.message}"))
         }
     }
 
@@ -193,15 +301,10 @@ class FirebaseMemberDataSource {
 
     suspend fun deleteMember(memberId: String): Result<Unit> {
         return try {
-            // Soft delete - just update status
-            membersCollection.document(memberId)
-                .update(mapOf(
-                    "status" to "INACTIVE",
-                    "updatedAt" to FieldValue.serverTimestamp()
-                )).await()
+            membersCollection.document(memberId).delete().await()
             Result.success(Unit)
         } catch (e: Exception) {
-            Result.failure(Exception("Gagal menghapus member. ${e.message}"))
+            Result.failure(Exception("Gagal menghapus member: ${e.message}"))
         }
     }
 

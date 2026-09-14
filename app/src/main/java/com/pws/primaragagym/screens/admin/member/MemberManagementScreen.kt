@@ -63,6 +63,29 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import com.pws.primaragagym.ui.viewmodel.MemberListViewModel
 import com.pws.primaragagym.ui.viewmodel.AuthViewModel
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material.icons.filled.CreditCard
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.runtime.DisposableEffect
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import com.pws.primaragagym.screens.admin.member.card.MemberCardData
+import com.pws.primaragagym.screens.admin.member.card.MemberCardImageGenerator
+import com.pws.primaragagym.screens.admin.member.card.ShareHelper
 import com.pws.primaragagym.screens.admin.member.MemberColors.BackgroundColor
 import com.pws.primaragagym.screens.admin.member.MemberColors.CardBackground
 import com.pws.primaragagym.screens.admin.member.MemberColors.GreenAccent
@@ -93,8 +116,14 @@ fun MemberManagementScreen(
     authViewModel: AuthViewModel = viewModel(),
     onBackClick: () -> Unit = {},
     onAddMemberClick: () -> Unit = {},
+    onEditMemberClick: (String) -> Unit = {},
+    onPreviewCardClick: (String) -> Unit = {},
     onMemberClick: (String) -> Unit = {}
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+
     val configuration = LocalConfiguration.current
     val screenWidthDp = configuration.screenWidthDp
     val isTablet = screenWidthDp >= 600
@@ -102,11 +131,25 @@ fun MemberManagementScreen(
     val authState by authViewModel.uiState.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
 
-    LaunchedEffect(authState.currentUser) {
-        val branchId = authState.currentUser?.branchId
-        if (branchId != null) {
-            viewModel.loadMembers(branchId, reset = true)
+    var memberToDelete by remember { mutableStateOf<MemberUiModel?>(null) }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                val branchId = authState.currentUser?.branchId ?: ""
+                viewModel.loadMembers(branchId, reset = true)
+            }
         }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    LaunchedEffect(authState.currentUser) {
+        val branchId = authState.currentUser?.branchId ?: ""
+        viewModel.loadMembers(branchId, reset = true)
     }
 
     val filteredMembers = uiState.filteredMembers
@@ -115,8 +158,67 @@ fun MemberManagementScreen(
 
     val horizontalPadding = if (isTablet) 32.dp else Dimens.screen_padding_horizontal
 
+    fun shareMemberCard(member: MemberUiModel) {
+        scope.launch {
+            try {
+                val cardData = MemberCardData(
+                    memberCode = member.memberCode,
+                    name = member.name,
+                    planName = member.planName.ifEmpty { "Membership" },
+                    startDate = member.startDate.ifEmpty { "-" },
+                    expiredDate = member.expiredDate.ifEmpty { "-" },
+                    status = member.status.displayName,
+                    avatarInitial = member.avatarInitial,
+                    qrContent = "PRIMARAGA_MEMBER:${member.memberCode}"
+                )
+                val bitmap = withContext(Dispatchers.Default) {
+                    MemberCardImageGenerator.generateCardBitmap(context, cardData)
+                }
+                val fileName = "PrimaragaGYM_${member.memberCode}.png"
+                val uri = MemberCardImageGenerator.getShareUri(context, bitmap, fileName)
+                if (uri != null) {
+                    ShareHelper.shareImage(context, uri, member.name)
+                } else {
+                    snackbarHostState.showSnackbar("Gagal membagikan kartu member")
+                }
+            } catch (e: Exception) {
+                snackbarHostState.showSnackbar("Gagal membagikan kartu member: ${e.message}")
+            }
+        }
+    }
+
+    fun saveMemberCard(member: MemberUiModel) {
+        scope.launch {
+            try {
+                val cardData = MemberCardData(
+                    memberCode = member.memberCode,
+                    name = member.name,
+                    planName = member.planName.ifEmpty { "Membership" },
+                    startDate = member.startDate.ifEmpty { "-" },
+                    expiredDate = member.expiredDate.ifEmpty { "-" },
+                    status = member.status.displayName,
+                    avatarInitial = member.avatarInitial,
+                    qrContent = "PRIMARAGA_MEMBER:${member.memberCode}"
+                )
+                val bitmap = withContext(Dispatchers.Default) {
+                    MemberCardImageGenerator.generateCardBitmap(context, cardData)
+                }
+                val fileName = "PrimaragaGYM_${member.memberCode}.png"
+                val result = withContext(Dispatchers.IO) {
+                    MemberCardImageGenerator.saveBitmapToFile(context, bitmap, fileName)
+                }
+                snackbarHostState.showSnackbar(
+                    if (result.isSuccess) "Kartu member ${member.name} berhasil disimpan ke galeri" else "Gagal menyimpan kartu member"
+                )
+            } catch (e: Exception) {
+                snackbarHostState.showSnackbar("Gagal menyimpan kartu member: ${e.message}")
+            }
+        }
+    }
+
     Scaffold(
         containerColor = BackgroundColor,
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
             MemberManagementTopBar(onBackClick = onBackClick)
         },
@@ -160,20 +262,22 @@ fun MemberManagementScreen(
                 modifier = Modifier.padding(bottom = Dimens.spacing_4)
             ) {
                 items(MemberFilter.entries) { filter ->
-                    val filterEnum = when (filter) {
-                        MemberFilter.ALL -> MemberStatus.ACTIVE // Not directly mapped in viewmodel, assuming we filter locally or add ALL to MemberStatus
-                        MemberFilter.ACTIVE -> MemberStatus.ACTIVE
-                        MemberFilter.EXPIRING -> MemberStatus.EXPIRING_SOON
-                        MemberFilter.EXPIRED -> MemberStatus.EXPIRED
-                        MemberFilter.SUSPENDED -> MemberStatus.SUSPENDED
+                    val isSelected = when (filter) {
+                        MemberFilter.ALL -> selectedFilter == null
+                        MemberFilter.ACTIVE -> selectedFilter == MemberStatus.ACTIVE
+                        MemberFilter.EXPIRING -> selectedFilter == MemberStatus.EXPIRING_SOON
+                        MemberFilter.EXPIRED -> selectedFilter == MemberStatus.EXPIRED
+                        MemberFilter.SUSPENDED -> selectedFilter == MemberStatus.SUSPENDED
                     }
                     FilterChip(
-                        selected = selectedFilter.name == filterEnum.name || (filter == MemberFilter.ALL && uiState.selectedFilter == MemberStatus.ACTIVE && uiState.searchQuery.isBlank()), // Simplified
+                        selected = isSelected,
                         onClick = { 
-                            if (filter == MemberFilter.ALL) {
-                                viewModel.searchMembers("") // Reset
-                            } else {
-                                viewModel.filterByStatus(filterEnum)
+                            when (filter) {
+                                MemberFilter.ALL -> viewModel.filterByStatus(null)
+                                MemberFilter.ACTIVE -> viewModel.filterByStatus(MemberStatus.ACTIVE)
+                                MemberFilter.EXPIRING -> viewModel.filterByStatus(MemberStatus.EXPIRING_SOON)
+                                MemberFilter.EXPIRED -> viewModel.filterByStatus(MemberStatus.EXPIRED)
+                                MemberFilter.SUSPENDED -> viewModel.filterByStatus(MemberStatus.SUSPENDED)
                             }
                         },
                         label = {
@@ -224,12 +328,50 @@ fun MemberManagementScreen(
                     ) { member ->
                         MemberManagementCard(
                             member = member,
-                            onClick = { onMemberClick(member.id) }
+                            onClick = { onMemberClick(member.id) },
+                            onPreviewCardClick = { onPreviewCardClick(member.id) },
+                            onShareCardClick = { shareMemberCard(member) },
+                            onSaveCardClick = { saveMemberCard(member) },
+                            onEditClick = { onEditMemberClick(member.id) },
+                            onDeleteClick = { memberToDelete = member }
                         )
                     }
                 }
             }
         }
+    }
+
+    // Delete Confirmation Dialog
+    if (memberToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { memberToDelete = null },
+            title = { Text("Hapus Member", fontWeight = FontWeight.Bold) },
+            text = { Text("Apakah Anda yakin ingin menghapus member \"${memberToDelete?.name}\"? Data member akan dihapus permanen.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val member = memberToDelete
+                        memberToDelete = null
+                        if (member != null) {
+                            viewModel.deleteMember(member.id) { success, errMsg ->
+                                scope.launch {
+                                    snackbarHostState.showSnackbar(
+                                        if (success) "Member ${member.name} berhasil dihapus" else (errMsg ?: "Gagal menghapus member")
+                                    )
+                                }
+                            }
+                        }
+                    }
+                ) {
+                    Text("Hapus", color = Color(0xFFF44336), fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { memberToDelete = null }) {
+                    Text("Batal")
+                }
+            }
+        )
     }
 }
 
@@ -332,7 +474,12 @@ private fun MemberSearchField(
 @Composable
 private fun MemberManagementCard(
     member: MemberUiModel,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onPreviewCardClick: () -> Unit,
+    onShareCardClick: () -> Unit,
+    onSaveCardClick: () -> Unit,
+    onEditClick: () -> Unit,
+    onDeleteClick: () -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -346,72 +493,176 @@ private fun MemberManagementCard(
             defaultElevation = 1.dp
         )
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(14.dp)
         ) {
-            // Avatar
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(GreenLight),
-                contentAlignment = Alignment.Center
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = member.avatarInitial,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.SemiBold
-                    ),
-                    color = GreenAccent
-                )
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            // Info
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = member.name,
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        fontWeight = FontWeight.SemiBold
-                    ),
-                    color = TextPrimary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                Spacer(modifier = Modifier.height(2.dp))
-
-                Text(
-                    text = member.memberCode,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = TextSecondary
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                // Avatar
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(GreenLight),
+                    contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = member.planName,
+                        text = member.avatarInitial,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.SemiBold
+                        ),
+                        color = GreenAccent
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                // Info
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = member.name,
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            fontWeight = FontWeight.SemiBold
+                        ),
+                        color = TextPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    Spacer(modifier = Modifier.height(2.dp))
+
+                    Text(
+                        text = member.memberCode,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = member.planName.ifEmpty { "Member" },
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                            color = GreenAccent
+                        )
+                        MemberStatusBadge(status = member.status)
+                    }
+
+                    if (member.expiredDate.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "Expired: ${member.expiredDate}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TextMuted
+                        )
+                    }
+                }
+
+                // Edit and Delete icons
+                IconButton(
+                    onClick = onEditClick,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Edit,
+                        contentDescription = "Edit Member",
+                        tint = TextSecondary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                IconButton(
+                    onClick = onDeleteClick,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Delete,
+                        contentDescription = "Hapus Member",
+                        tint = Color(0xFFF44336),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Action Buttons Row: Preview Kartu, Share, Simpan
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onPreviewCardClick,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(34.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, GreenAccent)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.CreditCard,
+                        contentDescription = null,
+                        tint = GreenAccent,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Kartu Member",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = GreenAccent
+                    )
+                }
+
+                OutlinedButton(
+                    onClick = onShareCardClick,
+                    modifier = Modifier.height(34.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE0E0E0))
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Share,
+                        contentDescription = "Share Kartu",
+                        tint = TextSecondary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Share",
                         style = MaterialTheme.typography.labelSmall,
                         color = TextSecondary
                     )
-                    MemberStatusBadge(status = member.status)
                 }
 
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Text(
-                    text = "Expired: ${member.expiredDate}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TextMuted
-                )
+                OutlinedButton(
+                    onClick = onSaveCardClick,
+                    modifier = Modifier.height(34.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE0E0E0))
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Download,
+                        contentDescription = "Simpan Kartu",
+                        tint = TextSecondary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Simpan",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextSecondary
+                    )
+                }
             }
         }
     }

@@ -59,7 +59,8 @@ import kotlinx.coroutines.withContext
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MemberCardPreviewScreen(
-    cardData: MemberCardData,
+    memberId: String = "",
+    cardData: MemberCardData? = null,
     onBackClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -69,6 +70,10 @@ fun MemberCardPreviewScreen(
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+
+    var currentCardData by remember { mutableStateOf(cardData) }
+    var isLoading by remember { mutableStateOf(currentCardData == null && memberId.isNotBlank()) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     var isSavingImage by remember { mutableStateOf(false) }
     var isSavingPdf by remember { mutableStateOf(false) }
@@ -83,16 +88,114 @@ fun MemberCardPreviewScreen(
     val errorSaveMessage = "Gagal menyimpan kartu member"
     val errorShareMessage = "Gagal membagikan kartu member"
 
-    fun generateBitmap() {
-        scope.launch {
-            cardBitmap = withContext(Dispatchers.Default) {
-                MemberCardImageGenerator.generateCardBitmap(context, cardData)
+    LaunchedEffect(memberId, cardData) {
+        if (cardData != null) {
+            currentCardData = cardData
+            isLoading = false
+        } else if (memberId.isNotBlank()) {
+            isLoading = true
+            errorMessage = null
+            withContext(Dispatchers.IO) {
+                try {
+                    val memberRepo = com.pws.primaragagym.data.repository.MemberRepositoryImpl()
+                    val membershipRepo = com.pws.primaragagym.data.repository.MembershipRepositoryImpl()
+                    val result = memberRepo.getMemberById(memberId)
+                    result.fold(
+                        onSuccess = { member ->
+                            val name = member.fullName.ifBlank { "Member" }
+                            val initials = name.split(" ")
+                                .filter { it.isNotBlank() }
+                                .take(2)
+                                .mapNotNull { it.firstOrNull()?.uppercaseChar() }
+                                .joinToString("")
+                                .ifEmpty { "?" }
+                            val code = member.memberCode.ifBlank { member.memberId }
+
+                            var plan = member.planName
+                            var expired = member.expiredDate
+                            var start = member.startDate
+
+                            if (plan.isBlank() || expired.isBlank()) {
+                                val activeMs = membershipRepo.getActiveMembership(member.memberId).getOrNull()
+                                if (activeMs != null) {
+                                    if (plan.isBlank()) plan = activeMs.planName
+                                    if (expired.isBlank()) {
+                                        val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+                                        expired = activeMs.endDate?.let { sdf.format(it) } ?: ""
+                                    }
+                                    if (start.isBlank()) {
+                                        val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+                                        start = activeMs.startDate?.let { sdf.format(it) } ?: ""
+                                    }
+                                }
+                            }
+
+                            val statusStr = when (member.status.uppercase()) {
+                                "ACTIVE" -> "Aktif"
+                                "EXPIRING", "WARNING" -> "Akan Habis"
+                                "EXPIRED" -> "Kadaluarsa"
+                                "INACTIVE" -> "Nonaktif"
+                                else -> member.status.ifBlank { "Aktif" }
+                            }
+
+                            withContext(Dispatchers.Main) {
+                                currentCardData = MemberCardData(
+                                    memberCode = code,
+                                    name = name,
+                                    planName = plan.ifBlank { "Member" },
+                                    startDate = start.ifBlank { "-" },
+                                    expiredDate = expired.ifBlank { "-" },
+                                    status = statusStr,
+                                    avatarInitial = initials,
+                                    qrContent = "PRIMARAGA_MEMBER:$code"
+                                )
+                                isLoading = false
+                            }
+                        },
+                        onFailure = { err ->
+                            withContext(Dispatchers.Main) {
+                                val dummy = com.pws.primaragagym.screens.admin.member.dummyMembers.find { it.id == memberId }
+                                if (dummy != null) {
+                                    currentCardData = MemberCardData(
+                                        memberCode = dummy.memberCode,
+                                        name = dummy.name,
+                                        planName = dummy.planName,
+                                        startDate = dummy.startDate,
+                                        expiredDate = dummy.expiredDate,
+                                        status = dummy.status.displayName,
+                                        avatarInitial = dummy.avatarInitial,
+                                        qrContent = "PRIMARAGA_MEMBER:${dummy.memberCode}"
+                                    )
+                                } else {
+                                    errorMessage = err.message ?: "Data member tidak ditemukan"
+                                }
+                                isLoading = false
+                            }
+                        }
+                    )
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        errorMessage = e.message ?: "Gagal memuat kartu member"
+                        isLoading = false
+                    }
+                }
             }
         }
     }
 
-    LaunchedEffect(Unit) {
-        generateBitmap()
+    fun generateBitmap() {
+        val data = currentCardData ?: return
+        scope.launch {
+            cardBitmap = withContext(Dispatchers.Default) {
+                MemberCardImageGenerator.generateCardBitmap(context, data)
+            }
+        }
+    }
+
+    LaunchedEffect(currentCardData) {
+        if (currentCardData != null) {
+            generateBitmap()
+        }
     }
 
     LaunchedEffect(cardBitmap) {
@@ -102,13 +205,14 @@ fun MemberCardPreviewScreen(
     }
 
     fun saveImage() {
+        val data = currentCardData ?: return
         if (isSavingImage) return
         isSavingImage = true
         scope.launch {
             val bitmap = cardBitmap ?: withContext(Dispatchers.Default) {
-                MemberCardImageGenerator.generateCardBitmap(context, cardData)
+                MemberCardImageGenerator.generateCardBitmap(context, data)
             }
-            val fileName = "PrimaragaGYM_${cardData.memberCode}.png"
+            val fileName = "PrimaragaGYM_${data.memberCode}.png"
             val result = withContext(Dispatchers.IO) {
                 MemberCardImageGenerator.saveBitmapToFile(context, bitmap, fileName)
             }
@@ -120,15 +224,16 @@ fun MemberCardPreviewScreen(
     }
 
     fun savePdf() {
+        val data = currentCardData ?: return
         if (isSavingPdf) return
         isSavingPdf = true
         scope.launch {
             val pdfResult = withContext(Dispatchers.Default) {
-                MemberCardPdfGenerator.generatePdf(context, cardData)
+                MemberCardPdfGenerator.generatePdf(context, data)
             }
             pdfResult.fold(
                 onSuccess = { bytes ->
-                    val fileName = "PrimaragaGYM_${cardData.memberCode}.pdf"
+                    val fileName = "PrimaragaGYM_${data.memberCode}.pdf"
                     val saveResult = withContext(Dispatchers.IO) {
                         MemberCardPdfGenerator.savePdfToFile(context, bytes, fileName)
                     }
@@ -146,14 +251,15 @@ fun MemberCardPreviewScreen(
     }
 
     fun shareImage() {
+        val data = currentCardData ?: return
         scope.launch {
             val bitmap = cardBitmap ?: withContext(Dispatchers.Default) {
-                MemberCardImageGenerator.generateCardBitmap(context, cardData)
+                MemberCardImageGenerator.generateCardBitmap(context, data)
             }
-            val fileName = "PrimaragaGYM_${cardData.memberCode}.png"
+            val fileName = "PrimaragaGYM_${data.memberCode}.png"
             val uri = MemberCardImageGenerator.getShareUri(context, bitmap, fileName)
             if (uri != null) {
-                ShareHelper.shareImage(context, uri, cardData.name)
+                ShareHelper.shareImage(context, uri, data.name)
             } else {
                 snackbarHostState.showSnackbar(errorShareMessage)
             }
@@ -161,16 +267,17 @@ fun MemberCardPreviewScreen(
     }
 
     fun sharePdf() {
+        val data = currentCardData ?: return
         scope.launch {
             val pdfResult = withContext(Dispatchers.Default) {
-                MemberCardPdfGenerator.generatePdf(context, cardData)
+                MemberCardPdfGenerator.generatePdf(context, data)
             }
             pdfResult.fold(
                 onSuccess = { bytes ->
-                    val fileName = "PrimaragaGYM_${cardData.memberCode}.pdf"
+                    val fileName = "PrimaragaGYM_${data.memberCode}.pdf"
                     val uri = MemberCardPdfGenerator.getShareUri(context, bytes, fileName)
                     if (uri != null) {
-                        ShareHelper.sharePdf(context, uri, cardData.name)
+                        ShareHelper.sharePdf(context, uri, data.name)
                     } else {
                         snackbarHostState.showSnackbar(errorShareMessage)
                     }
@@ -214,29 +321,53 @@ fun MemberCardPreviewScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
-                .padding(vertical = Dimens.spacing_5),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            // Card Preview
+        if (isLoading) {
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = horizontalPadding),
+                    .fillMaxSize()
+                    .padding(paddingValues),
                 contentAlignment = Alignment.Center
             ) {
-                MemberCard(
-                    data = cardData,
-                    width = if (isTablet) 400.dp else 320.dp,
-                    cornerRadius = 20.dp
+                CircularProgressIndicator(color = greenAccent)
+            }
+        } else if (currentCardData == null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = errorMessage ?: "Data member tidak ditemukan",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = textPrimary
                 )
             }
+        } else {
+            val data = currentCardData!!
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .verticalScroll(rememberScrollState())
+                    .padding(vertical = Dimens.spacing_5),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Card Preview
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = horizontalPadding),
+                    contentAlignment = Alignment.Center
+                ) {
+                    MemberCard(
+                        data = data,
+                        width = if (isTablet) 400.dp else 320.dp,
+                        cornerRadius = 20.dp
+                    )
+                }
 
-            Spacer(modifier = Modifier.height(Dimens.spacing_8))
+                Spacer(modifier = Modifier.height(Dimens.spacing_8))
 
             // Action Buttons
             Column(
@@ -414,3 +545,5 @@ fun MemberCardPreviewScreen(
         }
     }
 }
+}
+

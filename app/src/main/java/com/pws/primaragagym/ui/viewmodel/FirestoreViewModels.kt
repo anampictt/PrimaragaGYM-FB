@@ -90,9 +90,10 @@ private fun Long.formatCurrency(): String {
 data class MemberListUiState(
     val isLoading: Boolean = true,
     val members: List<MemberUiModel> = emptyList(),
+    val rawMembers: List<FirestoreMember> = emptyList(),
     val filteredMembers: List<MemberUiModel> = emptyList(),
     val searchQuery: String = "",
-    val selectedFilter: MemberStatus = MemberStatus.ACTIVE,
+    val selectedFilter: MemberStatus? = null,
     val error: String? = null,
     val branchId: String = "",
     val hasMore: Boolean = true,
@@ -107,39 +108,42 @@ class MemberListViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(MemberListUiState())
     val uiState: StateFlow<MemberListUiState> = _uiState.asStateFlow()
 
-    fun loadMembers(branchId: String, reset: Boolean = false) {
+    fun loadMembers(branchId: String? = null, reset: Boolean = false) {
         viewModelScope.launch {
             if (reset) {
-                _uiState.update { it.copy(isLoading = true, members = emptyList(), lastDocumentId = null, hasMore = true) }
+                _uiState.update { it.copy(isLoading = true, members = emptyList(), rawMembers = emptyList(), lastDocumentId = null, hasMore = true) }
             } else {
                 _uiState.update { it.copy(isLoading = true) }
             }
 
             try {
-                val lastDocId = if (reset) null else _uiState.value.lastDocumentId
-                val result = memberRepository.getMembers(branchId, limit = 25, lastDocumentId = lastDocId)
+                val effectiveBranchId = branchId?.ifBlank { null }
+                val result = memberRepository.getMembers(effectiveBranchId, limit = 100)
 
                 result.onSuccess { firestoreMembers ->
                     val memberUiModels = firestoreMembers.map { member ->
-                        val membership = membershipRepository.getActiveMembership(member.memberId).getOrNull()
-                        member.toUiModel().copy(
-                            planName = membership?.planName ?: "",
-                            expiredDate = membership?.endDate?.formatDate() ?: "",
-                            planPrice = membership?.price?.formatCurrency() ?: ""
-                        )
+                        val uiModel = member.toUiModel()
+                        if (uiModel.planName.isBlank()) {
+                            val membership = membershipRepository.getActiveMembership(member.memberId).getOrNull()
+                            uiModel.copy(
+                                planName = membership?.planName ?: "",
+                                expiredDate = membership?.endDate?.formatDate() ?: "",
+                                planPrice = membership?.price?.formatCurrency() ?: ""
+                            )
+                        } else {
+                            uiModel
+                        }
                     }
 
                     _uiState.update { state ->
                         val newList = if (reset) memberUiModels else state.members + memberUiModels
-                        val hasMore = memberUiModels.size >= 25
-                        val newLastDocId = if (memberUiModels.isNotEmpty()) memberUiModels.last().id else null
+                        val newRawList = if (reset) firestoreMembers else state.rawMembers + firestoreMembers
                         state.copy(
                             isLoading = false,
                             members = newList,
+                            rawMembers = newRawList,
                             filteredMembers = applyFilters(newList, state.searchQuery, state.selectedFilter),
-                            lastDocumentId = newLastDocId,
-                            hasMore = hasMore,
-                            branchId = branchId
+                            branchId = branchId ?: ""
                         )
                     }
                 }.onFailure { e ->
@@ -147,6 +151,69 @@ class MemberListViewModel : ViewModel() {
                 }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.message) }
+            }
+        }
+    }
+
+    suspend fun getMemberById(memberId: String): Result<FirestoreMember> {
+        val cached = _uiState.value.rawMembers.find { it.memberId == memberId || it.id == memberId }
+        if (cached != null) return Result.success(cached)
+        return memberRepository.getMemberById(memberId)
+    }
+
+    fun createMember(member: FirestoreMember, onComplete: ((Boolean, String?) -> Unit)? = null) {
+        viewModelScope.launch {
+            try {
+                val result = memberRepository.createMember(member)
+                result.fold(
+                    onSuccess = { createdId ->
+                        loadMembers(_uiState.value.branchId, reset = true)
+                        onComplete?.invoke(true, createdId)
+                    },
+                    onFailure = { error ->
+                        onComplete?.invoke(false, error.message)
+                    }
+                )
+            } catch (e: Exception) {
+                onComplete?.invoke(false, e.message)
+            }
+        }
+    }
+
+    fun updateMember(member: FirestoreMember, onComplete: ((Boolean, String?) -> Unit)? = null) {
+        viewModelScope.launch {
+            try {
+                val result = memberRepository.updateMember(member)
+                result.fold(
+                    onSuccess = {
+                        loadMembers(_uiState.value.branchId, reset = true)
+                        onComplete?.invoke(true, null)
+                    },
+                    onFailure = { error ->
+                        onComplete?.invoke(false, error.message)
+                    }
+                )
+            } catch (e: Exception) {
+                onComplete?.invoke(false, e.message)
+            }
+        }
+    }
+
+    fun deleteMember(memberId: String, onComplete: ((Boolean, String?) -> Unit)? = null) {
+        viewModelScope.launch {
+            try {
+                val result = memberRepository.deleteMember(memberId)
+                result.fold(
+                    onSuccess = {
+                        loadMembers(_uiState.value.branchId, reset = true)
+                        onComplete?.invoke(true, null)
+                    },
+                    onFailure = { error ->
+                        onComplete?.invoke(false, error.message)
+                    }
+                )
+            } catch (e: Exception) {
+                onComplete?.invoke(false, e.message)
             }
         }
     }
@@ -160,7 +227,7 @@ class MemberListViewModel : ViewModel() {
         }
     }
 
-    fun filterByStatus(status: MemberStatus) {
+    fun filterByStatus(status: MemberStatus?) {
         _uiState.update { state ->
             state.copy(
                 selectedFilter = status,
@@ -176,7 +243,7 @@ class MemberListViewModel : ViewModel() {
         }
     }
 
-    private fun applyFilters(members: List<MemberUiModel>, query: String, status: MemberStatus): List<MemberUiModel> {
+    private fun applyFilters(members: List<MemberUiModel>, query: String, status: MemberStatus?): List<MemberUiModel> {
         return members.filter { member ->
             val matchesSearch = query.isBlank() ||
                     member.name.contains(query, ignoreCase = true) ||
@@ -184,6 +251,7 @@ class MemberListViewModel : ViewModel() {
                     member.phone.contains(query, ignoreCase = true)
 
             val matchesFilter = when (status) {
+                null -> true
                 MemberStatus.ACTIVE -> member.status == MemberStatus.ACTIVE
                 MemberStatus.EXPIRING_SOON -> member.status == MemberStatus.EXPIRING_SOON
                 MemberStatus.EXPIRED -> member.status == MemberStatus.EXPIRED
@@ -951,6 +1019,12 @@ private fun FirestoreMember.toUiModel(): MemberUiModel {
 
     val initials = fullName.split(" ").take(2).mapNotNull { it.firstOrNull()?.uppercaseChar() }.joinToString("").ifEmpty { "?" }
 
+    val priceStr = if (planPrice > 0) {
+        "Rp " + java.text.NumberFormat.getNumberInstance(java.util.Locale("id", "ID")).format(planPrice)
+    } else {
+        "Rp 0"
+    }
+
     return MemberUiModel(
         id = memberId,
         memberCode = memberCode,
@@ -958,11 +1032,12 @@ private fun FirestoreMember.toUiModel(): MemberUiModel {
         phone = phoneNumber,
         email = email,
         address = address,
-        planName = "",
+        planName = planName,
         status = status,
-        startDate = joinedAt?.formatDate() ?: "",
-        expiredDate = "",
-        avatarInitial = initials
+        startDate = startDate.ifEmpty { joinedAt?.formatDate() ?: "" },
+        expiredDate = expiredDate,
+        avatarInitial = initials,
+        planPrice = priceStr
     )
 }
 

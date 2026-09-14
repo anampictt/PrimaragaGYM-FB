@@ -56,6 +56,8 @@ import com.pws.primaragagym.screens.superadmin.manajemenpengguna.ManajemenPenggu
 import com.pws.primaragagym.screens.superadmin.manajemenpengguna.TambahPenggunaScreen
 import com.pws.primaragagym.screens.superadmin.manajemenrole.ManajemenRoleScreen
 import com.pws.primaragagym.screens.superadmin.manajemenrole.TambahRoleScreen
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.pws.primaragagym.ui.viewmodel.MemberListViewModel
 import com.pws.primaragagym.ui.viewmodel.AuthViewModel
 import com.pws.primaragagym.ui.viewmodel.ProfileViewModel
 
@@ -160,10 +162,16 @@ fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(
                 navController.popBackStack()
             },
             onAddMemberClick = {
-                navController.navigate(AppScreen.RegistrasiMember.route)
+                navController.navigate(AppScreen.RegistrasiMember.createRoute())
             },
             onMemberClick = { memberId ->
                 navController.navigate(AppScreen.DetailMember.createRoute(memberId))
+            },
+            onEditMemberClick = { memberId ->
+                navController.navigate(AppScreen.RegistrasiMember.createRoute(memberId))
+            },
+            onPreviewCardClick = { memberId ->
+                navController.navigate(AppScreen.MemberCardPreview.createRoute(memberId))
             }
         )
     }
@@ -192,8 +200,19 @@ fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(
         )
     }
 
-    composable(AppScreen.RegistrasiMember.route) {
+    composable(
+        route = AppScreen.RegistrasiMember.route,
+        arguments = listOf(
+            navArgument("memberId") {
+                type = NavType.StringType
+                nullable = true
+                defaultValue = null
+            }
+        )
+    ) { backStackEntry ->
+        val memberId = backStackEntry.arguments?.getString("memberId")
         RegistrasiMemberScreen(
+            memberId = memberId,
             onBackClick = {
                 if (navController.previousBackStackEntry != null) {
                     navController.popBackStack()
@@ -203,6 +222,9 @@ fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(
                 if (navController.previousBackStackEntry != null) {
                     navController.popBackStack()
                 }
+            },
+            onPreviewCardClick = { newMemberId ->
+                navController.navigate(AppScreen.MemberCardPreview.createRoute(newMemberId))
             }
         )
     }
@@ -253,20 +275,8 @@ fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(
         arguments = listOf(navArgument("memberId") { type = NavType.StringType })
     ) { backStackEntry ->
         val memberId = backStackEntry.arguments?.getString("memberId") ?: ""
-        val member = com.pws.primaragagym.screens.admin.member.dummyMembers
-            .find { it.id == memberId } ?: com.pws.primaragagym.screens.admin.member.dummyMembers.first()
-        val cardData = MemberCardData(
-            memberCode = member.memberCode,
-            name = member.name,
-            planName = member.planName,
-            startDate = member.startDate,
-            expiredDate = member.expiredDate,
-            status = member.status.displayName,
-            avatarInitial = member.avatarInitial,
-            qrContent = "PRIMARAGA_MEMBER:${member.memberCode}"
-        )
         MemberCardPreviewScreen(
-            cardData = cardData,
+            memberId = memberId,
             onBackClick = {
                 if (navController.previousBackStackEntry != null) {
                     navController.popBackStack()
