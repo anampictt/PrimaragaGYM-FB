@@ -368,6 +368,9 @@ private fun MembershipPlanCard(
                 ) {
                     PlanTypeBadge(type = plan.type)
                     PlanStatusBadge(isActive = plan.isActive)
+                    if (plan.maxMembers > 0) {
+                        PlanQuotaBadge(maxMembers = plan.maxMembers)
+                    }
                 }
             }
 
@@ -438,6 +441,22 @@ private fun PlanStatusBadge(isActive: Boolean) {
             text = text,
             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
             color = textColor
+        )
+    }
+}
+
+@Composable
+private fun PlanQuotaBadge(maxMembers: Int) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(Color(0xFFEDE7F6))
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+    ) {
+        Text(
+            text = "Maks $maxMembers Member",
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+            color = Color(0xFF673AB7)
         )
     }
 }

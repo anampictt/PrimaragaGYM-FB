@@ -67,12 +67,6 @@ class FirebaseMembershipPlanDataSource {
                 else -> Date()
             }
 
-            if (data.containsKey("maxMembers")) {
-                try {
-                    plansCollection.document(doc.id).update("maxMembers", FieldValue.delete())
-                } catch (_: Exception) {}
-            }
-
             FirestoreMembershipPlan(
                 planId = doc.id,
                 name = name,
@@ -82,7 +76,7 @@ class FirebaseMembershipPlanDataSource {
                 durationValue = durationValue,
                 duration = duration,
                 price = price,
-                maxMembers = null,
+                maxMembers = maxMembers,
                 isActive = isActive,
                 createdAt = createdAt,
                 updatedAt = updatedAt
@@ -188,6 +182,9 @@ class FirebaseMembershipPlanDataSource {
                 "createdAt" to FieldValue.serverTimestamp(),
                 "updatedAt" to FieldValue.serverTimestamp()
             )
+            if (plan.maxMembers != null && plan.maxMembers > 0) {
+                planData["maxMembers"] = plan.maxMembers
+            }
             docRef.set(planData).await()
             Result.success(docRef.id)
         } catch (e: Exception) {
@@ -205,12 +202,16 @@ class FirebaseMembershipPlanDataSource {
                 "type" to plan.type,
                 "price" to plan.price,
                 "duration" to trimmedDuration,
-                "maxMembers" to FieldValue.delete(),
                 "isActive" to plan.isActive,
                 "durationType" to plan.durationType,
                 "durationValue" to plan.durationValue,
                 "updatedAt" to FieldValue.serverTimestamp()
             )
+            if (plan.maxMembers != null && plan.maxMembers > 0) {
+                updates["maxMembers"] = plan.maxMembers
+            } else {
+                updates["maxMembers"] = FieldValue.delete()
+            }
             plansCollection.document(plan.planId).set(updates, SetOptions.merge()).await()
             Result.success(Unit)
         } catch (e: Exception) {

@@ -93,6 +93,7 @@ fun TambahMembershipPlanScreen(
     var name by remember { mutableStateOf("") }
     var selectedType by remember { mutableStateOf(PlanType.MONTHLY) }
     var price by remember { mutableStateOf("") }
+    var maxMembers by remember { mutableStateOf("") }
     var isActive by remember { mutableStateOf(true) }
 
     var isSubmitting by remember { mutableStateOf(false) }
@@ -114,6 +115,7 @@ fun TambahMembershipPlanScreen(
                     else -> PlanType.MONTHLY
                 }
                 price = cached.price.toString()
+                maxMembers = if (cached.maxMembers != null && cached.maxMembers > 0) cached.maxMembers.toString() else ""
                 isActive = cached.isActive
             }
 
@@ -128,6 +130,7 @@ fun TambahMembershipPlanScreen(
                     else -> PlanType.MONTHLY
                 }
                 price = fresh.price.toString()
+                maxMembers = if (fresh.maxMembers != null && fresh.maxMembers > 0) fresh.maxMembers.toString() else ""
                 isActive = fresh.isActive
             }
         }
@@ -230,6 +233,21 @@ fun TambahMembershipPlanScreen(
 
                 Spacer(modifier = Modifier.height(Dimens.spacing_4))
 
+                // Maksimal Member
+                FormField(
+                    label = "Maksimal Member",
+                    value = maxMembers,
+                    onValueChange = {
+                        maxMembers = it.filter { c -> c.isDigit() }
+                        generalError = null
+                    },
+                    placeholder = "Contoh: 50 (Kosongkan jika tanpa batas)",
+                    keyboardType = KeyboardType.Number,
+                    suffix = "Member"
+                )
+
+                Spacer(modifier = Modifier.height(Dimens.spacing_4))
+
                 // Status Aktif
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -287,6 +305,7 @@ fun TambahMembershipPlanScreen(
                         generalError = null
 
                         val parsedPrice = price.filter { it.isDigit() }.toLongOrNull() ?: 0L
+                        val parsedMax = maxMembers.filter { it.isDigit() }.toIntOrNull()
                         val durationStr = when (selectedType) {
                             PlanType.DAILY -> "1 Hari"
                             PlanType.MONTHLY -> "30 Hari"
@@ -317,7 +336,7 @@ fun TambahMembershipPlanScreen(
                             durationValue = durVal,
                             duration = durationStr,
                             price = parsedPrice,
-                            maxMembers = null,
+                            maxMembers = if (parsedMax != null && parsedMax > 0) parsedMax else null,
                             isActive = isActive
                         )
 
@@ -418,7 +437,8 @@ private fun FormField(
     placeholder: String,
     error: String? = null,
     keyboardType: KeyboardType = KeyboardType.Text,
-    prefix: String = ""
+    prefix: String = "",
+    suffix: String = ""
 ) {
     Column {
         Text(
@@ -439,6 +459,9 @@ private fun FormField(
             } else null,
             prefix = if (prefix.isNotEmpty()) {
                 { Text(prefix, color = TextMuted) }
+            } else null,
+            suffix = if (suffix.isNotEmpty()) {
+                { Text(suffix, color = TextMuted) }
             } else null,
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,

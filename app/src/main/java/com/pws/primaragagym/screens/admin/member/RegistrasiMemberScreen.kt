@@ -879,7 +879,7 @@ private fun PlanPickerDialog(
                                         color = TextPrimary
                                     )
                                     Text(
-                                        text = "${plan.price} - ${plan.duration}",
+                                        text = "${plan.price} - ${plan.duration}${if (plan.maxMembers > 0) " • Maks ${plan.maxMembers} Member" else ""}",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = TextSecondary
                                     )

@@ -798,6 +798,20 @@ private fun PlanSelectionCard(
                             color = GreenAccent
                         )
                     }
+                    if (plan.maxMembers != null && plan.maxMembers > 0) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(Color(0xFFEDE7F6))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = "Maks ${plan.maxMembers} Member",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                                color = Color(0xFF673AB7)
+                            )
+                        }
+                    }
                     if (plan.description.isNotBlank()) {
                         Text(
                             text = plan.description,
