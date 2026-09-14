@@ -1,6 +1,7 @@
 package com.pws.primaragagym.screens.admin.member
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,6 +21,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -30,7 +32,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Scaffold
@@ -53,9 +54,6 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pws.primaragagym.domain.model.FirestoreMember
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import com.pws.primaragagym.screens.admin.member.MemberColors.BackgroundColor
 import com.pws.primaragagym.screens.admin.member.MemberColors.CardBackground
 import com.pws.primaragagym.screens.admin.member.MemberColors.GreenAccent
@@ -64,13 +62,14 @@ import com.pws.primaragagym.screens.admin.member.MemberColors.TextMuted
 import com.pws.primaragagym.screens.admin.member.MemberColors.TextPrimary
 import com.pws.primaragagym.screens.admin.member.MemberColors.TextSecondary
 import com.pws.primaragagym.ui.theme.Dimens
-
-private enum class RenewalDuration(val displayName: String, val months: Int) {
-    ONE_MONTH("1 Bulan", 1),
-    THREE_MONTHS("3 Bulan", 3),
-    SIX_MONTHS("6 Bulan", 6),
-    TWELVE_MONTHS("12 Bulan", 12)
-}
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.text.NumberFormat
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 private enum class RenewalPayment(val displayName: String) {
     CASH("Cash"),
@@ -99,12 +98,30 @@ fun PerpanjangMembershipScreen(
             isLoading = true
             withContext(Dispatchers.IO) {
                 try {
-                    val repo = com.pws.primaragagym.data.repository.MemberRepositoryImpl()
-                    val result = repo.getMemberById(memberId)
+                    val memberRepo = com.pws.primaragagym.data.repository.MemberRepositoryImpl()
+                    val planRepo = com.pws.primaragagym.data.repository.MembershipPlanRepositoryImpl()
+                    val result = memberRepo.getMemberById(memberId)
                     result.fold(
                         onSuccess = { m ->
+                            var resolvedMember = m
+                            // If planPrice is 0 or duration is blank, try finding matching plan from repository
+                            if (resolvedMember.planPrice == 0L || resolvedMember.duration.isBlank() || resolvedMember.planType.isBlank()) {
+                                val plansResult = planRepo.getMembershipPlans()
+                                val allPlans = plansResult.getOrNull() ?: emptyList()
+                                val matchingPlan = allPlans.find {
+                                    (resolvedMember.planId.isNotBlank() && it.planId == resolvedMember.planId) ||
+                                    (resolvedMember.planName.isNotBlank() && it.name.equals(resolvedMember.planName, ignoreCase = true))
+                                }
+                                if (matchingPlan != null) {
+                                    resolvedMember = resolvedMember.copy(
+                                        planPrice = if (resolvedMember.planPrice == 0L) matchingPlan.price else resolvedMember.planPrice,
+                                        duration = if (resolvedMember.duration.isBlank()) matchingPlan.duration else resolvedMember.duration,
+                                        planType = if (resolvedMember.planType.isBlank()) matchingPlan.type else resolvedMember.planType
+                                    )
+                                }
+                            }
                             withContext(Dispatchers.Main) {
-                                member = m
+                                member = resolvedMember
                                 isLoading = false
                             }
                         },
@@ -119,7 +136,10 @@ fun PerpanjangMembershipScreen(
                                         planName = dummy.planName,
                                         startDate = dummy.startDate,
                                         expiredDate = dummy.expiredDate,
-                                        status = dummy.status.name
+                                        status = dummy.status.name,
+                                        planPrice = dummy.planPrice.filter { it.isDigit() }.toLongOrNull() ?: 350000L,
+                                        duration = "1 Bulan",
+                                        planType = "MONTHLY"
                                     )
                                 }
                                 isLoading = false
@@ -135,17 +155,27 @@ fun PerpanjangMembershipScreen(
         }
     }
 
-    var selectedDuration by remember { mutableStateOf(RenewalDuration.ONE_MONTH) }
     var selectedPayment by remember { mutableStateOf<RenewalPayment?>(null) }
     var paymentError by remember { mutableStateOf<String?>(null) }
     var showSuccessDialog by remember { mutableStateOf(false) }
 
-    val price = when (selectedDuration) {
-        RenewalDuration.ONE_MONTH -> "Rp 350.000"
-        RenewalDuration.THREE_MONTHS -> "Rp 950.000"
-        RenewalDuration.SIX_MONTHS -> "Rp 1.800.000"
-        RenewalDuration.TWELVE_MONTHS -> "Rp 3.000.000"
-    }
+    val currentMember = member
+    val planName = currentMember?.planName?.ifBlank { "Membership" } ?: "Membership"
+    val durationStr = currentMember?.duration?.ifBlank {
+        when (currentMember.planType.uppercase()) {
+            "DAILY" -> "1 Hari"
+            "YEARLY" -> "1 Tahun"
+            else -> "1 Bulan"
+        }
+    } ?: "1 Bulan"
+    val currentExpiredDate = currentMember?.expiredDate?.ifBlank { "-" } ?: "-"
+    val calculatedNewEndDate = calculateRenewalEndDate(
+        currentEndDate = currentExpiredDate,
+        durationStr = durationStr,
+        planType = currentMember?.planType ?: ""
+    )
+    val priceValue = currentMember?.planPrice ?: 0L
+    val priceFormatted = if (priceValue > 0L) formatRupiah(priceValue) else "Rp 350.000"
 
     Scaffold(
         containerColor = BackgroundColor,
@@ -173,243 +203,317 @@ fun PerpanjangMembershipScreen(
             )
         }
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
-                .padding(vertical = Dimens.spacing_5)
-        ) {
-            // Member Info Card
-            Card(
+        if (isLoading) {
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = horizontalPadding),
-                shape = RoundedCornerShape(Dimens.card_corner_radius),
-                colors = CardDefaults.cardColors(containerColor = CardBackground),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentAlignment = Alignment.Center
             ) {
-                Row(
+                CircularProgressIndicator(color = GreenAccent)
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .verticalScroll(rememberScrollState())
+                    .padding(vertical = Dimens.spacing_5)
+            ) {
+                // 1. Member Info Card
+                Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(Dimens.spacing_4),
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(horizontal = horizontalPadding),
+                    shape = RoundedCornerShape(Dimens.card_corner_radius),
+                    colors = CardDefaults.cardColors(containerColor = CardBackground),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                 ) {
-                    val currentMember = member
-                    val memberName = currentMember?.fullName?.ifBlank { "Member" } ?: "Member"
-                    val avatarInitial = memberName.split(" ").filter { it.isNotBlank() }.take(2).mapNotNull { it.firstOrNull()?.uppercaseChar() }.joinToString("").ifEmpty { "?" }
-                    val planName = currentMember?.planName?.ifBlank { "Membership" } ?: "-"
-                    val expiredDate = currentMember?.expiredDate?.ifBlank { "-" } ?: "-"
-
-                    Box(
+                    Row(
                         modifier = Modifier
-                            .size(48.dp)
-                            .clip(CircleShape)
-                            .background(GreenLight),
-                        contentAlignment = Alignment.Center
+                            .fillMaxWidth()
+                            .padding(Dimens.spacing_4),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = avatarInitial,
-                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                            color = GreenAccent
-                        )
+                        val memberName = currentMember?.fullName?.ifBlank { "Member" } ?: "Member"
+                        val avatarInitial = memberName.split(" ")
+                            .filter { it.isNotBlank() }
+                            .take(2)
+                            .mapNotNull { it.firstOrNull()?.uppercaseChar() }
+                            .joinToString("")
+                            .ifEmpty { "?" }
+
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .background(GreenLight),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = avatarInitial,
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                color = GreenAccent
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = memberName,
+                                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
+                                color = TextPrimary
+                            )
+                            Text(
+                                text = planName,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = TextSecondary
+                            )
+                            Text(
+                                text = "Expired: $currentExpiredDate",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = TextMuted
+                            )
+                        }
                     }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
+                }
+
+                Spacer(modifier = Modifier.height(Dimens.spacing_5))
+
+                // 2. Detail Paket Perpanjangan (Sesuai Paket Member)
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = horizontalPadding),
+                    shape = RoundedCornerShape(Dimens.card_corner_radius),
+                    colors = CardDefaults.cardColors(containerColor = CardBackground),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(Dimens.spacing_5)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Paket Membership",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                                color = TextPrimary
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(GreenLight)
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Refresh,
+                                        contentDescription = null,
+                                        tint = GreenAccent,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "Sesuai Paket Awal",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                                        color = GreenAccent
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(Dimens.spacing_3))
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(BackgroundColor)
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = planName,
+                                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
+                                    color = TextPrimary
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "Durasi Paket: $durationStr",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = TextSecondary
+                                )
+                            }
+                            Text(
+                                text = priceFormatted,
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = GreenAccent
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(Dimens.spacing_3))
+
                         Text(
-                            text = memberName,
-                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
-                            color = TextPrimary
-                        )
-                        Text(
-                            text = planName,
+                            text = "Masa aktif akan diperpanjang secara otomatis sesuai dengan paket yang dipilih saat registrasi awal.",
                             style = MaterialTheme.typography.bodySmall,
-                            color = TextSecondary
-                        )
-                        Text(
-                            text = "Expired: $expiredDate",
-                            style = MaterialTheme.typography.labelSmall,
                             color = TextMuted
                         )
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(Dimens.spacing_5))
+                Spacer(modifier = Modifier.height(Dimens.spacing_5))
 
-            // Duration Selection
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = horizontalPadding),
-                shape = RoundedCornerShape(Dimens.card_corner_radius),
-                colors = CardDefaults.cardColors(containerColor = CardBackground),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-            ) {
-                Column(
+                // 3. Metode Pembayaran Card (Equal-width chips with border)
+                Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(Dimens.spacing_5)
+                        .padding(horizontal = horizontalPadding),
+                    shape = RoundedCornerShape(Dimens.card_corner_radius),
+                    colors = CardDefaults.cardColors(containerColor = CardBackground),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                 ) {
-                    Text(
-                        text = "Pilih Durasi",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                        color = TextPrimary
-                    )
-                    Spacer(modifier = Modifier.height(Dimens.spacing_4))
-                    RenewalDuration.entries.forEach { duration ->
-                        DurationOption(
-                            duration = duration,
-                            isSelected = selectedDuration == duration,
-                            onClick = { selectedDuration = duration }
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(Dimens.spacing_5)
+                    ) {
+                        Text(
+                            text = "Metode Pembayaran",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                            color = TextPrimary
                         )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(Dimens.spacing_5))
-
-            // Payment Method
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = horizontalPadding),
-                shape = RoundedCornerShape(Dimens.card_corner_radius),
-                colors = CardDefaults.cardColors(containerColor = CardBackground),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(Dimens.spacing_5)
-                ) {
-                    Text(
-                        text = "Metode Pembayaran",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                        color = TextPrimary
-                    )
-                    Spacer(modifier = Modifier.height(Dimens.spacing_4))
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        RenewalPayment.entries.forEach { payment ->
-                            PaymentOptionChip(
-                                payment = payment,
-                                isSelected = selectedPayment == payment,
-                                onClick = {
-                                    selectedPayment = payment
-                                    paymentError = null
-                                }
+                        Spacer(modifier = Modifier.height(Dimens.spacing_4))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            RenewalPayment.entries.forEach { payment ->
+                                PaymentOptionChip(
+                                    modifier = Modifier.weight(1f),
+                                    payment = payment,
+                                    isSelected = selectedPayment == payment,
+                                    onClick = {
+                                        selectedPayment = payment
+                                        paymentError = null
+                                    }
+                                )
+                            }
+                        }
+                        if (paymentError != null) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = paymentError!!,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFFE53935)
                             )
                         }
                     }
-                    if (paymentError != null) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = paymentError!!,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFFE53935)
-                        )
-                    }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(Dimens.spacing_5))
+                Spacer(modifier = Modifier.height(Dimens.spacing_5))
 
-            // Summary
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = horizontalPadding),
-                shape = RoundedCornerShape(Dimens.card_corner_radius),
-                colors = CardDefaults.cardColors(containerColor = GreenLight),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-            ) {
-                Column(
+                // 4. Ringkasan Perpanjangan Card
+                Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(Dimens.spacing_5)
+                        .padding(horizontal = horizontalPadding),
+                    shape = RoundedCornerShape(Dimens.card_corner_radius),
+                    colors = CardDefaults.cardColors(containerColor = GreenLight),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
-                    Text(
-                        text = "Ringkasan",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                        color = TextPrimary
-                    )
-                    Spacer(modifier = Modifier.height(Dimens.spacing_3))
-                    val currentMember = member
-                    val memberPlan = currentMember?.planName?.ifBlank { "Membership" } ?: "-"
-                    val memberExpired = currentMember?.expiredDate?.ifBlank { "-" } ?: "-"
-                    val newEndDate = calculateNewEndDate(memberExpired, selectedDuration.months)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(Dimens.spacing_5)
+                    ) {
+                        Text(
+                            text = "Ringkasan Perpanjangan",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                            color = TextPrimary
+                        )
+                        Spacer(modifier = Modifier.height(Dimens.spacing_3))
 
-                    SummaryRow("Paket", memberPlan)
-                    SummaryRow("Durasi", selectedDuration.displayName)
-                    SummaryRow("Harga", price)
-                    SummaryRow("Tanggal Mulai", memberExpired)
-                    SummaryRow("Tanggal Berakhir", newEndDate)
-                    Spacer(modifier = Modifier.height(Dimens.spacing_4))
-                    Button(
-                        onClick = {
-                            if (selectedPayment == null) {
-                                paymentError = "Metode pembayaran wajib dipilih"
-                            } else if (currentMember != null && !isSubmitting) {
-                                isSubmitting = true
-                                paymentError = null
-                                val amountLong = when (selectedDuration) {
-                                    RenewalDuration.ONE_MONTH -> 350000L
-                                    RenewalDuration.THREE_MONTHS -> 950000L
-                                    RenewalDuration.SIX_MONTHS -> 1800000L
-                                    RenewalDuration.TWELVE_MONTHS -> 3000000L
-                                }
-                                scope.launch {
-                                    withContext(Dispatchers.IO) {
-                                        try {
-                                            val memberRepo = com.pws.primaragagym.data.repository.MemberRepositoryImpl()
-                                            val paymentRepo = com.pws.primaragagym.data.repository.PaymentRepositoryImpl()
-                                            memberRepo.updateMember(
-                                                currentMember.copy(
-                                                    expiredDate = newEndDate,
-                                                    status = "ACTIVE"
+                        SummaryRow("Paket", planName)
+                        SummaryRow("Durasi Perpanjangan", durationStr)
+                        SummaryRow("Biaya Perpanjangan", priceFormatted)
+                        SummaryRow("Tanggal Berakhir Saat Ini", currentExpiredDate)
+                        SummaryRow("Tanggal Berakhir Baru", calculatedNewEndDate, isHighlight = true)
+
+                        Spacer(modifier = Modifier.height(Dimens.spacing_4))
+
+                        Button(
+                            onClick = {
+                                if (selectedPayment == null) {
+                                    paymentError = "Metode pembayaran wajib dipilih"
+                                } else if (currentMember != null && !isSubmitting) {
+                                    isSubmitting = true
+                                    paymentError = null
+                                    val amountLong = if (currentMember.planPrice > 0L) currentMember.planPrice else 350000L
+                                    scope.launch {
+                                        withContext(Dispatchers.IO) {
+                                            try {
+                                                val memberRepo = com.pws.primaragagym.data.repository.MemberRepositoryImpl()
+                                                val paymentRepo = com.pws.primaragagym.data.repository.PaymentRepositoryImpl()
+
+                                                memberRepo.updateMember(
+                                                    currentMember.copy(
+                                                        expiredDate = calculatedNewEndDate,
+                                                        status = "ACTIVE"
+                                                    )
                                                 )
-                                            )
-                                            paymentRepo.createPayment(
-                                                memberId = currentMember.memberId,
-                                                memberName = currentMember.fullName,
-                                                membershipId = null,
-                                                branchId = currentMember.branchId,
-                                                amount = amountLong,
-                                                paymentMethod = selectedPayment!!.displayName,
-                                                paymentType = "MEMBERSHIP",
-                                                planName = "Perpanjang Membership ${selectedDuration.displayName}"
-                                            )
-                                            withContext(Dispatchers.Main) {
-                                                isSubmitting = false
-                                                showSuccessDialog = true
-                                            }
-                                        } catch (e: Exception) {
-                                            withContext(Dispatchers.Main) {
-                                                isSubmitting = false
-                                                paymentError = "Gagal memperpanjang: ${e.message}"
+
+                                                paymentRepo.createPayment(
+                                                    memberId = currentMember.memberId,
+                                                    memberName = currentMember.fullName,
+                                                    membershipId = null,
+                                                    branchId = currentMember.branchId,
+                                                    amount = amountLong,
+                                                    paymentMethod = selectedPayment!!.displayName,
+                                                    paymentType = "RENEWAL",
+                                                    planName = "Perpanjang ${currentMember.planName} ($durationStr)"
+                                                )
+
+                                                withContext(Dispatchers.Main) {
+                                                    isSubmitting = false
+                                                    showSuccessDialog = true
+                                                }
+                                            } catch (e: Exception) {
+                                                withContext(Dispatchers.Main) {
+                                                    isSubmitting = false
+                                                    paymentError = "Gagal memperpanjang: ${e.message}"
+                                                }
                                             }
                                         }
                                     }
                                 }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(Dimens.button_height),
+                            enabled = !isSubmitting,
+                            colors = ButtonDefaults.buttonColors(containerColor = GreenAccent),
+                            shape = RoundedCornerShape(Dimens.button_corner_radius)
+                        ) {
+                            if (isSubmitting) {
+                                CircularProgressIndicator(
+                                    color = Color.White,
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Text("Konfirmasi Perpanjangan")
                             }
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(Dimens.button_height),
-                        enabled = !isSubmitting,
-                        colors = ButtonDefaults.buttonColors(containerColor = GreenAccent),
-                        shape = RoundedCornerShape(Dimens.button_corner_radius)
-                    ) {
-                        if (isSubmitting) {
-                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                        } else {
-                            Text("Konfirmasi Perpanjangan")
                         }
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(Dimens.spacing_8))
+                Spacer(modifier = Modifier.height(Dimens.spacing_8))
+            }
         }
     }
 
@@ -421,7 +525,7 @@ fun PerpanjangMembershipScreen(
                     showSuccessDialog = false
                     onSubmitSuccess()
                 }) {
-                    Text("Tutup", color = GreenAccent)
+                    Text("Selesai", color = GreenAccent)
                 }
             },
             icon = {
@@ -442,65 +546,47 @@ fun PerpanjangMembershipScreen(
             },
             title = {
                 Text(
-                    text = "Membership berhasil diperpanjang",
+                    text = "Membership Berhasil Diperpanjang",
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
                 )
             },
             text = {
-                Text("Membership ${member?.fullName ?: "Member"} telah berhasil diperpanjang selama ${selectedDuration.displayName}.")
+                val memberName = member?.fullName ?: "Member"
+                Text("Membership untuk $memberName telah berhasil diperpanjang hingga $calculatedNewEndDate.")
             }
         )
     }
 }
 
 @Composable
-private fun DurationOption(
-    duration: RenewalDuration,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        RadioButton(
-            selected = isSelected,
-            onClick = onClick,
-            colors = RadioButtonDefaults.colors(selectedColor = GreenAccent)
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = duration.displayName,
-            style = MaterialTheme.typography.bodyMedium,
-            color = TextPrimary
-        )
-    }
-}
-
-@Composable
 private fun PaymentOptionChip(
+    modifier: Modifier = Modifier,
     payment: RenewalPayment,
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
     val bgColor = if (isSelected) GreenAccent else CardBackground
     val textColor = if (isSelected) Color.White else TextPrimary
+    val borderColor = if (isSelected) GreenAccent else Color(0xFFE0E0E0)
 
     Card(
-        modifier = Modifier.clickable(onClick = onClick),
+        modifier = modifier
+            .clickable(onClick = onClick)
+            .border(1.dp, borderColor, RoundedCornerShape(8.dp)),
         shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(containerColor = bgColor)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp, horizontal = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
         ) {
             RadioButton(
                 selected = isSelected,
                 onClick = onClick,
+                modifier = Modifier.size(20.dp),
                 colors = RadioButtonDefaults.colors(
                     selectedColor = Color.White,
                     unselectedColor = TextMuted
@@ -509,15 +595,18 @@ private fun PaymentOptionChip(
             Spacer(modifier = Modifier.width(4.dp))
             Text(
                 text = payment.displayName,
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                color = textColor
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
+                ),
+                color = textColor,
+                maxLines = 1
             )
         }
     }
 }
 
 @Composable
-private fun SummaryRow(label: String, value: String) {
+private fun SummaryRow(label: String, value: String, isHighlight: Boolean = false) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -525,23 +614,82 @@ private fun SummaryRow(label: String, value: String) {
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(text = label, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
-        Text(text = value, style = MaterialTheme.typography.bodyMedium, color = TextPrimary)
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontWeight = if (isHighlight) FontWeight.Bold else FontWeight.Normal
+            ),
+            color = if (isHighlight) GreenAccent else TextPrimary
+        )
     }
 }
 
-private fun calculateNewEndDate(currentEndDate: String, months: Int): String {
-    val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
-    val cal = java.util.Calendar.getInstance()
-    try {
-        if (currentEndDate.isNotBlank() && currentEndDate != "-") {
-            val parsed = sdf.parse(currentEndDate)
-            if (parsed != null && parsed.after(cal.time)) {
-                cal.time = parsed
+private fun formatRupiah(amount: Long): String {
+    val nf = NumberFormat.getNumberInstance(Locale("id", "ID"))
+    return "Rp ${nf.format(amount)}"
+}
+
+private fun calculateRenewalEndDate(
+    currentEndDate: String,
+    durationStr: String,
+    planType: String
+): String {
+    val supportedFormats = listOf(
+        SimpleDateFormat("dd MMMM yyyy", Locale("id", "ID")),
+        SimpleDateFormat("d MMMM yyyy", Locale("id", "ID")),
+        SimpleDateFormat("yyyy-MM-dd", Locale("id", "ID")),
+        SimpleDateFormat("dd-MM-yyyy", Locale("id", "ID")),
+        SimpleDateFormat("dd/MM/yyyy", Locale("id", "ID")),
+        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()),
+        SimpleDateFormat("dd MMMM yyyy", Locale.getDefault())
+    )
+
+    val now = Calendar.getInstance()
+    var parsedDate: Date? = null
+
+    for (sdf in supportedFormats) {
+        try {
+            val d = sdf.parse(currentEndDate.trim())
+            if (d != null) {
+                parsedDate = d
+                break
             }
-        }
-    } catch (e: Exception) {
-        // use now
+        } catch (_: Exception) {}
     }
-    cal.add(java.util.Calendar.MONTH, months)
-    return sdf.format(cal.time)
+
+    val cal = Calendar.getInstance()
+    // Jika tanggal kadaluarsa saat ini masih di masa depan, perpanjang dari tanggal kadaluarsa tersebut
+    // Jika sudah lewat (expired) atau kosong, perpanjang mulai dari hari ini
+    if (parsedDate != null && parsedDate.after(now.time)) {
+        cal.time = parsedDate
+    } else {
+        cal.time = now.time
+    }
+
+    val dLower = durationStr.lowercase().trim()
+    val digits = durationStr.filter { it.isDigit() }
+    val number = digits.toIntOrNull()
+
+    when {
+        // Tahunan / Yearly
+        dLower.contains("tahun") || dLower.contains("year") || planType.equals("YEARLY", ignoreCase = true) -> {
+            val years = if (number != null && !dLower.contains("hari") && !dLower.contains("bulan")) number else 1
+            cal.add(Calendar.YEAR, years)
+        }
+        // Harian / Daily
+        (dLower.contains("hari") && !dLower.contains("bulan") && !dLower.contains("30")) ||
+        dLower.contains("day") ||
+        planType.equals("DAILY", ignoreCase = true) -> {
+            val days = number ?: 1
+            cal.add(Calendar.DAY_OF_YEAR, days)
+        }
+        // Bulanan / Monthly (misal: "30 Hari", "1 Bulan", "bulanan")
+        else -> {
+            val months = if (number != null && (dLower.contains("bulan") || dLower.contains("month")) && !dLower.contains("30")) number else 1
+            cal.add(Calendar.MONTH, months)
+        }
+    }
+
+    val outputSdf = SimpleDateFormat("dd MMMM yyyy", Locale("id", "ID"))
+    return outputSdf.format(cal.time)
 }
