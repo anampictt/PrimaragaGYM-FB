@@ -102,21 +102,12 @@ fun MemberScreen(
                     vertical = Dimens.spacing_5
                 )
         ) {
-            // 3 Menu Cards
+            // Menu Cards
             MemberMenuCard(
                 title = "Manajemen Member",
                 description = "Kelola data dan informasi member",
                 icon = Icons.Filled.Groups,
                 onClick = onMemberManagementClick
-            )
-
-            Spacer(modifier = Modifier.height(Dimens.spacing_3))
-
-            MemberMenuCard(
-                title = "Manajemen Membership",
-                description = "Kelola membership member",
-                icon = Icons.Filled.Style,
-                onClick = onMembershipManagementClick
             )
 
             Spacer(modifier = Modifier.height(Dimens.spacing_3))

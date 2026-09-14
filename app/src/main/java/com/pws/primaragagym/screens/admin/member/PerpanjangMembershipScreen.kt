@@ -25,6 +25,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -38,9 +39,11 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,6 +52,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.pws.primaragagym.domain.model.FirestoreMember
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.pws.primaragagym.screens.admin.member.MemberColors.BackgroundColor
 import com.pws.primaragagym.screens.admin.member.MemberColors.CardBackground
 import com.pws.primaragagym.screens.admin.member.MemberColors.GreenAccent
@@ -82,8 +89,50 @@ fun PerpanjangMembershipScreen(
     val isTablet = configuration.screenWidthDp >= 600
     val horizontalPadding = if (isTablet) 32.dp else Dimens.screen_padding_horizontal
 
-    val member = remember(memberId) {
-        dummyMembers.find { it.id == memberId } ?: dummyMembers.first()
+    val scope = rememberCoroutineScope()
+    var member by remember { mutableStateOf<FirestoreMember?>(null) }
+    var isLoading by remember { mutableStateOf(true) }
+    var isSubmitting by remember { mutableStateOf(false) }
+
+    LaunchedEffect(memberId) {
+        if (memberId.isNotBlank()) {
+            isLoading = true
+            withContext(Dispatchers.IO) {
+                try {
+                    val repo = com.pws.primaragagym.data.repository.MemberRepositoryImpl()
+                    val result = repo.getMemberById(memberId)
+                    result.fold(
+                        onSuccess = { m ->
+                            withContext(Dispatchers.Main) {
+                                member = m
+                                isLoading = false
+                            }
+                        },
+                        onFailure = {
+                            withContext(Dispatchers.Main) {
+                                val dummy = dummyMembers.find { it.id == memberId }
+                                if (dummy != null) {
+                                    member = FirestoreMember(
+                                        memberId = dummy.id,
+                                        memberCode = dummy.memberCode,
+                                        fullName = dummy.name,
+                                        planName = dummy.planName,
+                                        startDate = dummy.startDate,
+                                        expiredDate = dummy.expiredDate,
+                                        status = dummy.status.name
+                                    )
+                                }
+                                isLoading = false
+                            }
+                        }
+                    )
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        isLoading = false
+                    }
+                }
+            }
+        }
     }
 
     var selectedDuration by remember { mutableStateOf(RenewalDuration.ONE_MONTH) }
@@ -146,6 +195,12 @@ fun PerpanjangMembershipScreen(
                         .padding(Dimens.spacing_4),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    val currentMember = member
+                    val memberName = currentMember?.fullName?.ifBlank { "Member" } ?: "Member"
+                    val avatarInitial = memberName.split(" ").filter { it.isNotBlank() }.take(2).mapNotNull { it.firstOrNull()?.uppercaseChar() }.joinToString("").ifEmpty { "?" }
+                    val planName = currentMember?.planName?.ifBlank { "Membership" } ?: "-"
+                    val expiredDate = currentMember?.expiredDate?.ifBlank { "-" } ?: "-"
+
                     Box(
                         modifier = Modifier
                             .size(48.dp)
@@ -154,7 +209,7 @@ fun PerpanjangMembershipScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = member.avatarInitial,
+                            text = avatarInitial,
                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
                             color = GreenAccent
                         )
@@ -162,17 +217,17 @@ fun PerpanjangMembershipScreen(
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
-                            text = member.name,
+                            text = memberName,
                             style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
                             color = TextPrimary
                         )
                         Text(
-                            text = member.planName,
+                            text = planName,
                             style = MaterialTheme.typography.bodySmall,
                             color = TextSecondary
                         )
                         Text(
-                            text = "Expired: ${member.expiredDate}",
+                            text = "Expired: $expiredDate",
                             style = MaterialTheme.typography.labelSmall,
                             color = TextMuted
                         )
@@ -279,27 +334,77 @@ fun PerpanjangMembershipScreen(
                         color = TextPrimary
                     )
                     Spacer(modifier = Modifier.height(Dimens.spacing_3))
-                    SummaryRow("Paket", member.planName)
+                    val currentMember = member
+                    val memberPlan = currentMember?.planName?.ifBlank { "Membership" } ?: "-"
+                    val memberExpired = currentMember?.expiredDate?.ifBlank { "-" } ?: "-"
+                    val newEndDate = calculateNewEndDate(memberExpired, selectedDuration.months)
+
+                    SummaryRow("Paket", memberPlan)
                     SummaryRow("Durasi", selectedDuration.displayName)
                     SummaryRow("Harga", price)
-                    SummaryRow("Tanggal Mulai", member.expiredDate)
-                    SummaryRow("Tanggal Berakhir", calculateNewEndDate(member.expiredDate, selectedDuration.months))
+                    SummaryRow("Tanggal Mulai", memberExpired)
+                    SummaryRow("Tanggal Berakhir", newEndDate)
                     Spacer(modifier = Modifier.height(Dimens.spacing_4))
                     Button(
                         onClick = {
                             if (selectedPayment == null) {
                                 paymentError = "Metode pembayaran wajib dipilih"
-                            } else {
-                                showSuccessDialog = true
+                            } else if (currentMember != null && !isSubmitting) {
+                                isSubmitting = true
+                                paymentError = null
+                                val amountLong = when (selectedDuration) {
+                                    RenewalDuration.ONE_MONTH -> 350000L
+                                    RenewalDuration.THREE_MONTHS -> 950000L
+                                    RenewalDuration.SIX_MONTHS -> 1800000L
+                                    RenewalDuration.TWELVE_MONTHS -> 3000000L
+                                }
+                                scope.launch {
+                                    withContext(Dispatchers.IO) {
+                                        try {
+                                            val memberRepo = com.pws.primaragagym.data.repository.MemberRepositoryImpl()
+                                            val paymentRepo = com.pws.primaragagym.data.repository.PaymentRepositoryImpl()
+                                            memberRepo.updateMember(
+                                                currentMember.copy(
+                                                    expiredDate = newEndDate,
+                                                    status = "ACTIVE"
+                                                )
+                                            )
+                                            paymentRepo.createPayment(
+                                                memberId = currentMember.memberId,
+                                                memberName = currentMember.fullName,
+                                                membershipId = null,
+                                                branchId = currentMember.branchId,
+                                                amount = amountLong,
+                                                paymentMethod = selectedPayment!!.displayName,
+                                                paymentType = "MEMBERSHIP",
+                                                planName = "Perpanjang Membership ${selectedDuration.displayName}"
+                                            )
+                                            withContext(Dispatchers.Main) {
+                                                isSubmitting = false
+                                                showSuccessDialog = true
+                                            }
+                                        } catch (e: Exception) {
+                                            withContext(Dispatchers.Main) {
+                                                isSubmitting = false
+                                                paymentError = "Gagal memperpanjang: ${e.message}"
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(Dimens.button_height),
+                        enabled = !isSubmitting,
                         colors = ButtonDefaults.buttonColors(containerColor = GreenAccent),
                         shape = RoundedCornerShape(Dimens.button_corner_radius)
                     ) {
-                        Text("Konfirmasi Perpanjangan")
+                        if (isSubmitting) {
+                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        } else {
+                            Text("Konfirmasi Perpanjangan")
+                        }
                     }
                 }
             }
@@ -342,7 +447,7 @@ fun PerpanjangMembershipScreen(
                 )
             },
             text = {
-                Text("Membership ${member.name} telah berhasil diperpanjang selama ${selectedDuration.displayName}.")
+                Text("Membership ${member?.fullName ?: "Member"} telah berhasil diperpanjang selama ${selectedDuration.displayName}.")
             }
         )
     }
@@ -425,11 +530,18 @@ private fun SummaryRow(label: String, value: String) {
 }
 
 private fun calculateNewEndDate(currentEndDate: String, months: Int): String {
-    return when (months) {
-        1 -> "30 Oktober 2026"
-        3 -> "30 November 2026"
-        6 -> "30 Maret 2027"
-        12 -> "30 September 2027"
-        else -> currentEndDate
+    val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+    val cal = java.util.Calendar.getInstance()
+    try {
+        if (currentEndDate.isNotBlank() && currentEndDate != "-") {
+            val parsed = sdf.parse(currentEndDate)
+            if (parsed != null && parsed.after(cal.time)) {
+                cal.time = parsed
+            }
+        }
+    } catch (e: Exception) {
+        // use now
     }
+    cal.add(java.util.Calendar.MONTH, months)
+    return sdf.format(cal.time)
 }

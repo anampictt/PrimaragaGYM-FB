@@ -151,7 +151,7 @@ fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(
                 navController.navigate(AppScreen.MembershipPlan.route)
             },
             onMemberClick = { memberId ->
-                navController.navigate(AppScreen.DetailMember.createRoute(memberId))
+                navController.navigate(AppScreen.MembershipDetail.createRoute(memberId))
             }
         )
     }
@@ -165,7 +165,7 @@ fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(
                 navController.navigate(AppScreen.RegistrasiMember.createRoute())
             },
             onMemberClick = { memberId ->
-                navController.navigate(AppScreen.DetailMember.createRoute(memberId))
+                navController.navigate(AppScreen.MembershipDetail.createRoute(memberId))
             },
             onEditMemberClick = { memberId ->
                 navController.navigate(AppScreen.RegistrasiMember.createRoute(memberId))
