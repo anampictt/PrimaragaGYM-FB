@@ -130,6 +130,12 @@ class CheckinRepositoryImpl : CheckinRepository {
 
     override suspend fun getMemberCheckinHistory(memberId: String, limit: Int): Result<List<FirestoreCheckin>> =
         dataSource.getMemberCheckinHistory(memberId, limit)
+
+    override suspend fun getActiveCheckinForMember(memberId: String): Result<FirestoreCheckin?> =
+        dataSource.getActiveCheckinForMember(memberId)
+
+    override suspend fun getAllCheckins(branchId: String, limit: Int): Result<List<FirestoreCheckin>> =
+        dataSource.getAllCheckins(branchId, limit)
 }
 
 class PaymentRepositoryImpl : PaymentRepository {

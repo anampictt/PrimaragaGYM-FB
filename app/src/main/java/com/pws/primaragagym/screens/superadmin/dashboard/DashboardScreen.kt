@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Assessment
@@ -153,6 +154,12 @@ val allMenuItems = listOf(
         icon = Icons.Filled.QrCodeScanner
     ),
     MenuItem(
+        id = "riwayat_check_in_out",
+        title = "Riwayat Check-in & Out",
+        description = "Catatan riwayat jam masuk dan\nkeluar member gym.",
+        icon = Icons.Filled.History
+    ),
+    MenuItem(
         id = "notifikasi",
         title = "Notifikasi",
         description = "Lihat informasi dan\npemberitahuan terbaru.",
@@ -190,6 +197,7 @@ fun SuperAdminDashboardContent(
     onBranchManagementClick: () -> Unit = {},
     onMemberClick: () -> Unit = {},
     onCheckInOutClick: () -> Unit = {},
+    onRiwayatCheckInOutClick: () -> Unit = {},
     onCatatanKeuanganClick: () -> Unit = {},
     onNotificationClick: () -> Unit = {},
     onReportClick: () -> Unit = {},
@@ -257,6 +265,7 @@ fun SuperAdminDashboardContent(
                         onBranchManagementClick = onBranchManagementClick,
                         onMemberClick = onMemberClick,
                         onCheckInOutClick = onCheckInOutClick,
+                        onRiwayatCheckInOutClick = onRiwayatCheckInOutClick,
                         onCatatanKeuanganClick = onCatatanKeuanganClick,
                         onNotificationClick = onNotificationClick,
                         onReportClick = onReportClick,
@@ -509,6 +518,7 @@ private fun MenuUtamaSection(
     onBranchManagementClick: () -> Unit,
     onMemberClick: () -> Unit,
     onCheckInOutClick: () -> Unit,
+    onRiwayatCheckInOutClick: () -> Unit = {},
     onCatatanKeuanganClick: () -> Unit,
     onNotificationClick: () -> Unit,
     onReportClick: () -> Unit,
@@ -534,6 +544,7 @@ private fun MenuUtamaSection(
                 "manajemen_cabang" -> onBranchManagementClick
                 "manajemen_member" -> onMemberClick
                 "check_in_out" -> onCheckInOutClick
+                "riwayat_check_in_out" -> onRiwayatCheckInOutClick
                 "notifikasi" -> onNotificationClick
                 "laporan" -> onReportClick
                 else -> ({})
@@ -782,6 +793,7 @@ fun TabletSidebar(
     onBranchManagementClick: () -> Unit,
     onMemberClick: () -> Unit,
     onCheckInOutClick: () -> Unit,
+    onRiwayatCheckInOutClick: () -> Unit = {},
     onCatatanKeuanganClick: () -> Unit,
     onNotificationClick: () -> Unit,
     onReportClick: () -> Unit
@@ -858,6 +870,7 @@ fun TabletSidebar(
                         "manajemen_cabang" -> onBranchManagementClick
                         "manajemen_member" -> onMemberClick
                         "check_in_out" -> onCheckInOutClick
+                        "riwayat_check_in_out" -> onRiwayatCheckInOutClick
                         "notifikasi" -> onNotificationClick
                         "laporan" -> onReportClick
                         else -> ({})

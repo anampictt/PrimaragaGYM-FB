@@ -216,6 +216,12 @@ sealed class AppScreen(
         fun createRoute(memberId: String) = "admin/checkin-checkout/member/$memberId"
     }
 
+    data object RiwayatCheckinCheckout : AppScreen(
+        title = R.string.check_in_checkout,
+        icon = R.drawable.ic_launcher_background,
+        route = "admin/checkin-checkout/riwayat"
+    )
+
     data object CatatanKeuangan : AppScreen(
         title = R.string.catatan_keuangan,
         icon = R.drawable.ic_launcher_background,

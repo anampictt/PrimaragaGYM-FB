@@ -180,8 +180,9 @@ class FirebaseMemberDataSource {
 
     suspend fun getMemberByCode(memberCode: String): Result<com.pws.primaragagym.domain.model.FirestoreMember> {
         return try {
+            val cleanCode = memberCode.trim()
             val snapshot = membersCollection
-                .whereEqualTo("memberCode", memberCode)
+                .whereEqualTo("memberCode", cleanCode)
                 .limit(1)
                 .get()
                 .await()
@@ -190,7 +191,18 @@ class FirebaseMemberDataSource {
                 val member = documentToFirestoreMember(snapshot.documents[0])
                 Result.success(member)
             } else {
-                Result.failure(Exception("Member dengan kode $memberCode tidak ditemukan."))
+                val upperCode = cleanCode.uppercase()
+                if (upperCode != cleanCode) {
+                    val upperSnapshot = membersCollection
+                        .whereEqualTo("memberCode", upperCode)
+                        .limit(1)
+                        .get()
+                        .await()
+                    if (!upperSnapshot.isEmpty) {
+                        return Result.success(documentToFirestoreMember(upperSnapshot.documents[0]))
+                    }
+                }
+                Result.failure(Exception("Member dengan kode $cleanCode tidak ditemukan."))
             }
         } catch (e: Exception) {
             Result.failure(Exception("Gagal mencari member. ${e.message}"))

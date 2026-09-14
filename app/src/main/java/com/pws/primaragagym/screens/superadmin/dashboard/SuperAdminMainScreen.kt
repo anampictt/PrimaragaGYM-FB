@@ -164,6 +164,7 @@ fun SuperAdminMainScreen(
                 onBranchManagementClick = { safeNavigate(AppScreen.ManajemenCabang.route) },
                 onMemberClick = { safeNavigate(AppScreen.Member.route) },
                 onCheckInOutClick = { safeNavigate(AppScreen.CheckInCheckout.route) },
+                onRiwayatCheckInOutClick = { safeNavigate(AppScreen.RiwayatCheckinCheckout.route) },
                 onCatatanKeuanganClick = { safeNavigate(AppScreen.Keuangan.route) },
                 onNotificationClick = { safeNavigate(AppScreen.Notifikasi.route) },
                 onReportClick = { safeNavigate(AppScreen.LaporanPemasukan.route) }
@@ -223,6 +224,7 @@ private fun SuperAdminNestedNavHost(
                 onBranchManagementClick = { navController.navigate(AppScreen.ManajemenCabang.route) },
                 onMemberClick = { navController.navigate(AppScreen.Member.route) },
                 onCheckInOutClick = { navController.navigate(AppScreen.CheckInCheckout.route) },
+                onRiwayatCheckInOutClick = { navController.navigate(AppScreen.RiwayatCheckinCheckout.route) },
                 onCatatanKeuanganClick = { navController.navigate(AppScreen.Keuangan.route) },
                 onNotificationClick = { navController.navigate(AppScreen.Notifikasi.route) },
                 onReportClick = { navController.navigate(AppScreen.LaporanPemasukan.route) },

@@ -67,6 +67,7 @@ class AuthViewModel(
                 "manajemen_cabang" to true,
                 "manajemen_member" to true,
                 "check_in_out" to true,
+                "riwayat_check_in_out" to true,
                 "notifikasi" to true,
                 "laporan" to true
             )
@@ -86,6 +87,7 @@ class AuthViewModel(
                 "manajemen_cabang" to false,
                 "manajemen_member" to true,
                 "check_in_out" to true,
+                "riwayat_check_in_out" to true,
                 "notifikasi" to true,
                 "laporan" to true
             )
@@ -110,7 +112,7 @@ class AuthViewModel(
         val perms = _uiState.value.permissions
         if (perms[permissionKey] == true) return true
         return when (permissionKey) {
-            "check_in_out" -> perms["check_in_out"] == true || perms["check_in"] == true || perms["check_out"] == true
+            "check_in_out", "riwayat_check_in_out" -> perms["check_in_out"] == true || perms["check_in"] == true || perms["check_out"] == true || perms["riwayat_check_in_out"] == true
             "manajemen_member", "member" -> perms["manajemen_member"] == true || perms["member"] == true
             "laporan", "laporan_keuangan" -> perms["laporan"] == true || perms["laporan_keuangan"] == true
             else -> false

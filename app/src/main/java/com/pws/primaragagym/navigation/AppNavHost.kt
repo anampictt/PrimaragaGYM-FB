@@ -406,6 +406,9 @@ fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(
             },
             onNavigateToDetail = { memberId ->
                 navController.navigate(AppScreen.CheckInMemberDetail.createRoute(memberId))
+            },
+            onNavigateToHistory = {
+                navController.navigate(AppScreen.RiwayatCheckinCheckout.route)
             }
         )
     }
@@ -436,6 +439,19 @@ fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(
                 if (navController.previousBackStackEntry != null) {
                     navController.popBackStack()
                 }
+            }
+        )
+    }
+
+    composable(AppScreen.RiwayatCheckinCheckout.route) {
+        com.pws.primaragagym.screens.admin.checkin.RiwayatCheckinCheckoutScreen(
+            onBackClick = {
+                if (navController.previousBackStackEntry != null) {
+                    navController.popBackStack()
+                }
+            },
+            onMemberClick = { memberId ->
+                navController.navigate(AppScreen.CheckInMemberDetail.createRoute(memberId))
             }
         )
     }

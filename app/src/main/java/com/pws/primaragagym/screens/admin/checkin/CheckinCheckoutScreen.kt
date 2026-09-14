@@ -8,9 +8,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Login
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Person
@@ -27,7 +29,9 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pws.primaragagym.ui.viewmodel.MemberListViewModel
 import com.pws.primaragagym.ui.viewmodel.CheckinFirestoreViewModel
@@ -53,7 +57,8 @@ fun CheckinCheckoutScreen(
     authViewModel: AuthViewModel = viewModel(),
     onBackClick: () -> Unit,
     onNavigateToScanner: () -> Unit,
-    onNavigateToDetail: (String) -> Unit
+    onNavigateToDetail: (String) -> Unit,
+    onNavigateToHistory: () -> Unit = {}
 ) {
     val configuration = LocalConfiguration.current
     val isTablet = configuration.screenWidthDp >= 600
@@ -65,16 +70,28 @@ fun CheckinCheckoutScreen(
     val activities = checkinState.activities
     val members = memberListState.members
 
-    LaunchedEffect(authState.currentUser) {
-        val branchId = authState.currentUser?.branchId
-        if (branchId != null) {
-            checkinViewModel.loadTodayActivities(branchId)
-            memberListViewModel.loadMembers(branchId, reset = true)
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                val branchId = authState.currentUser?.branchId ?: ""
+                checkinViewModel.loadTodayActivities(branchId)
+                memberListViewModel.loadMembers(branchId, reset = true)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
 
+    LaunchedEffect(authState.currentUser) {
+        val branchId = authState.currentUser?.branchId ?: ""
+        checkinViewModel.loadTodayActivities(branchId)
+        memberListViewModel.loadMembers(branchId, reset = true)
+    }
+
     var searchQuery by remember { mutableStateOf(TextFieldValue("")) }
-    var selectedFilter by remember { mutableStateOf("Semua") }
 
     Scaffold(
         topBar = {
@@ -128,9 +145,10 @@ fun CheckinCheckoutScreen(
 
                 // Summary
                 item {
-                    val totalCheckin = activities.count { it.type == ActivityType.CHECK_IN }
-                    val totalCheckout = activities.count { it.type == ActivityType.CHECK_OUT }
-                    val totalActive = totalCheckin - totalCheckout
+                    val todayCheckins = checkinState.todayCheckins
+                    val totalCheckin = todayCheckins.size
+                    val totalActive = todayCheckins.count { it.status == "CHECKED_IN" }
+                    val totalCheckout = todayCheckins.count { it.status == "CHECKED_OUT" }
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -210,142 +228,58 @@ fun CheckinCheckoutScreen(
                     }
                 }
 
-                // Search Bar
+
+                // Shortcut ke Halaman Khusus Riwayat Check-in & Check-out
                 item {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onNavigateToHistory() },
+                        colors = CardDefaults.cardColors(containerColor = CardBackground),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                        shape = RoundedCornerShape(12.dp)
                     ) {
-                        Divider(modifier = Modifier.weight(1f), color = Color.LightGray)
-                        Text(
-                            text = "atau cari member",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = TextMuted,
-                            modifier = Modifier.padding(horizontal = 16.dp)
-                        )
-                        Divider(modifier = Modifier.weight(1f), color = Color.LightGray)
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    OutlinedTextField(
-                        value = searchQuery,
-                        onValueChange = { searchQuery = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("Cari berdasarkan ID member (contoh: MBR-001)...") },
-                        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-                        shape = RoundedCornerShape(8.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = CardBackground,
-                            unfocusedContainerColor = CardBackground,
-                            focusedBorderColor = GreenAccent,
-                            unfocusedBorderColor = Color.LightGray
-                        )
-                    )
-                }
-
-                // Search Results
-                val query = searchQuery.text.trim()
-                if (query.isNotEmpty()) {
-                    val searchResults = members.filter {
-                        it.memberCode.contains(query, ignoreCase = true) || it.name.contains(query, ignoreCase = true)
-                    }
-
-                    if (searchResults.isEmpty()) {
-                        item {
-                            Text(
-                                text = "Member tidak ditemukan. Pastikan ID member sudah benar.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = Color.Red,
-                                modifier = Modifier.padding(vertical = 8.dp)
-                            )
-                        }
-                    } else {
-                        items(searchResults) { member ->
-                            SearchResultCard(
-                                member = member,
-                                onClick = { onNavigateToDetail(member.memberCode) }
-                            )
-                        }
-                    }
-                }
-
-                // Activity Log Header
-                item {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Aktivitas Hari Ini",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    // Filters
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        val filters = listOf("Semua", "Check-in", "Check-out")
-                        filters.forEach { filter ->
-                            FilterChip(
-                                selected = selectedFilter == filter,
-                                onClick = { selectedFilter = filter },
-                                label = { Text(filter) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = GreenAccent.copy(alpha = 0.1f),
-                                    selectedLabelColor = GreenAccent
-                                ),
-                                border = FilterChipDefaults.filterChipBorder(
-                                    borderColor = if (selectedFilter == filter) GreenAccent else Color.LightGray,
-                                    enabled = true,
-                                    selected = selectedFilter == filter
-                                )
-                            )
-                        }
-                    }
-                }
-
-                // Activity List
-                val filteredActivities = activities.filter {
-                    when (selectedFilter) {
-                        "Check-in" -> it.type == ActivityType.CHECK_IN
-                        "Check-out" -> it.type == ActivityType.CHECK_OUT
-                        else -> true
-                    }
-                }
-
-                if (filteredActivities.isEmpty()) {
-                    item {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = CardBackground),
-                            shape = RoundedCornerShape(8.dp)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column(
+                            Box(
                                 modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(32.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
+                                    .size(46.dp)
+                                    .clip(CircleShape)
+                                    .background(IconBackground),
+                                contentAlignment = Alignment.Center
                             ) {
-                                Text(
-                                    text = "Belum ada aktivitas hari ini",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = TextSecondary
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "Check-in member akan muncul di sini.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = TextMuted
+                                Icon(
+                                    imageVector = Icons.Filled.History,
+                                    contentDescription = null,
+                                    tint = GreenAccent,
+                                    modifier = Modifier.size(24.dp)
                                 )
                             }
+                            Spacer(modifier = Modifier.width(14.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Riwayat Check-in & Check-out",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = TextPrimary
+                                )
+                                Spacer(modifier = Modifier.height(3.dp))
+                                Text(
+                                    text = "Buka catatan lengkap waktu masuk & keluar kunjungan member",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = TextSecondary
+                                )
+                            }
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = "Buka Riwayat",
+                                tint = GreenAccent
+                            )
                         }
-                    }
-                } else {
-                    items(filteredActivities) { activity ->
-                        ActivityItemCard(activity)
                     }
                 }
             }

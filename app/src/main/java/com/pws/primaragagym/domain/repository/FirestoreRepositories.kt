@@ -63,6 +63,8 @@ interface CheckinRepository {
     suspend fun getRecentActivities(branchId: String, limit: Int = 10): Result<List<FirestoreCheckin>>
     suspend fun isMemberCheckedIn(memberId: String): Result<Boolean>
     suspend fun getMemberCheckinHistory(memberId: String, limit: Int = 50): Result<List<FirestoreCheckin>>
+    suspend fun getActiveCheckinForMember(memberId: String): Result<FirestoreCheckin?>
+    suspend fun getAllCheckins(branchId: String, limit: Int = 100): Result<List<FirestoreCheckin>>
 }
 
 interface PaymentRepository {

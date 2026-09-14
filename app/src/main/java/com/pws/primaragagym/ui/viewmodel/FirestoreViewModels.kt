@@ -389,15 +389,21 @@ class PlanListViewModel : ViewModel() {
 // ============================================================================
 // CHECKIN VIEWMODEL (FIRESTORE)
 // ============================================================================
+// CHECKIN VIEWMODEL (FIRESTORE)
+// ============================================================================
 data class CheckinUiState(
-    val isLoading: Boolean = true,
+    val isLoading: Boolean = false,
+    val isSearchingMember: Boolean = false,
     val activities: List<CheckinActivityMock> = emptyList(),
     val todayCheckins: List<FirestoreCheckin> = emptyList(),
+    val allCheckins: List<FirestoreCheckin> = emptyList(),
     val error: String? = null,
     val successMessage: String? = null,
     val branchId: String = "",
     val memberToProcess: FirestoreMember? = null,
-    val memberMembership: FirestoreMembership? = null
+    val memberMembership: FirestoreMembership? = null,
+    val activeCheckin: FirestoreCheckin? = null,
+    val isCheckedIn: Boolean = false
 )
 
 class CheckinFirestoreViewModel : ViewModel() {
@@ -415,7 +421,7 @@ class CheckinFirestoreViewModel : ViewModel() {
 
             try {
                 val checkins = checkinRepository.getTodayCheckins(branchId)
-                val recentActivities = checkinRepository.getRecentActivities(branchId, 20)
+                val recentActivities = checkinRepository.getRecentActivities(branchId, 25)
 
                 _uiState.update { state ->
                     state.copy(
@@ -430,43 +436,20 @@ class CheckinFirestoreViewModel : ViewModel() {
         }
     }
 
-    fun searchMemberByCode(memberCode: String) {
+    fun loadAllCheckins(branchId: String) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null, memberToProcess = null, memberMembership = null) }
+            _uiState.update { it.copy(isLoading = true, branchId = branchId) }
 
             try {
-                val memberResult = memberRepository.getMemberByCode(memberCode)
+                val allCheckins = checkinRepository.getAllCheckins(branchId, 150)
+                val todayCheckins = checkinRepository.getTodayCheckins(branchId)
 
-                memberResult.onSuccess { member ->
-                    val membership = membershipRepository.getActiveMembership(member.memberId).getOrNull()
-                    val now = Date()
-                    val isMembershipValid = membership != null &&
-                            membership.status == "ACTIVE" &&
-                            (membership.endDate?.after(now) == true)
-
-                    val isCheckedIn = checkinRepository.isMemberCheckedIn(member.memberId).getOrDefault(false)
-
-                    _uiState.update { state ->
-                        state.copy(
-                            isLoading = false,
-                            memberToProcess = member,
-                            memberMembership = if (isMembershipValid) membership else null
-                        )
-                    }
-
-                    when {
-                        member.status != "ACTIVE" -> {
-                            _uiState.update { it.copy(error = "Member tidak aktif (status: ${member.status})") }
-                        }
-                        !isMembershipValid -> {
-                            _uiState.update { it.copy(error = "Membership sudah expire atau tidak valid") }
-                        }
-                        isCheckedIn -> {
-                            _uiState.update { it.copy(error = "Member sudah check-in hari ini") }
-                        }
-                    }
-                }.onFailure { e ->
-                    _uiState.update { it.copy(isLoading = false, error = e.message) }
+                _uiState.update { state ->
+                    state.copy(
+                        isLoading = false,
+                        allCheckins = allCheckins.getOrDefault(emptyList()),
+                        todayCheckins = todayCheckins.getOrDefault(emptyList())
+                    )
                 }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.message) }
@@ -474,10 +457,106 @@ class CheckinFirestoreViewModel : ViewModel() {
         }
     }
 
-    fun performCheckin() {
+    fun clearSearchState() {
+        _uiState.update {
+            it.copy(
+                isSearchingMember = false,
+                memberToProcess = null,
+                memberMembership = null,
+                activeCheckin = null,
+                isCheckedIn = false,
+                error = null
+            )
+        }
+    }
+
+    fun searchMemberByCode(memberCodeOrId: String, branchId: String = "") {
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    isLoading = true,
+                    isSearchingMember = true,
+                    error = null,
+                    memberToProcess = null,
+                    memberMembership = null,
+                    activeCheckin = null,
+                    isCheckedIn = false,
+                    branchId = if (branchId.isNotEmpty()) branchId else it.branchId
+                )
+            }
+
+            try {
+                val cleanCode = memberCodeOrId.trim().removePrefix("PRIMARAGA_MEMBER:")
+
+                // Coba cari berdasarkan memberCode terlebih dahulu
+                var member = memberRepository.getMemberByCode(cleanCode).getOrNull()
+
+                // Jika tidak ditemukan, coba cari berdasarkan memberId langsung
+                if (member == null) {
+                    member = memberRepository.getMemberById(cleanCode).getOrNull()
+                }
+
+                if (member == null) {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            isSearchingMember = false,
+                            error = "Kode barcode / ID '$cleanCode' tidak terdaftar di database."
+                        )
+                    }
+                    return@launch
+                }
+
+                val membership = membershipRepository.getActiveMembership(member.memberId).getOrNull()
+                val activeCheckin = checkinRepository.getActiveCheckinForMember(member.memberId).getOrNull()
+                val isCheckedIn = activeCheckin != null
+
+                // Validasi masa aktif membership
+                val isExpiredByDate = isDateExpired(member.expiredDate)
+                val isMembershipActive = when {
+                    member.status.equals("EXPIRED", ignoreCase = true) -> false
+                    member.status.equals("SUSPENDED", ignoreCase = true) -> false
+                    member.status.equals("INACTIVE", ignoreCase = true) -> false
+                    isExpiredByDate -> false
+                    membership != null -> membership.status == "ACTIVE" && (membership.endDate?.after(Date()) ?: true)
+                    else -> member.status.equals("ACTIVE", ignoreCase = true)
+                }
+
+                _uiState.update { state ->
+                    state.copy(
+                        isLoading = false,
+                        isSearchingMember = false,
+                        memberToProcess = member,
+                        memberMembership = membership,
+                        activeCheckin = activeCheckin,
+                        isCheckedIn = isCheckedIn
+                    )
+                }
+
+                when {
+                    member.status.equals("SUSPENDED", ignoreCase = true) -> {
+                        _uiState.update { it.copy(error = "Status member sedang di-suspend.") }
+                    }
+                    !isMembershipActive -> {
+                        _uiState.update { it.copy(error = "Membership member sudah kadaluarsa (Expired).") }
+                    }
+                }
+            } catch (e: Exception) {
+                _uiState.update { 
+                    it.copy(
+                        isLoading = false, 
+                        isSearchingMember = false, 
+                        error = e.message ?: "Terjadi kesalahan saat mencari member."
+                    ) 
+                }
+            }
+        }
+    }
+
+    fun performCheckin(branchIdParam: String = "") {
         val member = _uiState.value.memberToProcess ?: return
-        val membership = _uiState.value.memberMembership ?: return
-        val branchId = _uiState.value.branchId.ifEmpty { member.branchId }
+        val branchId = branchIdParam.ifEmpty { _uiState.value.branchId.ifEmpty { member.branchId } }
+        val membershipId = _uiState.value.memberMembership?.membershipId ?: member.activeMembershipId ?: member.planId
 
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
@@ -486,18 +565,19 @@ class CheckinFirestoreViewModel : ViewModel() {
                 memberId = member.memberId,
                 memberName = member.fullName,
                 memberCode = member.memberCode,
-                membershipId = membership.membershipId,
+                membershipId = membershipId,
                 branchId = branchId
             ).onSuccess {
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        successMessage = "Check-in berhasil untuk ${member.fullName}",
-                        memberToProcess = null,
-                        memberMembership = null
+                        successMessage = "Check-in berhasil untuk ${member.fullName} (${member.memberCode})",
+                        isCheckedIn = true
                     )
                 }
-                loadTodayActivities(branchId)
+                if (branchId.isNotEmpty()) {
+                    loadTodayActivities(branchId)
+                }
             }.onFailure { e ->
                 _uiState.update { it.copy(isLoading = false, error = e.message) }
             }
@@ -516,8 +596,8 @@ class CheckinFirestoreViewModel : ViewModel() {
                         it.copy(
                             isLoading = false,
                             successMessage = "Check-out berhasil untuk $memberName",
-                            memberToProcess = null,
-                            memberMembership = null
+                            isCheckedIn = false,
+                            activeCheckin = null
                         )
                     }
                     if (branchId.isNotEmpty()) {
@@ -532,6 +612,32 @@ class CheckinFirestoreViewModel : ViewModel() {
 
     fun clearMessages() {
         _uiState.update { it.copy(error = null, successMessage = null) }
+    }
+
+    private fun isDateExpired(dateStr: String?): Boolean {
+        if (dateStr.isNullOrBlank() || dateStr == "-") return false
+        val formats = listOf(
+            SimpleDateFormat("dd MMMM yyyy", Locale("id", "ID")),
+            SimpleDateFormat("dd MMM yyyy", Locale("id", "ID")),
+            SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()),
+            SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        )
+        val now = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.time
+
+        for (sdf in formats) {
+            try {
+                val parsed = sdf.parse(dateStr)
+                if (parsed != null) {
+                    return parsed.before(now)
+                }
+            } catch (_: Exception) {}
+        }
+        return false
     }
 
     fun clearMember() {
@@ -1071,11 +1177,12 @@ private fun FirestoreMembershipPlan.toUiModel(): MembershipPlanUiModel {
 
 private fun FirestoreCheckin.toActivityMock(): CheckinActivityMock {
     val activityType = if (status == "CHECKED_IN") ActivityType.CHECK_IN else ActivityType.CHECK_OUT
+    val displayDate = if (status == "CHECKED_OUT") checkOutAt ?: checkInAt else checkInAt
 
     return CheckinActivityMock(
-        memberId = memberId,
+        memberId = memberCode.ifBlank { memberId },
         name = memberName,
-        time = checkInAt?.formatTime() ?: "",
+        time = displayDate?.formatTime() ?: "",
         type = activityType
     )
 }

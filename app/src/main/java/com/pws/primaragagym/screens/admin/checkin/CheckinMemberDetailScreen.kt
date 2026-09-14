@@ -7,9 +7,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.Login
+import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
@@ -23,12 +26,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import kotlinx.coroutines.launch
-import com.pws.primaragagym.ui.viewmodel.CheckinFirestoreViewModel
 import com.pws.primaragagym.ui.viewmodel.AuthViewModel
+import com.pws.primaragagym.ui.viewmodel.CheckinFirestoreViewModel
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -42,7 +41,7 @@ private val GreenAccent = Color(0xFF32A060)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CheckinMemberDetailScreen(
-    memberId: String, // This is actually memberCode now
+    memberId: String,
     viewModel: CheckinFirestoreViewModel = viewModel(),
     authViewModel: AuthViewModel = viewModel(),
     onBackClick: () -> Unit
@@ -52,26 +51,33 @@ fun CheckinMemberDetailScreen(
     val member = uiState.memberToProcess
     val membership = uiState.memberMembership
     val isLoading = uiState.isLoading
+    val isSearching = isLoading || uiState.isSearchingMember || (member == null && uiState.error == null)
 
     val snackbarHostState = remember { SnackbarHostState() }
-    val coroutineScope = rememberCoroutineScope()
+    var showSuccessDialog by remember { mutableStateOf(false) }
+    var successDialogMessage by remember { mutableStateOf("") }
 
-    LaunchedEffect(memberId, authState.currentUser) {
-        val branchId = authState.currentUser?.branchId
-        if (branchId != null) {
-            viewModel.searchMemberByCode(memberId)
+    DisposableEffect(memberId) {
+        onDispose {
+            viewModel.clearSearchState()
         }
     }
 
-    LaunchedEffect(uiState.successMessage, uiState.error) {
+    LaunchedEffect(memberId) {
+        val branchId = authState.currentUser?.branchId ?: ""
+        viewModel.searchMemberByCode(memberCodeOrId = memberId, branchId = branchId)
+    }
+
+    LaunchedEffect(uiState.successMessage) {
         if (uiState.successMessage != null) {
-            snackbarHostState.showSnackbar(uiState.successMessage!!)
-            viewModel.clearMessages()
-            onBackClick() // go back after success
+            successDialogMessage = uiState.successMessage ?: ""
+            showSuccessDialog = true
         }
+    }
+
+    LaunchedEffect(uiState.error) {
         if (uiState.error != null) {
-            snackbarHostState.showSnackbar(uiState.error!!)
-            viewModel.clearMessages()
+            snackbarHostState.showSnackbar(uiState.error ?: "")
         }
     }
 
@@ -80,14 +86,16 @@ fun CheckinMemberDetailScreen(
             TopAppBar(
                 title = {
                     Text(
-                        "Detail Member",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        "Detail Check-in Member",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Kembali")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Kembali"
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -100,9 +108,11 @@ fun CheckinMemberDetailScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = BackgroundColor
     ) { paddingValues ->
-        if (isLoading) {
+        if (isSearching) {
             Box(
-                modifier = Modifier.fillMaxSize().padding(paddingValues),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
                 contentAlignment = Alignment.Center
             ) {
                 CircularProgressIndicator(color = GreenAccent)
@@ -114,29 +124,49 @@ fun CheckinMemberDetailScreen(
                     .padding(paddingValues),
                 contentAlignment = Alignment.Center
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(24.dp)
+                ) {
                     Icon(
                         imageVector = Icons.Filled.Error,
                         contentDescription = null,
-                        tint = Color.Red,
-                        modifier = Modifier.size(48.dp)
+                        tint = Color(0xFFE53935),
+                        modifier = Modifier.size(54.dp)
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = "Member tidak ditemukan",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
+                        text = "Member Tidak Ditemukan",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                         color = TextPrimary
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "Pastikan ID / Kode member sudah benar.",
+                        text = uiState.error ?: "Kode barcode / ID '$memberId' tidak terdaftar di database.",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = TextSecondary
+                        color = TextSecondary,
+                        textAlign = TextAlign.Center
                     )
+                    Spacer(modifier = Modifier.height(20.dp))
+                    Button(
+                        onClick = onBackClick,
+                        colors = ButtonDefaults.buttonColors(containerColor = GreenAccent)
+                    ) {
+                        Text("Kembali ke Scanner")
+                    }
                 }
             }
         } else {
+            val isCheckedIn = uiState.isCheckedIn || uiState.todayCheckins.any { it.memberId == member.memberId && it.status == "CHECKED_IN" }
+            val dateFormat = remember { SimpleDateFormat("dd MMMM yyyy", Locale("id", "ID")) }
+
+            val planTitle = member.planName.ifBlank { membership?.planName ?: "Membership Standar" }
+            val startText = member.startDate.ifBlank { membership?.startDate?.let { dateFormat.format(it) } ?: "-" }
+            val endText = member.expiredDate.ifBlank { membership?.endDate?.let { dateFormat.format(it) } ?: "-" }
+
+            val isExpired = member.status.equals("EXPIRED", ignoreCase = true) || (uiState.error?.contains("kadaluarsa", ignoreCase = true) == true)
+            val isSuspended = member.status.equals("SUSPENDED", ignoreCase = true)
+
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -148,83 +178,70 @@ fun CheckinMemberDetailScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = CardBackground),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(16.dp),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(24.dp),
+                            .padding(20.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(80.dp)
+                                .size(76.dp)
                                 .clip(CircleShape)
                                 .background(IconBackground),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(
-                                imageVector = Icons.Filled.Person,
-                                contentDescription = null,
-                                tint = GreenAccent,
-                                modifier = Modifier.size(40.dp)
+                            Text(
+                                text = member.fullName.take(2).uppercase().ifBlank { "MB" },
+                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
+                                color = GreenAccent
                             )
                         }
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
                         Text(
                             text = member.fullName,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                             color = TextPrimary
                         )
+                        Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = member.memberCode,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = TextSecondary
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                            color = GreenAccent
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        
-                        val statusColor = when(member.status.uppercase()) {
-                            "ACTIVE" -> Color(0xFF4CAF50)
-                            "EXPIRING_SOON" -> Color(0xFFFF9800)
-                            "EXPIRED" -> Color(0xFFF44336)
-                            "SUSPENDED" -> Color(0xFFE91E63)
-                            else -> Color(0xFF9E9E9E)
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        val (statusBg, statusTextColor, statusLabel) = when {
+                            isSuspended -> Triple(Color(0xFFFFEBEE), Color(0xFFD32F2F), "SUSPENDED")
+                            isExpired -> Triple(Color(0xFFFFEBEE), Color(0xFFD32F2F), "EXPIRED")
+                            else -> Triple(Color(0xFFE8F5E9), GreenAccent, "AKTIF")
                         }
-                        
+
                         Box(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(statusColor.copy(alpha = 0.1f))
-                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(statusBg)
+                                .padding(horizontal = 12.dp, vertical = 4.dp)
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(8.dp)
-                                        .clip(CircleShape)
-                                        .background(statusColor)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = member.status,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = statusColor,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
+                            Text(
+                                text = statusLabel,
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                color = statusTextColor
+                            )
                         }
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.height(16.dp))
-                
-                // Membership Info
+
+                // Membership Card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = CardBackground),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(16.dp),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
                     Column(
@@ -233,121 +250,266 @@ fun CheckinMemberDetailScreen(
                             .padding(16.dp)
                     ) {
                         Text(
-                            text = "Membership",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
+                            text = "Paket Membership",
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                             color = TextPrimary
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = membership?.planName ?: "Tidak ada membership",
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.SemiBold,
+                            text = planTitle,
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                             color = GreenAccent
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        if (membership != null) {
-                            val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale("id", "ID"))
-                            val start = membership.startDate?.let { dateFormat.format(it) } ?: "-"
-                            val end = membership.endDate?.let { dateFormat.format(it) } ?: "-"
-                            Text(
-                                text = "$start - $end",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = TextSecondary
-                            )
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                Text(
+                                    text = "Mulai Berlaku",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = TextSecondary
+                                )
+                                Text(
+                                    text = startText,
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                                    color = TextPrimary
+                                )
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    text = "Berakhir Pada",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = TextSecondary
+                                )
+                                Text(
+                                    text = endText,
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                                    color = if (isExpired) Color(0xFFD32F2F) else TextPrimary
+                                )
+                            }
                         }
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.height(16.dp))
-                
-                        val isCheckedIn = uiState.todayCheckins.any { it.memberId == member.memberId && it.status == "CHECKED_IN" }
-                        
-                        // Action Buttons
-                        when (member.status.uppercase()) {
-                            "EXPIRED" -> {
-                                Card(
-                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3F3)),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(16.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(Icons.Filled.Warning, contentDescription = null, tint = Color.Red)
-                                        Spacer(modifier = Modifier.width(12.dp))
-                                        Column {
-                                            Text(
-                                                text = "Membership sudah expired.",
-                                                style = MaterialTheme.typography.titleSmall,
-                                                color = Color.Red,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                            Spacer(modifier = Modifier.height(4.dp))
-                                            Text(
-                                                text = "Member tidak dapat melakukan check-in.",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = Color.Red.copy(alpha = 0.8f)
-                                            )
-                                        }
-                                    }
-                                }
+
+                // Status Keberadaan Saat Ini
+                if (isCheckedIn) {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Filled.CheckCircle,
+                                contentDescription = null,
+                                tint = Color(0xFFF57C00),
+                                modifier = Modifier.size(32.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = "Member Sedang di Dalam Gym",
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = Color(0xFFE65100)
+                                )
+                                val inTime = uiState.activeCheckin?.checkInAt?.let {
+                                    SimpleDateFormat("HH:mm 'WIB'", Locale("id", "ID")).format(it)
+                                } ?: "Hari ini"
+                                Text(
+                                    text = "Tercatat check-in pada: $inTime",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color(0xFFE65100).copy(alpha = 0.85f)
+                                )
                             }
-                            "SUSPENDED" -> {
-                                Card(
-                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3F3)),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(16.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(Icons.Filled.Error, contentDescription = null, tint = Color.Red)
-                                        Spacer(modifier = Modifier.width(12.dp))
-                                        Text(
-                                            text = "Member sedang di-suspend.",
-                                            style = MaterialTheme.typography.titleSmall,
-                                            color = Color.Red,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                }
-                            }
-                            else -> {
-                                if (!isCheckedIn) {
-                                    Button(
-                                        onClick = { viewModel.performCheckin() },
-                                        colors = ButtonDefaults.buttonColors(containerColor = GreenAccent),
-                                        shape = RoundedCornerShape(8.dp),
-                                        modifier = Modifier.fillMaxWidth(),
-                                        enabled = !isLoading
-                                    ) {
-                                        Text(
-                                            text = "Check-in",
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.Bold,
-                                            modifier = Modifier.padding(vertical = 8.dp)
-                                        )
-                                    }
-                                } else {
-                                    Button(
-                                        onClick = { viewModel.performCheckout(member.memberId, member.fullName) },
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF9800)),
-                                        shape = RoundedCornerShape(8.dp),
-                                        modifier = Modifier.fillMaxWidth(),
-                                        enabled = !isLoading
-                                    ) {
-                                        Text(
-                                            text = "Check-out",
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.Bold,
-                                            modifier = Modifier.padding(vertical = 8.dp)
-                                        )
-                                    }
-                                }
+                        }
+                    }
+                } else {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Filled.Login,
+                                contentDescription = null,
+                                tint = GreenAccent,
+                                modifier = Modifier.size(32.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = "Member Belum Check-in",
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = Color(0xFF2E7D32)
+                                )
+                                Text(
+                                    text = "Tekan tombol di bawah untuk mencatat kedatangan member",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color(0xFF2E7D32).copy(alpha = 0.85f)
+                                )
                             }
                         }
                     }
                 }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Action Button
+                when {
+                    isSuspended -> {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Filled.Warning, contentDescription = null, tint = Color(0xFFD32F2F))
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = "Member sedang di-suspend. Akses check-in dinonaktifkan.",
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                    color = Color(0xFFD32F2F)
+                                )
+                            }
+                        }
+                    }
+                    isExpired -> {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Filled.Warning, contentDescription = null, tint = Color(0xFFD32F2F))
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text(
+                                        text = "Membership sudah kadaluarsa.",
+                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                        color = Color(0xFFD32F2F)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "Harap lakukan perpanjangan paket membership terlebih dahulu sebelum check-in.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color(0xFFD32F2F).copy(alpha = 0.85f)
+                                )
+                            }
+                        }
+                    }
+                    else -> {
+                        if (!isCheckedIn) {
+                            Button(
+                                onClick = { 
+                                    val branchId = authState.currentUser?.branchId ?: ""
+                                    viewModel.performCheckin(branchId) 
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = GreenAccent),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(52.dp),
+                                enabled = !isLoading
+                            ) {
+                                Icon(Icons.Filled.Login, contentDescription = null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Konfirmasi Check-in Masuk",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                                )
+                            }
+                        } else {
+                            Button(
+                                onClick = { viewModel.performCheckout(member.memberId, member.fullName) },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF57C00)),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(52.dp),
+                                enabled = !isLoading
+                            ) {
+                                Icon(Icons.Filled.Logout, contentDescription = null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Konfirmasi Check-out Keluar",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Success Dialog
+    if (showSuccessDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showSuccessDialog = false
+                viewModel.clearMessages()
+                onBackClick()
+            },
+            icon = {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(IconBackground),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Check,
+                        contentDescription = null,
+                        tint = GreenAccent,
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
+            },
+            title = {
+                Text(
+                    text = "Aktivitas Berhasil Dicatat",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    textAlign = TextAlign.Center
+                )
+            },
+            text = {
+                Text(
+                    text = successDialogMessage,
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showSuccessDialog = false
+                        viewModel.clearMessages()
+                        onBackClick()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = GreenAccent),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Selesai")
+                }
+            }
+        )
     }
 }

@@ -54,9 +54,15 @@ fun MemberCard(
     cornerRadius: Dp = 20.dp
 ) {
     var qrBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var barcodeBitmap by remember { mutableStateOf<Bitmap?>(null) }
 
-    LaunchedEffect(data.qrContent) {
+    LaunchedEffect(data.qrContent, data.memberCode) {
         qrBitmap = QrCodeGenerator.generateQrBitmap(data.qrContent)
+        barcodeBitmap = try {
+            BarcodeGenerator.generateBarcode128Bitmap(data.memberCode.ifBlank { data.qrContent }, 480, 100)
+        } catch (_: Exception) {
+            null
+        }
     }
 
     Card(
@@ -192,13 +198,13 @@ fun MemberCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
             // QR Code
             qrBitmap?.let { bitmap ->
                 Box(
                     modifier = Modifier
-                        .size(100.dp)
+                        .size(88.dp)
                         .clip(RoundedCornerShape(8.dp))
                         .background(Color.White),
                     contentAlignment = Alignment.Center
@@ -206,13 +212,41 @@ fun MemberCard(
                     Image(
                         bitmap = bitmap.asImageBitmap(),
                         contentDescription = "QR Code",
-                        modifier = Modifier.size(96.dp),
+                        modifier = Modifier.size(84.dp),
                         contentScale = ContentScale.Fit
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Barcode Section
+            barcodeBitmap?.let { barcode ->
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Image(
+                        bitmap = barcode.asImageBitmap(),
+                        contentDescription = "Barcode Member",
+                        modifier = Modifier
+                            .fillMaxWidth(0.85f)
+                            .height(38.dp),
+                        contentScale = ContentScale.FillBounds
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = data.memberCode,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.5.sp
+                        ),
+                        color = CardTextPrimary
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
 
             Text(
                 text = "PRIMARAGA GYM",
