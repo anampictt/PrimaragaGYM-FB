@@ -52,6 +52,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.pws.primaragagym.domain.model.FirestoreMember
 import com.pws.primaragagym.screens.admin.member.MemberColors.BackgroundColor
@@ -612,15 +613,24 @@ private fun SummaryRow(label: String, value: String, isHighlight: Boolean = fals
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Top
     ) {
-        Text(text = label, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = TextSecondary,
+            modifier = Modifier.weight(1f)
+        )
+        Spacer(modifier = Modifier.width(12.dp))
         Text(
             text = value,
             style = MaterialTheme.typography.bodyMedium.copy(
                 fontWeight = if (isHighlight) FontWeight.Bold else FontWeight.Normal
             ),
-            color = if (isHighlight) GreenAccent else TextPrimary
+            color = if (isHighlight) GreenAccent else TextPrimary,
+            textAlign = TextAlign.End,
+            modifier = Modifier.weight(1.3f)
         )
     }
 }

@@ -6,6 +6,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -53,6 +55,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.pws.primaragagym.domain.model.FirestoreMember
 import com.pws.primaragagym.domain.model.FirestoreMembershipPlan
@@ -707,6 +710,7 @@ fun UpgradeDowngradeScreen(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PlanSelectionCard(
     plan: FirestoreMembershipPlan,
@@ -738,99 +742,102 @@ private fun PlanSelectionCard(
         colors = CardDefaults.cardColors(containerColor = containerBg),
         elevation = CardDefaults.cardElevation(defaultElevation = if (isSelected) 2.dp else 0.dp)
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(14.dp)
         ) {
-            RadioButton(
-                selected = isSelected,
-                onClick = if (!isCurrentPlan) onClick else null,
-                enabled = !isCurrentPlan,
-                modifier = Modifier.size(20.dp),
-                colors = RadioButtonDefaults.colors(
-                    selectedColor = GreenAccent,
-                    unselectedColor = TextMuted
-                )
-            )
-            Spacer(modifier = Modifier.width(10.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = plan.name,
-                        style = MaterialTheme.typography.bodyLarge.copy(
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold
-                        ),
-                        color = if (isCurrentPlan) TextMuted else TextPrimary
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                RadioButton(
+                    selected = isSelected,
+                    onClick = if (!isCurrentPlan) onClick else null,
+                    enabled = !isCurrentPlan,
+                    modifier = Modifier.size(20.dp),
+                    colors = RadioButtonDefaults.colors(
+                        selectedColor = GreenAccent,
+                        unselectedColor = TextMuted
                     )
-                    if (isCurrentPlan) {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(Color(0xFFE0E0E0))
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = "Paket Saat Ini",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
-                                color = TextSecondary
-                            )
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = plan.name,
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold
+                    ),
+                    color = if (isCurrentPlan) TextMuted else TextPrimary,
+                    modifier = Modifier.weight(1f)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = formatRupiah(plan.price),
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        fontWeight = FontWeight.Bold
+                    ),
+                    color = if (isCurrentPlan) TextMuted else GreenAccent
+                )
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            FlowRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 30.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                if (isCurrentPlan) {
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(4.dp))
-                            .background(GreenLight)
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                            .background(Color(0xFFE0E0E0))
+                            .padding(horizontal = 8.dp, vertical = 3.dp)
                     ) {
                         Text(
-                            text = getPlanDurationDisplay(plan),
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                            color = GreenAccent
-                        )
-                    }
-                    if (plan.maxMembers != null && plan.maxMembers > 0) {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(Color(0xFFEDE7F6))
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = "Maks ${plan.maxMembers} Member",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
-                                color = Color(0xFF673AB7)
-                            )
-                        }
-                    }
-                    if (plan.description.isNotBlank()) {
-                        Text(
-                            text = plan.description,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = TextMuted,
-                            maxLines = 1
+                            text = "Paket Saat Ini",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                            color = TextSecondary
                         )
                     }
                 }
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(GreenLight)
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                ) {
+                    Text(
+                        text = getPlanDurationDisplay(plan),
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = GreenAccent
+                    )
+                }
+                if (plan.maxMembers != null && plan.maxMembers > 0) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(Color(0xFFEDE7F6))
+                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                    ) {
+                        Text(
+                            text = "Maks ${plan.maxMembers} Member",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                            color = Color(0xFF673AB7)
+                        )
+                    }
+                }
+                if (plan.description.isNotBlank()) {
+                    Text(
+                        text = plan.description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextMuted,
+                        maxLines = 1
+                    )
+                }
             }
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = formatRupiah(plan.price),
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    fontWeight = FontWeight.Bold
-                ),
-                color = if (isCurrentPlan) TextMuted else GreenAccent
-            )
         }
     }
 }
@@ -888,15 +895,24 @@ private fun SummaryRow(label: String, value: String, isHighlight: Boolean = fals
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Top
     ) {
-        Text(text = label, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = TextSecondary,
+            modifier = Modifier.weight(1f)
+        )
+        Spacer(modifier = Modifier.width(12.dp))
         Text(
             text = value,
             style = MaterialTheme.typography.bodyMedium.copy(
                 fontWeight = if (isHighlight) FontWeight.Bold else FontWeight.Normal
             ),
-            color = if (isHighlight) GreenAccent else TextPrimary
+            color = if (isHighlight) GreenAccent else TextPrimary,
+            textAlign = TextAlign.End,
+            modifier = Modifier.weight(1.3f)
         )
     }
 }

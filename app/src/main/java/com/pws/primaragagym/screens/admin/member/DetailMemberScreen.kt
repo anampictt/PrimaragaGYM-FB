@@ -344,6 +344,7 @@ fun DetailMemberScreen(
 
                     InfoRow(label = "Nama Lengkap", value = member.name)
                     InfoRow(label = "ID Member", value = member.memberCode)
+                    InfoRow(label = "Tanggal Lahir", value = member.dateOfBirth.ifBlank { "-" })
 
                     InfoRow(label = "Nomor Telepon", value = member.phone.ifBlank { "-" })
 

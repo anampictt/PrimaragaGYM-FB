@@ -123,6 +123,7 @@ fun RegistrasiMemberScreen(
     var phone by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var address by remember { mutableStateOf("") }
+    var dateOfBirth by remember { mutableStateOf("") }
     var selectedPlan by remember { mutableStateOf<MembershipPlanUiModel?>(null) }
     var paymentMethod by remember { mutableStateOf<PaymentMethod?>(null) }
     val jakartaTz = remember { TimeZone.getTimeZone("Asia/Jakarta") }
@@ -161,6 +162,7 @@ fun RegistrasiMemberScreen(
                 phone = fresh.phoneNumber
                 email = fresh.email
                 address = fresh.address
+                dateOfBirth = fresh.dateOfBirth
                 if (fresh.startDate.isNotBlank()) {
                     startDate = fresh.startDate
                     isCustomStartDate = true
@@ -309,7 +311,7 @@ fun RegistrasiMemberScreen(
 
                 // Email
                 FormTextField(
-                    label = "Email",
+                    label = "Email (Opsional)",
                     value = email,
                     onValueChange = { email = it },
                     placeholder = "Contoh: email@email.com",
@@ -326,6 +328,16 @@ fun RegistrasiMemberScreen(
                     placeholder = "Masukkan alamat lengkap",
                     singleLine = false,
                     minLines = 2
+                )
+
+                Spacer(modifier = Modifier.height(Dimens.spacing_4))
+
+                // Tanggal Lahir (Birth Date)
+                DatePickerField(
+                    label = "Tanggal Lahir (Opsional)",
+                    value = dateOfBirth,
+                    dateFormatPattern = "dd MMMM yyyy",
+                    onDateSelected = { dateOfBirth = it }
                 )
 
                 Spacer(modifier = Modifier.height(Dimens.spacing_4))
@@ -514,6 +526,7 @@ fun RegistrasiMemberScreen(
                             phoneNumber = phone.trim(),
                             email = email.trim(),
                             address = address.trim(),
+                            dateOfBirth = dateOfBirth.trim(),
                             planId = selectedPlan?.id ?: "",
                             planName = selectedPlan?.name ?: "",
                             planPrice = planPriceNum,
@@ -738,6 +751,7 @@ private fun FormTextField(
 private fun DatePickerField(
     label: String,
     value: String,
+    dateFormatPattern: String = "dd MMMM yyyy, HH:mm 'WIB'",
     onDateSelected: (String) -> Unit
 ) {
     var showDatePicker by remember { mutableStateOf(false) }
@@ -761,7 +775,7 @@ private fun DatePickerField(
                             set(Calendar.MINUTE, currentCal.get(Calendar.MINUTE))
                             set(Calendar.SECOND, currentCal.get(Calendar.SECOND))
                         }
-                        val formatter = SimpleDateFormat("dd MMMM yyyy, HH:mm 'WIB'", Locale("id", "ID")).apply {
+                        val formatter = SimpleDateFormat(dateFormatPattern, Locale("id", "ID")).apply {
                             timeZone = TimeZone.getTimeZone("Asia/Jakarta")
                         }
                         onDateSelected(formatter.format(selectedCal.time))

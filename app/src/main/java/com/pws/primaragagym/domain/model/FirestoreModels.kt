@@ -79,8 +79,7 @@ data class FirestoreMember(
     val address: String = "",
     val photoUrl: String? = null,
     val gender: String = "", // MALE, FEMALE
-    @ServerTimestamp
-    val dateOfBirth: Date? = null,
+    val dateOfBirth: String = "",
     val branchId: String = "",
     val status: String = "ACTIVE", // ACTIVE, EXPIRED, SUSPENDED, INACTIVE
     val activeMembershipId: String? = null,

@@ -56,7 +56,8 @@ object FirestoreMapper {
             expiredDate = expiredDate,
             avatarInitial = initials,
             planPrice = priceStr,
-            createdAt = createdAt ?: joinedAt
+            createdAt = createdAt ?: joinedAt,
+            dateOfBirth = dateOfBirth
         )
     }
 

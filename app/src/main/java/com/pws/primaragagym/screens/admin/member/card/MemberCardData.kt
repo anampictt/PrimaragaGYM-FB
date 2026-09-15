@@ -8,5 +8,6 @@ data class MemberCardData(
     val expiredDate: String,
     val status: String,
     val avatarInitial: String,
-    val qrContent: String
+    val qrContent: String,
+    val dateOfBirth: String = ""
 )

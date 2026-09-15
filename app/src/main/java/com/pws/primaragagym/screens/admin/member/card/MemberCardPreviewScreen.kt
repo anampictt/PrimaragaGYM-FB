@@ -150,7 +150,8 @@ fun MemberCardPreviewScreen(
                                     expiredDate = formatExpiredDateDisplay(expired, member.createdAt).ifBlank { "-" },
                                     status = statusStr,
                                     avatarInitial = initials,
-                                    qrContent = "PRIMARAGA_MEMBER:$code"
+                                    qrContent = "PRIMARAGA_MEMBER:$code",
+                                    dateOfBirth = member.dateOfBirth.ifBlank { "-" }
                                 )
                                 isLoading = false
                             }
@@ -167,7 +168,8 @@ fun MemberCardPreviewScreen(
                                         expiredDate = dummy.expiredDate,
                                         status = dummy.status.displayName,
                                         avatarInitial = dummy.avatarInitial,
-                                        qrContent = "PRIMARAGA_MEMBER:${dummy.memberCode}"
+                                        qrContent = "PRIMARAGA_MEMBER:${dummy.memberCode}",
+                                        dateOfBirth = dummy.dateOfBirth.ifBlank { "-" }
                                     )
                                 } else {
                                     errorMessage = err.message ?: "Data member tidak ditemukan"

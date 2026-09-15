@@ -218,6 +218,24 @@ object MemberCardPdfGenerator {
         canvas.drawText("Aktif", padding, y + 12f * scale, labelPaint)
         canvas.drawText(data.startDate, padding, y + 26f * scale, valuePaint)
 
+        if (data.dateOfBirth.isNotBlank() && data.dateOfBirth != "-") {
+            val dobLabelPaint = Paint().apply {
+                color = CardTextMuted
+                isAntiAlias = true
+                textSize = 10f * scale
+                textAlign = Paint.Align.CENTER
+            }
+            val dobValuePaint = Paint().apply {
+                color = CardTextPrimary
+                isAntiAlias = true
+                textSize = 12f * scale
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+                textAlign = Paint.Align.CENTER
+            }
+            canvas.drawText("Tgl Lahir", width / 2, y + 12f * scale, dobLabelPaint)
+            canvas.drawText(data.dateOfBirth, width / 2, y + 26f * scale, dobValuePaint)
+        }
+
         val endLabelPaint = Paint().apply {
             color = CardTextMuted
             isAntiAlias = true

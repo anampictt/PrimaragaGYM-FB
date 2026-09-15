@@ -49,7 +49,8 @@ data class MemberUiModel(
     val expiredDate: String,
     val avatarInitial: String,
     val planPrice: String = "Rp 350.000",
-    val createdAt: Date? = null
+    val createdAt: Date? = null,
+    val dateOfBirth: String = ""
 )
 
 enum class MemberStatus(val displayName: String) {

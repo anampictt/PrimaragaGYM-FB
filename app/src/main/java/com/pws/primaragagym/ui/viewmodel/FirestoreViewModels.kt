@@ -990,7 +990,8 @@ private fun FirestoreMember.toUiModel(): MemberUiModel {
         expiredDate = expiredDate,
         avatarInitial = initials,
         planPrice = priceStr,
-        createdAt = createdAt ?: joinedAt
+        createdAt = createdAt ?: joinedAt,
+        dateOfBirth = dateOfBirth
     )
 }
 

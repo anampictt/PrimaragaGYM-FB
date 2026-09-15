@@ -49,6 +49,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.pws.primaragagym.R
 import com.pws.primaragagym.domain.model.FirestoreMember
@@ -362,6 +363,7 @@ fun MembershipDetailScreen(
                         Spacer(modifier = Modifier.height(Dimens.spacing_4))
                         InfoRow("Harga", planPriceStr, textMuted, textPrimary)
                         InfoRow("Nomor Telepon", phone.ifBlank { "-" }, textMuted, textPrimary)
+                        InfoRow("Tanggal Lahir", currentMember.dateOfBirth.ifBlank { "-" }, textMuted, textPrimary)
                         InfoRow("Tanggal Mulai", startDateStr, textMuted, textPrimary)
                         InfoRow("Tanggal Berakhir", formatExpiredDateDisplay(expiredDateStr, currentMember.createdAt), textMuted, textPrimary)
                         InfoRow("Status", statusEnum.displayName, textMuted, textPrimary)
@@ -472,9 +474,22 @@ private fun InfoRow(label: String, value: String, labelColor: Color, valueColor:
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 6.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Top
     ) {
-        Text(text = label, style = MaterialTheme.typography.bodyMedium, color = labelColor)
-        Text(text = value, style = MaterialTheme.typography.bodyMedium, color = valueColor)
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = labelColor,
+            modifier = Modifier.weight(1f)
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = valueColor,
+            textAlign = TextAlign.End,
+            modifier = Modifier.weight(1.3f)
+        )
     }
 }

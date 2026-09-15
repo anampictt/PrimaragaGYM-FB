@@ -209,7 +209,8 @@ fun MemberManagementScreen(
                     expiredDate = member.expiredDate.ifEmpty { "-" },
                     status = member.status.displayName,
                     avatarInitial = member.avatarInitial,
-                    qrContent = "PRIMARAGA_MEMBER:${member.memberCode}"
+                    qrContent = "PRIMARAGA_MEMBER:${member.memberCode}",
+                    dateOfBirth = member.dateOfBirth.ifEmpty { "-" }
                 )
                 val bitmap = withContext(Dispatchers.Default) {
                     MemberCardImageGenerator.generateCardBitmap(context, cardData)
@@ -238,7 +239,8 @@ fun MemberManagementScreen(
                     expiredDate = member.expiredDate.ifEmpty { "-" },
                     status = member.status.displayName,
                     avatarInitial = member.avatarInitial,
-                    qrContent = "PRIMARAGA_MEMBER:${member.memberCode}"
+                    qrContent = "PRIMARAGA_MEMBER:${member.memberCode}",
+                    dateOfBirth = member.dateOfBirth.ifEmpty { "-" }
                 )
                 val bitmap = withContext(Dispatchers.Default) {
                     MemberCardImageGenerator.generateCardBitmap(context, cardData)

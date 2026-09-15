@@ -88,6 +88,12 @@ class FirebaseMemberDataSource {
         }
 
         val paymentMethod = (data["paymentMethod"] as? String) ?: (data["metodePembayaran"] as? String) ?: ""
+        val dateOfBirth = when (val d = data["dateOfBirth"] ?: data["date_of_birth"] ?: data["tanggalLahir"] ?: data["tanggal_lahir"]) {
+            is String -> d
+            is com.google.firebase.Timestamp -> dateFormat.format(d.toDate())
+            is java.util.Date -> dateFormat.format(d)
+            else -> ""
+        }
         val createdAt = (data["createdAt"] as? com.google.firebase.Timestamp)?.toDate()
         val updatedAt = (data["updatedAt"] as? com.google.firebase.Timestamp)?.toDate()
 
@@ -100,6 +106,7 @@ class FirebaseMemberDataSource {
             address = address,
             photoUrl = photoUrl,
             gender = gender,
+            dateOfBirth = dateOfBirth,
             branchId = branchId,
             status = status,
             activeMembershipId = activeMembershipId,
@@ -302,6 +309,7 @@ class FirebaseMemberDataSource {
                 "phone" to member.phoneNumber.trim(),
                 "email" to member.email.trim(),
                 "address" to member.address.trim(),
+                "dateOfBirth" to member.dateOfBirth.trim(),
                 "planId" to member.planId,
                 "planName" to member.planName,
                 "planPrice" to member.planPrice,
@@ -341,6 +349,7 @@ class FirebaseMemberDataSource {
                 "phone" to member.phoneNumber.trim(),
                 "email" to member.email.trim(),
                 "address" to member.address.trim(),
+                "dateOfBirth" to member.dateOfBirth.trim(),
                 "planId" to member.planId,
                 "planName" to member.planName,
                 "planPrice" to member.planPrice,

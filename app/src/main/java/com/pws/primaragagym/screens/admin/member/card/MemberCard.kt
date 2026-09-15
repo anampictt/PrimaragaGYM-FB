@@ -176,6 +176,22 @@ fun MemberCard(
                         color = CardTextPrimary
                     )
                 }
+                if (data.dateOfBirth.isNotBlank() && data.dateOfBirth != "-") {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "Tgl Lahir",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = CardTextMuted
+                        )
+                        Text(
+                            text = data.dateOfBirth,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontWeight = FontWeight.Medium
+                            ),
+                            color = CardTextPrimary
+                        )
+                    }
+                }
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
                         text = "Berakhir",
