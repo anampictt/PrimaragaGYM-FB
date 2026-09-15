@@ -72,6 +72,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 
 private enum class UpgradePayment(val displayName: String) {
     CASH("Cash"),
@@ -325,7 +326,7 @@ fun UpgradeDowngradeScreen(
                                 color = TextSecondary
                             )
                             Text(
-                                text = "Expired Saat Ini: $currentExpiredDate",
+                                text = "Expired Saat Ini: ${formatExpiredDateDisplay(currentExpiredDate, currentMember?.createdAt)}",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = TextMuted
                             )
@@ -926,7 +927,8 @@ private fun getPlanDurationDisplay(plan: FirestoreMembershipPlan): String {
 }
 
 private fun calculateUpgradeEndDate(newPlan: FirestoreMembershipPlan): String {
-    val cal = Calendar.getInstance() // Selalu dihitung mulai dari hari ini saat upgrade paket
+    val jakartaTz = TimeZone.getTimeZone("Asia/Jakarta")
+    val cal = Calendar.getInstance(jakartaTz) // Selalu dihitung mulai dari hari dan jam saat ini di Asia/Jakarta
 
     val dLower = newPlan.duration.lowercase().trim()
     val tLower = newPlan.type.lowercase().trim()
@@ -964,6 +966,8 @@ private fun calculateUpgradeEndDate(newPlan: FirestoreMembershipPlan): String {
         }
     }
 
-    val outputSdf = SimpleDateFormat("dd MMMM yyyy", Locale("id", "ID"))
+    val outputSdf = SimpleDateFormat("dd MMMM yyyy, HH:mm 'WIB'", Locale("id", "ID")).apply {
+        timeZone = jakartaTz
+    }
     return outputSdf.format(cal.time)
 }

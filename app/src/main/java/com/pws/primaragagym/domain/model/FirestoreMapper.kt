@@ -10,6 +10,7 @@ import com.pws.primaragagym.screens.admin.member.PlanType
 import com.pws.primaragagym.screens.admin.member.TransactionStatus
 import com.pws.primaragagym.screens.admin.member.TransactionType
 import com.pws.primaragagym.screens.admin.member.TransactionUiModel
+import com.pws.primaragagym.screens.admin.member.resolveMemberStatus
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -28,13 +29,7 @@ object FirestoreMapper {
     fun Long.toCurrency(): String = try { currencyFormat.format(this) } catch (e: Exception) { "Rp 0" }
 
     fun FirestoreMember.toUiModel(): MemberUiModel {
-        val status = when (this.status.uppercase()) {
-            "ACTIVE" -> MemberStatus.ACTIVE
-            "EXPIRING_SOON" -> MemberStatus.EXPIRING_SOON
-            "EXPIRED" -> MemberStatus.EXPIRED
-            "SUSPENDED" -> MemberStatus.SUSPENDED
-            else -> MemberStatus.ACTIVE
-        }
+        val status = resolveMemberStatus(this.status, this.expiredDate, this.createdAt ?: this.joinedAt)
 
         val initials = fullName.split(" ")
             .take(2)

@@ -43,6 +43,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import com.pws.primaragagym.screens.admin.member.MemberStatus
+import com.pws.primaragagym.screens.admin.member.formatExpiredDateDisplay
+import com.pws.primaragagym.screens.admin.member.resolveMemberStatus
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
@@ -130,12 +133,12 @@ fun MemberCardPreviewScreen(
                                 }
                             }
 
-                            val statusStr = when (member.status.uppercase()) {
-                                "ACTIVE" -> "Aktif"
-                                "EXPIRING", "WARNING" -> "Akan Habis"
-                                "EXPIRED" -> "Kadaluarsa"
-                                "INACTIVE" -> "Nonaktif"
-                                else -> member.status.ifBlank { "Aktif" }
+                            val resolvedStatusEnum = resolveMemberStatus(member.status, expired, member.createdAt)
+                            val statusStr = when (resolvedStatusEnum) {
+                                MemberStatus.ACTIVE -> "Aktif"
+                                MemberStatus.EXPIRING_SOON -> "Akan Habis"
+                                MemberStatus.EXPIRED -> "Kadaluarsa"
+                                MemberStatus.SUSPENDED -> "Nonaktif"
                             }
 
                             withContext(Dispatchers.Main) {
@@ -144,7 +147,7 @@ fun MemberCardPreviewScreen(
                                     name = name,
                                     planName = plan.ifBlank { "Member" },
                                     startDate = start.ifBlank { "-" },
-                                    expiredDate = expired.ifBlank { "-" },
+                                    expiredDate = formatExpiredDateDisplay(expired, member.createdAt).ifBlank { "-" },
                                     status = statusStr,
                                     avatarInitial = initials,
                                     qrContent = "PRIMARAGA_MEMBER:$code"

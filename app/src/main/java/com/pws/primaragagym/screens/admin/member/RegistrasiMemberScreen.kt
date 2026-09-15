@@ -78,6 +78,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 
 // ============================================================================
 // PAYMENT METHOD
@@ -123,7 +124,9 @@ fun RegistrasiMemberScreen(
     var selectedPlan by remember { mutableStateOf<MembershipPlanUiModel?>(null) }
     var paymentMethod by remember { mutableStateOf<PaymentMethod?>(null) }
     val todayFormatted = remember {
-        val sdf = SimpleDateFormat("dd MMMM yyyy", Locale("id", "ID"))
+        val sdf = SimpleDateFormat("dd MMMM yyyy, HH:mm 'WIB'", Locale("id", "ID")).apply {
+            timeZone = TimeZone.getTimeZone("Asia/Jakarta")
+        }
         sdf.format(Date())
     }
     var startDate by remember { mutableStateOf(todayFormatted) }
@@ -714,8 +717,22 @@ private fun DatePickerField(
             confirmButton = {
                 TextButton(onClick = {
                     datePickerState.selectedDateMillis?.let { millis ->
-                        val formatter = java.text.SimpleDateFormat("dd MMMM yyyy", java.util.Locale("id", "ID"))
-                        onDateSelected(formatter.format(java.util.Date(millis)))
+                        val currentCal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Jakarta"))
+                        val selectedCal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Jakarta")).apply {
+                            val utcCal = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+                                timeInMillis = millis
+                            }
+                            set(Calendar.YEAR, utcCal.get(Calendar.YEAR))
+                            set(Calendar.MONTH, utcCal.get(Calendar.MONTH))
+                            set(Calendar.DAY_OF_MONTH, utcCal.get(Calendar.DAY_OF_MONTH))
+                            set(Calendar.HOUR_OF_DAY, currentCal.get(Calendar.HOUR_OF_DAY))
+                            set(Calendar.MINUTE, currentCal.get(Calendar.MINUTE))
+                            set(Calendar.SECOND, currentCal.get(Calendar.SECOND))
+                        }
+                        val formatter = SimpleDateFormat("dd MMMM yyyy, HH:mm 'WIB'", Locale("id", "ID")).apply {
+                            timeZone = TimeZone.getTimeZone("Asia/Jakarta")
+                        }
+                        onDateSelected(formatter.format(selectedCal.time))
                     }
                     showDatePicker = false
                 }) {
@@ -963,13 +980,20 @@ private fun PaymentChip(
 // HELPER
 // ============================================================================
 private fun calculateEndDate(startDateStr: String, plan: MembershipPlanUiModel): String {
+    val jakartaTz = TimeZone.getTimeZone("Asia/Jakarta")
     val supportedFormats = listOf(
+        SimpleDateFormat("dd MMMM yyyy, HH:mm 'WIB'", Locale("id", "ID")),
+        SimpleDateFormat("dd MMM yyyy, HH:mm 'WIB'", Locale("id", "ID")),
+        SimpleDateFormat("dd MMMM yyyy, HH:mm", Locale("id", "ID")),
+        SimpleDateFormat("dd MMM yyyy, HH:mm", Locale("id", "ID")),
         SimpleDateFormat("dd MMMM yyyy", Locale("id", "ID")),
+        SimpleDateFormat("dd MMM yyyy", Locale("id", "ID")),
         SimpleDateFormat("dd-MM-yyyy", Locale("id", "ID")),
         SimpleDateFormat("dd/MM/yyyy", Locale("id", "ID")),
-        SimpleDateFormat("yyyy-MM-dd", Locale("id", "ID")),
+        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()),
+        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()),
         SimpleDateFormat("d MMMM yyyy", Locale("id", "ID"))
-    )
+    ).onEach { it.timeZone = jakartaTz }
 
     var parsedDate: Date? = null
     for (sdf in supportedFormats) {
@@ -979,7 +1003,7 @@ private fun calculateEndDate(startDateStr: String, plan: MembershipPlanUiModel):
         } catch (_: Exception) {}
     }
 
-    val cal = Calendar.getInstance().apply {
+    val cal = Calendar.getInstance(jakartaTz).apply {
         time = parsedDate ?: Date()
     }
 
@@ -988,7 +1012,7 @@ private fun calculateEndDate(startDateStr: String, plan: MembershipPlanUiModel):
     val extractedNumber = digitsOnly.toIntOrNull()
 
     when {
-        // e.g. "30 Hari" or "15 Hari"
+        // e.g. "30 Hari" or "15 Hari" or "1 Hari"
         durationLower.contains("hari") || durationLower.contains("day") -> {
             val days = extractedNumber ?: 1
             cal.add(Calendar.DAY_OF_YEAR, days)
@@ -1010,6 +1034,8 @@ private fun calculateEndDate(startDateStr: String, plan: MembershipPlanUiModel):
         else -> cal.add(Calendar.MONTH, 1) // default monthly
     }
 
-    val outputFormat = SimpleDateFormat("dd MMMM yyyy", Locale("id", "ID"))
+    val outputFormat = SimpleDateFormat("dd MMMM yyyy, HH:mm 'WIB'", Locale("id", "ID")).apply {
+        timeZone = jakartaTz
+    }
     return outputFormat.format(cal.time)
 }

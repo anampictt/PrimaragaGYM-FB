@@ -1,5 +1,6 @@
 package com.pws.primaragagym.screens.admin.member
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -311,12 +312,47 @@ private fun MemberHubCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val cardBgColor = when (member.status) {
+        MemberStatus.EXPIRED -> Color(0xFFFFF5F5)
+        MemberStatus.EXPIRING_SOON -> Color(0xFFFFFBEA)
+        MemberStatus.SUSPENDED -> Color(0xFFF9FAFB)
+        MemberStatus.ACTIVE -> MemberColors.CardBackground
+    }
+
+    val cardBorderColor = when (member.status) {
+        MemberStatus.EXPIRED -> Color(0xFFFFCDD2)
+        MemberStatus.EXPIRING_SOON -> Color(0xFFFFE082)
+        MemberStatus.SUSPENDED -> Color(0xFFE5E7EB)
+        MemberStatus.ACTIVE -> Color(0xFFE8F5E9)
+    }
+
+    val avatarBgColor = when (member.status) {
+        MemberStatus.EXPIRED -> Color(0xFFFFE0E0)
+        MemberStatus.EXPIRING_SOON -> Color(0xFFFFF3E0)
+        MemberStatus.SUSPENDED -> Color(0xFFE5E7EB)
+        MemberStatus.ACTIVE -> GreenLight
+    }
+
+    val avatarTextColor = when (member.status) {
+        MemberStatus.EXPIRED -> Color(0xFFC62828)
+        MemberStatus.EXPIRING_SOON -> Color(0xFFE65100)
+        MemberStatus.SUSPENDED -> TextSecondary
+        MemberStatus.ACTIVE -> GreenAccent
+    }
+
+    val expiredTextColor = when (member.status) {
+        MemberStatus.EXPIRED -> Color(0xFFD32F2F)
+        MemberStatus.EXPIRING_SOON -> Color(0xFFE65100)
+        else -> TextSecondary
+    }
+
     Card(
         modifier = modifier.clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MemberColors.CardBackground
+            containerColor = cardBgColor
         ),
+        border = BorderStroke(1.dp, cardBorderColor),
         elevation = CardDefaults.cardElevation(
             defaultElevation = 1.dp
         )
@@ -334,7 +370,7 @@ private fun MemberHubCard(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .background(GreenLight),
+                        .background(avatarBgColor),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -342,7 +378,7 @@ private fun MemberHubCard(
                         style = MaterialTheme.typography.bodySmall.copy(
                             fontWeight = FontWeight.SemiBold
                         ),
-                        color = GreenAccent
+                        color = avatarTextColor
                     )
                 }
 
@@ -380,11 +416,13 @@ private fun MemberHubCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 MemberStatusBadge(status = member.status)
-                Spacer(modifier = Modifier.weight(1f))
+                val formattedExpired = formatExpiredDateDisplay(member.expiredDate, member.createdAt)
                 Text(
-                    text = member.expiredDate,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TextSecondary
+                    text = "Exp: $formattedExpired",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = if (member.status == MemberStatus.EXPIRED || member.status == MemberStatus.EXPIRING_SOON) FontWeight.SemiBold else FontWeight.Normal
+                    ),
+                    color = expiredTextColor
                 )
             }
 
@@ -504,15 +542,13 @@ fun MemberStatusBadge(status: MemberStatus) {
     Row(
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (status == MemberStatus.ACTIVE) {
-            Box(
-                modifier = Modifier
-                    .size(6.dp)
-                    .clip(CircleShape)
-                    .background(textColor)
-            )
-            Spacer(modifier = Modifier.width(4.dp))
-        }
+        Box(
+            modifier = Modifier
+                .size(6.dp)
+                .clip(CircleShape)
+                .background(textColor)
+        )
+        Spacer(modifier = Modifier.width(4.dp))
         Text(
             text = status.displayName,
             style = MaterialTheme.typography.labelSmall.copy(

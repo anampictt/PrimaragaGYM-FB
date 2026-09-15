@@ -219,13 +219,7 @@ fun MembershipDetailScreen(
             }
             val startDateStr = currentMember.startDate.ifBlank { "-" }
             val expiredDateStr = currentMember.expiredDate.ifBlank { "-" }
-            val statusEnum = when (currentMember.status.uppercase()) {
-                "ACTIVE" -> MemberStatus.ACTIVE
-                "EXPIRING", "WARNING" -> MemberStatus.EXPIRING_SOON
-                "EXPIRED" -> MemberStatus.EXPIRED
-                "INACTIVE", "SUSPENDED" -> MemberStatus.SUSPENDED
-                else -> MemberStatus.ACTIVE
-            }
+            val statusEnum = resolveMemberStatus(currentMember.status, currentMember.expiredDate, currentMember.createdAt)
 
             Column(
                 modifier = Modifier
@@ -314,7 +308,7 @@ fun MembershipDetailScreen(
                         Spacer(modifier = Modifier.height(Dimens.spacing_4))
                         InfoRow("Harga", planPriceStr, textMuted, textPrimary)
                         InfoRow("Tanggal Mulai", startDateStr, textMuted, textPrimary)
-                        InfoRow("Tanggal Berakhir", expiredDateStr, textMuted, textPrimary)
+                        InfoRow("Tanggal Berakhir", formatExpiredDateDisplay(expiredDateStr, currentMember.createdAt), textMuted, textPrimary)
                         InfoRow("Status", statusEnum.displayName, textMuted, textPrimary)
 
                         Spacer(modifier = Modifier.height(Dimens.spacing_4))

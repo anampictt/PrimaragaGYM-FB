@@ -122,17 +122,19 @@ class MemberListViewModel : ViewModel() {
 
                 result.onSuccess { firestoreMembers ->
                     val memberUiModels = firestoreMembers.map { member ->
-                        val uiModel = member.toUiModel()
-                        if (uiModel.planName.isBlank()) {
+                        val initialUiModel = member.toUiModel()
+                        val finalUiModel = if (initialUiModel.planName.isBlank()) {
                             val membership = membershipRepository.getActiveMembership(member.memberId).getOrNull()
-                            uiModel.copy(
+                            initialUiModel.copy(
                                 planName = membership?.planName ?: "",
                                 expiredDate = membership?.endDate?.formatDate() ?: "",
                                 planPrice = membership?.price?.formatCurrency() ?: ""
                             )
                         } else {
-                            uiModel
+                            initialUiModel
                         }
+                        val resolvedStatus = resolveMemberStatus(member.status, finalUiModel.expiredDate, member.createdAt ?: finalUiModel.createdAt)
+                        finalUiModel.copy(status = resolvedStatus)
                     }
 
                     _uiState.update { state ->
@@ -244,7 +246,7 @@ class MemberListViewModel : ViewModel() {
     }
 
     private fun applyFilters(members: List<MemberUiModel>, query: String, status: MemberStatus?): List<MemberUiModel> {
-        return members.filter { member ->
+        val filtered = members.filter { member ->
             val matchesSearch = query.isBlank() ||
                     member.name.contains(query, ignoreCase = true) ||
                     member.memberCode.contains(query, ignoreCase = true) ||
@@ -260,6 +262,20 @@ class MemberListViewModel : ViewModel() {
 
             matchesSearch && matchesFilter
         }
+
+        // Urutkan: Active & Expiring Soon berada di atas, Expired dan Suspended di posisi bawah
+        return filtered.sortedWith(
+            compareBy<MemberUiModel> {
+                when (it.status) {
+                    MemberStatus.ACTIVE -> 0
+                    MemberStatus.EXPIRING_SOON -> 1
+                    MemberStatus.EXPIRED -> 2
+                    MemberStatus.SUSPENDED -> 3
+                }
+            }.thenByDescending {
+                it.createdAt?.time ?: 0L
+            }
+        )
     }
 
     fun clearError() {
@@ -616,28 +632,9 @@ class CheckinFirestoreViewModel : ViewModel() {
 
     private fun isDateExpired(dateStr: String?): Boolean {
         if (dateStr.isNullOrBlank() || dateStr == "-") return false
-        val formats = listOf(
-            SimpleDateFormat("dd MMMM yyyy", Locale("id", "ID")),
-            SimpleDateFormat("dd MMM yyyy", Locale("id", "ID")),
-            SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()),
-            SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-        )
-        val now = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }.time
-
-        for (sdf in formats) {
-            try {
-                val parsed = sdf.parse(dateStr)
-                if (parsed != null) {
-                    return parsed.before(now)
-                }
-            } catch (_: Exception) {}
-        }
-        return false
+        val parsed = parseExpiredDate(dateStr) ?: return false
+        val now = Calendar.getInstance(TimeZone.getTimeZone("Asia/Jakarta")).time
+        return now.time >= parsed.time
     }
 
     fun clearMember() {
@@ -966,13 +963,7 @@ class UserListViewModel : ViewModel() {
 // HELPER FUNCTIONS
 // ============================================================================
 private fun FirestoreMember.toUiModel(): MemberUiModel {
-    val status = when (this.status.uppercase()) {
-        "ACTIVE" -> MemberStatus.ACTIVE
-        "EXPIRING_SOON" -> MemberStatus.EXPIRING_SOON
-        "EXPIRED" -> MemberStatus.EXPIRED
-        "SUSPENDED" -> MemberStatus.SUSPENDED
-        else -> MemberStatus.ACTIVE
-    }
+    val status = resolveMemberStatus(this.status, this.expiredDate, this.createdAt ?: this.joinedAt)
 
     val initials = fullName.split(" ").take(2).mapNotNull { it.firstOrNull()?.uppercaseChar() }.joinToString("").ifEmpty { "?" }
 

@@ -1,5 +1,6 @@
 package com.pws.primaragagym.screens.admin.member
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -484,14 +485,63 @@ private fun MemberManagementCard(
     onEditClick: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
+    val cardBgColor = when (member.status) {
+        MemberStatus.EXPIRED -> Color(0xFFFFF5F5) // Soft red background
+        MemberStatus.EXPIRING_SOON -> Color(0xFFFFFBEA) // Soft yellow/amber background
+        MemberStatus.SUSPENDED -> Color(0xFFF9FAFB) // Soft gray background
+        MemberStatus.ACTIVE -> CardBackground // Clean white
+    }
+
+    val cardBorderColor = when (member.status) {
+        MemberStatus.EXPIRED -> Color(0xFFFFCDD2) // Red border
+        MemberStatus.EXPIRING_SOON -> Color(0xFFFFE082) // Amber border
+        MemberStatus.SUSPENDED -> Color(0xFFE5E7EB) // Gray border
+        MemberStatus.ACTIVE -> Color(0xFFE8F5E9) // Subtle green border
+    }
+
+    val avatarBgColor = when (member.status) {
+        MemberStatus.EXPIRED -> Color(0xFFFFE0E0)
+        MemberStatus.EXPIRING_SOON -> Color(0xFFFFF3E0)
+        MemberStatus.SUSPENDED -> Color(0xFFE5E7EB)
+        MemberStatus.ACTIVE -> GreenLight
+    }
+
+    val avatarTextColor = when (member.status) {
+        MemberStatus.EXPIRED -> Color(0xFFC62828)
+        MemberStatus.EXPIRING_SOON -> Color(0xFFE65100)
+        MemberStatus.SUSPENDED -> TextSecondary
+        MemberStatus.ACTIVE -> GreenAccent
+    }
+
+    val planNameColor = when (member.status) {
+        MemberStatus.EXPIRED -> Color(0xFFE53935)
+        MemberStatus.EXPIRING_SOON -> Color(0xFFFB8C00)
+        MemberStatus.SUSPENDED -> TextSecondary
+        MemberStatus.ACTIVE -> GreenAccent
+    }
+
+    val expiredTextColor = when (member.status) {
+        MemberStatus.EXPIRED -> Color(0xFFD32F2F)
+        MemberStatus.EXPIRING_SOON -> Color(0xFFE65100)
+        else -> TextMuted
+    }
+
+    val actionButtonBorderColor = when (member.status) {
+        MemberStatus.EXPIRED -> Color(0xFFE53935)
+        MemberStatus.EXPIRING_SOON -> Color(0xFFFB8C00)
+        MemberStatus.SUSPENDED -> TextSecondary
+        MemberStatus.ACTIVE -> GreenAccent
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = CardBackground
+            containerColor = cardBgColor
         ),
+        border = BorderStroke(1.dp, cardBorderColor),
         elevation = CardDefaults.cardElevation(
             defaultElevation = 1.dp
         )
@@ -510,7 +560,7 @@ private fun MemberManagementCard(
                     modifier = Modifier
                         .size(48.dp)
                         .clip(CircleShape)
-                        .background(GreenLight),
+                        .background(avatarBgColor),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -518,7 +568,7 @@ private fun MemberManagementCard(
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontWeight = FontWeight.SemiBold
                         ),
-                        color = GreenAccent
+                        color = avatarTextColor
                     )
                 }
 
@@ -553,7 +603,7 @@ private fun MemberManagementCard(
                         Text(
                             text = member.planName.ifEmpty { "Member" },
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
-                            color = GreenAccent
+                            color = planNameColor
                         )
                         MemberStatusBadge(status = member.status)
                     }
@@ -579,10 +629,13 @@ private fun MemberManagementCard(
 
                     if (member.expiredDate.isNotBlank()) {
                         Spacer(modifier = Modifier.height(2.dp))
+                        val formattedExpired = formatExpiredDateDisplay(member.expiredDate, member.createdAt)
                         Text(
-                            text = "Expired: ${member.expiredDate}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = TextMuted
+                            text = "Expired: $formattedExpired",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = if (member.status == MemberStatus.EXPIRED || member.status == MemberStatus.EXPIRING_SOON) FontWeight.SemiBold else FontWeight.Normal
+                            ),
+                            color = expiredTextColor
                         )
                     }
                 }
@@ -628,19 +681,19 @@ private fun MemberManagementCard(
                         .height(34.dp),
                     shape = RoundedCornerShape(8.dp),
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, GreenAccent)
+                    border = BorderStroke(1.dp, actionButtonBorderColor)
                 ) {
                     Icon(
                         imageVector = Icons.Filled.CreditCard,
                         contentDescription = null,
-                        tint = GreenAccent,
+                        tint = actionButtonBorderColor,
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = "Kartu Member",
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                        color = GreenAccent
+                        color = actionButtonBorderColor
                     )
                 }
 

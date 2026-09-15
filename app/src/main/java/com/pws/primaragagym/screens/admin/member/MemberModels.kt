@@ -1,7 +1,11 @@
 package com.pws.primaragagym.screens.admin.member
 
 import androidx.compose.ui.graphics.Color
+import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 
 // ============================================================================
 // COLORS - Match design system
@@ -48,6 +52,126 @@ enum class MemberStatus(val displayName: String) {
     EXPIRING_SOON("Expiring Soon"),
     EXPIRED("Expired"),
     SUSPENDED("Suspended")
+}
+
+fun parseExpiredDate(expiredDateStr: String?, createdAt: Date? = null): Date? {
+    if (expiredDateStr.isNullOrBlank() || expiredDateStr.trim() == "-") return null
+
+    val cleanStr = expiredDateStr.trim()
+    val jakartaTz = TimeZone.getTimeZone("Asia/Jakarta")
+
+    // 1. Format yang menyertakan jam dan menit
+    val formatsWithTime = listOf(
+        SimpleDateFormat("dd MMMM yyyy, HH:mm 'WIB'", Locale("id", "ID")),
+        SimpleDateFormat("dd MMM yyyy, HH:mm 'WIB'", Locale("id", "ID")),
+        SimpleDateFormat("d MMMM yyyy, HH:mm 'WIB'", Locale("id", "ID")),
+        SimpleDateFormat("d MMM yyyy, HH:mm 'WIB'", Locale("id", "ID")),
+        SimpleDateFormat("dd MMMM yyyy, HH:mm", Locale("id", "ID")),
+        SimpleDateFormat("dd MMM yyyy, HH:mm", Locale("id", "ID")),
+        SimpleDateFormat("d MMMM yyyy, HH:mm", Locale("id", "ID")),
+        SimpleDateFormat("d MMM yyyy, HH:mm", Locale("id", "ID")),
+        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()),
+        SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()),
+        SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.getDefault()),
+        SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()),
+        SimpleDateFormat("dd MMMM yyyy, HH:mm 'WIB'", Locale.ENGLISH),
+        SimpleDateFormat("dd MMM yyyy, HH:mm 'WIB'", Locale.ENGLISH),
+        SimpleDateFormat("dd MMMM yyyy, HH:mm", Locale.ENGLISH),
+        SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.ENGLISH)
+    ).onEach { it.timeZone = jakartaTz }
+
+    for (sdf in formatsWithTime) {
+        try {
+            val d = sdf.parse(cleanStr)
+            if (d != null) return d
+        } catch (_: Exception) {}
+    }
+
+    // 2. Format tanggal saja (tanpa jam)
+    val formatsDateOnly = listOf(
+        SimpleDateFormat("dd MMMM yyyy", Locale("id", "ID")),
+        SimpleDateFormat("dd MMM yyyy", Locale("id", "ID")),
+        SimpleDateFormat("d MMMM yyyy", Locale("id", "ID")),
+        SimpleDateFormat("d MMM yyyy", Locale("id", "ID")),
+        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()),
+        SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()),
+        SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()),
+        SimpleDateFormat("dd MMMM yyyy", Locale.ENGLISH),
+        SimpleDateFormat("dd MMM yyyy", Locale.ENGLISH),
+        SimpleDateFormat("d MMMM yyyy", Locale.ENGLISH)
+    ).onEach { it.timeZone = jakartaTz }
+
+    for (sdf in formatsDateOnly) {
+        try {
+            val d = sdf.parse(cleanStr)
+            if (d != null) {
+                val cal = Calendar.getInstance(jakartaTz).apply {
+                    time = d
+                    if (createdAt != null) {
+                        val createdCal = Calendar.getInstance(jakartaTz).apply { time = createdAt }
+                        set(Calendar.HOUR_OF_DAY, createdCal.get(Calendar.HOUR_OF_DAY))
+                        set(Calendar.MINUTE, createdCal.get(Calendar.MINUTE))
+                        set(Calendar.SECOND, createdCal.get(Calendar.SECOND))
+                        set(Calendar.MILLISECOND, 0)
+                    } else {
+                        set(Calendar.HOUR_OF_DAY, 23)
+                        set(Calendar.MINUTE, 59)
+                        set(Calendar.SECOND, 59)
+                        set(Calendar.MILLISECOND, 999)
+                    }
+                }
+                return cal.time
+            }
+        } catch (_: Exception) {}
+    }
+
+    return null
+}
+
+fun resolveMemberStatus(rawStatus: String?, expiredDateStr: String?, createdAt: Date? = null): MemberStatus {
+    val upper = rawStatus?.uppercase()?.trim() ?: ""
+    if (upper == "SUSPENDED" || upper == "BANNED" || upper == "INACTIVE") {
+        return MemberStatus.SUSPENDED
+    }
+
+    if (expiredDateStr.isNullOrBlank() || expiredDateStr.trim() == "-") {
+        return if (upper == "EXPIRED") MemberStatus.EXPIRED else MemberStatus.ACTIVE
+    }
+
+    val parsedDate = parseExpiredDate(expiredDateStr, createdAt)
+
+    if (parsedDate == null) {
+        return when (upper) {
+            "EXPIRED" -> MemberStatus.EXPIRED
+            "EXPIRING_SOON" -> MemberStatus.EXPIRING_SOON
+            "SUSPENDED" -> MemberStatus.SUSPENDED
+            else -> MemberStatus.ACTIVE
+        }
+    }
+
+    val now = Calendar.getInstance(TimeZone.getTimeZone("Asia/Jakarta")).time
+
+    // Begitu waktu sekarang mencapai atau melewati jam expired persis -> Otomatis EXPIRED
+    if (now.time >= parsedDate.time) {
+        return MemberStatus.EXPIRED
+    }
+
+    val diffMillis = parsedDate.time - now.time
+    // Jika sisa waktu <= 7 hari (atau paket 1 hari yang tersisa <= 24 jam) -> EXPIRING_SOON
+    return if (diffMillis <= 7L * 24 * 60 * 60 * 1000L) {
+        MemberStatus.EXPIRING_SOON
+    } else {
+        MemberStatus.ACTIVE
+    }
+}
+
+fun formatExpiredDateDisplay(expiredDateStr: String?, createdAt: Date? = null): String {
+    if (expiredDateStr.isNullOrBlank() || expiredDateStr.trim() == "-") return "-"
+    val parsed = parseExpiredDate(expiredDateStr, createdAt) ?: return expiredDateStr
+    val sdf = SimpleDateFormat("dd MMM yyyy, HH:mm 'WIB'", Locale("id", "ID")).apply {
+        timeZone = TimeZone.getTimeZone("Asia/Jakarta")
+    }
+    return sdf.format(parsed)
 }
 
 // ============================================================================

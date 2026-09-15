@@ -226,7 +226,7 @@ fun DetailMemberScreen(
 
                     Row {
                         Text(
-                            text = "${member.startDate} - ${member.expiredDate}",
+                            text = "${member.startDate} - ${formatExpiredDateDisplay(member.expiredDate, member.createdAt)}",
                             style = MaterialTheme.typography.bodyMedium,
                             color = TextSecondary
                         )

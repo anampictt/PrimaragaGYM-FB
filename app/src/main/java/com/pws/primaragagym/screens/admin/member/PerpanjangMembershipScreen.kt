@@ -70,6 +70,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 
 private enum class RenewalPayment(val displayName: String) {
     CASH("Cash"),
@@ -269,7 +270,7 @@ fun PerpanjangMembershipScreen(
                                 color = TextSecondary
                             )
                             Text(
-                                text = "Expired: $currentExpiredDate",
+                                text = "Expired: ${formatExpiredDateDisplay(currentExpiredDate, currentMember?.createdAt)}",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = TextMuted
                             )
@@ -441,7 +442,7 @@ fun PerpanjangMembershipScreen(
                         SummaryRow("Paket", planName)
                         SummaryRow("Durasi Perpanjangan", durationStr)
                         SummaryRow("Biaya Perpanjangan", priceFormatted)
-                        SummaryRow("Tanggal Berakhir Saat Ini", currentExpiredDate)
+                        SummaryRow("Tanggal Berakhir Saat Ini", formatExpiredDateDisplay(currentExpiredDate, currentMember?.createdAt))
                         SummaryRow("Tanggal Berakhir Baru", calculatedNewEndDate, isHighlight = true)
 
                         Spacer(modifier = Modifier.height(Dimens.spacing_4))
@@ -634,17 +635,22 @@ private fun calculateRenewalEndDate(
     durationStr: String,
     planType: String
 ): String {
+    val jakartaTz = TimeZone.getTimeZone("Asia/Jakarta")
     val supportedFormats = listOf(
+        SimpleDateFormat("dd MMMM yyyy, HH:mm 'WIB'", Locale("id", "ID")),
+        SimpleDateFormat("dd MMM yyyy, HH:mm 'WIB'", Locale("id", "ID")),
+        SimpleDateFormat("dd MMMM yyyy, HH:mm", Locale("id", "ID")),
+        SimpleDateFormat("dd MMM yyyy, HH:mm", Locale("id", "ID")),
         SimpleDateFormat("dd MMMM yyyy", Locale("id", "ID")),
         SimpleDateFormat("d MMMM yyyy", Locale("id", "ID")),
-        SimpleDateFormat("yyyy-MM-dd", Locale("id", "ID")),
-        SimpleDateFormat("dd-MM-yyyy", Locale("id", "ID")),
-        SimpleDateFormat("dd/MM/yyyy", Locale("id", "ID")),
+        SimpleDateFormat("dd MMM yyyy", Locale("id", "ID")),
+        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()),
         SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()),
-        SimpleDateFormat("dd MMMM yyyy", Locale.getDefault())
-    )
+        SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()),
+        SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+    ).onEach { it.timeZone = jakartaTz }
 
-    val now = Calendar.getInstance()
+    val now = Calendar.getInstance(jakartaTz)
     var parsedDate: Date? = null
 
     for (sdf in supportedFormats) {
@@ -657,7 +663,7 @@ private fun calculateRenewalEndDate(
         } catch (_: Exception) {}
     }
 
-    val cal = Calendar.getInstance()
+    val cal = Calendar.getInstance(jakartaTz)
     // Jika tanggal kadaluarsa saat ini masih di masa depan, perpanjang dari tanggal kadaluarsa tersebut
     // Jika sudah lewat (expired) atau kosong, perpanjang mulai dari hari ini
     if (parsedDate != null && parsedDate.after(now.time)) {
@@ -695,6 +701,8 @@ private fun calculateRenewalEndDate(
         }
     }
 
-    val outputSdf = SimpleDateFormat("dd MMMM yyyy", Locale("id", "ID"))
+    val outputSdf = SimpleDateFormat("dd MMMM yyyy, HH:mm 'WIB'", Locale("id", "ID")).apply {
+        timeZone = jakartaTz
+    }
     return outputSdf.format(cal.time)
 }

@@ -296,7 +296,7 @@ private fun MembershipMemberCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "${member.startDate} - ${member.expiredDate}",
+                        text = "${member.startDate} - ${formatExpiredDateDisplay(member.expiredDate, member.createdAt)}",
                         style = MaterialTheme.typography.labelSmall,
                         color = TextMuted
                     )
