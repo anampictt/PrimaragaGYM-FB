@@ -30,6 +30,7 @@ import com.pws.primaragagym.navigation.AppScreen
 import com.pws.primaragagym.navigation.sharedAdminRoutes
 import com.pws.primaragagym.screens.superadmin.manajemancabang.ManajemenCabangScreen
 import com.pws.primaragagym.screens.superadmin.manajemancabang.TambahCabangScreen
+import com.pws.primaragagym.screens.superadmin.manajemenpengguna.DetailPenggunaScreen
 import com.pws.primaragagym.screens.superadmin.manajemenpengguna.ManajemenPenggunaScreen
 import com.pws.primaragagym.screens.superadmin.manajemenpengguna.TambahPenggunaScreen
 import com.pws.primaragagym.screens.superadmin.manajemenrole.HakAksesScreen
@@ -236,10 +237,32 @@ private fun SuperAdminNestedNavHost(
             ManajemenPenggunaScreen(
                 onBackClick = { safePopBack() },
                 onAddUserClick = { navController.navigate(AppScreen.TambahPengguna.createRoute()) },
+                onUserClick = { user ->
+                    navController.navigate(AppScreen.DetailPengguna.createRoute(user.id))
+                },
                 onEditUser = { user ->
                     navController.navigate(AppScreen.TambahPengguna.createRoute(user.id))
                 },
                 onDeleteUser = { }
+            )
+        }
+
+        composable(
+            route = "superadmin/manajemen-pengguna/detail?userId={userId}",
+            arguments = listOf(
+                navArgument("userId") {
+                    type = NavType.StringType
+                }
+            )
+        ) { backStackEntry ->
+            val userId = backStackEntry.arguments?.getString("userId") ?: ""
+            DetailPenggunaScreen(
+                userId = userId,
+                onBackClick = { safePopBack() },
+                onEditClick = { id ->
+                    navController.navigate(AppScreen.TambahPengguna.createRoute(id))
+                },
+                onDeleteSuccess = { safePopBack() }
             )
         }
 

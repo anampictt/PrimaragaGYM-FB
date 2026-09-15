@@ -26,10 +26,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AddAPhoto
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -43,11 +45,13 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -109,6 +113,8 @@ data class AddUserUiState(
     val selectedRole: String? = null,
     val password: String = "",
     val isPasswordVisible: Boolean = false,
+    val confirmPassword: String = "",
+    val isConfirmPasswordVisible: Boolean = false,
     val isSubmitting: Boolean = false,
     val errors: Map<String, String> = emptyMap()
 )
@@ -175,15 +181,21 @@ fun TambahPenggunaScreen(
     var selectedRole by remember { mutableStateOf<String?>(null) }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
+    var confirmPassword by remember { mutableStateOf("") }
+    var confirmPasswordVisible by remember { mutableStateOf(false) }
     var isSubmitting by remember { mutableStateOf(false) }
     var isDropdownExpanded by remember { mutableStateOf(false) }
     var errors by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var showSuccessDialog by remember { mutableStateOf(false) }
+    var successDialogTitle by remember { mutableStateOf("") }
+    var successDialogMessage by remember { mutableStateOf("") }
 
     // Focus states
     var isFullNameFocused by remember { mutableStateOf(false) }
     var isEmailFocused by remember { mutableStateOf(false) }
     var isAddressFocused by remember { mutableStateOf(false) }
     var isPasswordFocused by remember { mutableStateOf(false) }
+    var isConfirmPasswordFocused by remember { mutableStateOf(false) }
 
     LaunchedEffect(existingUser) {
         existingUser?.let { user ->
@@ -339,6 +351,24 @@ fun TambahPenggunaScreen(
                     onFocusChange = { isPasswordFocused = it }
                 )
 
+                Spacer(modifier = Modifier.height(16.dp))
+
+                FormPasswordField(
+                    value = confirmPassword,
+                    onValueChange = {
+                        confirmPassword = it
+                        errors = errors - "confirmPassword"
+                    },
+                    label = if (isEditMode) "Konfirmasi Kata Sandi (Opsional)" else "Konfirmasi Kata Sandi",
+                    placeholder = if (isEditMode) "Ulangi kata sandi baru" else "Ulangi kata sandi",
+                    isPasswordVisible = confirmPasswordVisible,
+                    onPasswordVisibilityToggle = { confirmPasswordVisible = !confirmPasswordVisible },
+                    isError = errors.containsKey("confirmPassword"),
+                    errorMessage = errors["confirmPassword"],
+                    isFocused = isConfirmPasswordFocused,
+                    onFocusChange = { isConfirmPasswordFocused = it }
+                )
+
                 if (errors.containsKey("submit")) {
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
@@ -377,8 +407,25 @@ fun TambahPenggunaScreen(
                             } else if (password.length < 6) {
                                 newErrors["password"] = "Kata sandi minimal 6 karakter"
                             }
-                        } else if (password.isNotBlank() && password.length < 6) {
-                            newErrors["password"] = "Kata sandi minimal 6 karakter"
+
+                            if (confirmPassword.isBlank()) {
+                                newErrors["confirmPassword"] = "Konfirmasi kata sandi wajib diisi"
+                            } else if (password != confirmPassword) {
+                                newErrors["confirmPassword"] = "Konfirmasi kata sandi tidak cocok"
+                            }
+                        } else {
+                            if (password.isNotBlank()) {
+                                if (password.length < 6) {
+                                    newErrors["password"] = "Kata sandi minimal 6 karakter"
+                                }
+                                if (confirmPassword.isBlank()) {
+                                    newErrors["confirmPassword"] = "Konfirmasi kata sandi wajib diisi jika mengubah sandi"
+                                } else if (password != confirmPassword) {
+                                    newErrors["confirmPassword"] = "Konfirmasi kata sandi tidak cocok"
+                                }
+                            } else if (confirmPassword.isNotBlank()) {
+                                newErrors["password"] = "Silakan masukkan kata sandi baru"
+                            }
                         }
 
                         if (newErrors.isNotEmpty()) {
@@ -404,7 +451,9 @@ fun TambahPenggunaScreen(
                                 userViewModel.updateUser(updatedUser) { success, errorMsg ->
                                     isSubmitting = false
                                     if (success) {
-                                        onSubmitSuccess()
+                                        successDialogTitle = "Perubahan Berhasil Disimpan"
+                                        successDialogMessage = "Data pengguna \"${fullName.trim()}\" berhasil diperbarui."
+                                        showSuccessDialog = true
                                     } else {
                                         errors = mapOf("submit" to (errorMsg ?: "Gagal memperbarui pengguna"))
                                     }
@@ -439,7 +488,9 @@ fun TambahPenggunaScreen(
                                     userViewModel.createUser(newUser) { success, errorMsg ->
                                         isSubmitting = false
                                         if (success) {
-                                            onSubmitSuccess()
+                                            successDialogTitle = "Pengguna Berhasil Ditambahkan"
+                                            successDialogMessage = "Pengguna \"${fullName.trim()}\" berhasil ditambahkan sebagai $roleVal."
+                                            showSuccessDialog = true
                                         } else {
                                             errors = mapOf("submit" to (errorMsg ?: "Gagal menyimpan data pengguna ke Firestore"))
                                         }
@@ -486,6 +537,59 @@ fun TambahPenggunaScreen(
                 Spacer(modifier = Modifier.height(24.dp))
             }
         }
+    }
+
+    if (showSuccessDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showSuccessDialog = false
+                onSubmitSuccess()
+            },
+            icon = {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(GreenLight),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.CheckCircle,
+                        contentDescription = null,
+                        tint = GreenAccent,
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
+            },
+            title = {
+                Text(
+                    text = successDialogTitle,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    textAlign = TextAlign.Center
+                )
+            },
+            text = {
+                Text(
+                    text = successDialogMessage,
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showSuccessDialog = false
+                        onSubmitSuccess()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = GreenAccent),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Selesai", fontWeight = FontWeight.SemiBold)
+                }
+            }
+        )
     }
 }
 
@@ -632,6 +736,7 @@ private fun FormTextField(
                 .fillMaxWidth()
                 .height(if (singleLine) 56.dp else (56 + (minLines - 1) * 24).dp)
                 .clip(RoundedCornerShape(12.dp))
+                .onFocusChanged { onFocusChange(it.isFocused) }
                 .background(if (isFocused) InputBackgroundFocusedLight else InputBackgroundLight)
                 .border(
                     width = 1.dp,
@@ -835,6 +940,7 @@ private fun FormPasswordField(
                 .fillMaxWidth()
                 .height(56.dp)
                 .clip(RoundedCornerShape(12.dp))
+                .onFocusChanged { onFocusChange(it.isFocused) }
                 .background(if (isFocused) InputBackgroundFocusedLight else InputBackgroundLight)
                 .border(
                     width = 1.dp,

@@ -1,6 +1,7 @@
 package com.pws.primaragagym.screens.superadmin.manajemenpengguna
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,9 +24,12 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -37,6 +41,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextAlign
+import coil.compose.AsyncImage
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -89,7 +96,8 @@ data class UserUiModel(
     val email: String,
     val role: String,
     val status: String,
-    val avatarInitial: String
+    val avatarInitial: String,
+    val photoUrl: String? = null
 )
 
 // ============================================================================
@@ -149,6 +157,7 @@ fun ManajemenPenggunaScreen(
     viewModel: UserListViewModel = viewModel(),
     onBackClick: () -> Unit = {},
     onAddUserClick: () -> Unit = {},
+    onUserClick: (UserUiModel) -> Unit = {},
     onEditUser: (UserUiModel) -> Unit = {},
     onDeleteUser: (UserUiModel) -> Unit = {}
 ) {
@@ -159,6 +168,8 @@ fun ManajemenPenggunaScreen(
     val userState by viewModel.uiState.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
     var userToDelete by remember { mutableStateOf<UserUiModel?>(null) }
+    var showDeleteSuccessDialog by remember { mutableStateOf(false) }
+    var deletedUserName by remember { mutableStateOf("") }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -190,7 +201,8 @@ fun ManajemenPenggunaScreen(
                 email = it.email,
                 role = it.resolvedRole,
                 status = if (it.isActive) "Active" else "Inactive",
-                avatarInitial = initials
+                avatarInitial = initials,
+                photoUrl = it.photoUrl
             )
         }
     }
@@ -226,8 +238,13 @@ fun ManajemenPenggunaScreen(
                         val target = userToDelete
                         userToDelete = null
                         if (target != null) {
-                            viewModel.deleteUser(target.id)
-                            onDeleteUser(target)
+                            viewModel.deleteUser(target.id) { success, _ ->
+                                if (success) {
+                                    deletedUserName = target.name
+                                    showDeleteSuccessDialog = true
+                                    onDeleteUser(target)
+                                }
+                            }
                         }
                     }
                 ) {
@@ -237,6 +254,53 @@ fun ManajemenPenggunaScreen(
             dismissButton = {
                 TextButton(onClick = { userToDelete = null }) {
                     Text("Batal")
+                }
+            }
+        )
+    }
+
+    if (showDeleteSuccessDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteSuccessDialog = false },
+            icon = {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(GreenLight),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.CheckCircle,
+                        contentDescription = null,
+                        tint = GreenAccent,
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
+            },
+            title = {
+                Text(
+                    text = "Pengguna Berhasil Dihapus",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    textAlign = TextAlign.Center
+                )
+            },
+            text = {
+                Text(
+                    text = "Data pengguna \"$deletedUserName\" berhasil dihapus dari sistem.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showDeleteSuccessDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = GreenAccent),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Selesai", fontWeight = FontWeight.SemiBold)
                 }
             }
         )
@@ -313,6 +377,7 @@ fun ManajemenPenggunaScreen(
                     ) { user ->
                         UserCard(
                             user = user,
+                            onClick = { onUserClick(user) },
                             onEditClick = { onEditUser(user) },
                             onDeleteClick = { userToDelete = user }
                         )
@@ -427,11 +492,14 @@ private fun SearchField(
 @Composable
 private fun UserCard(
     user: UserUiModel,
+    onClick: () -> Unit,
     onEditClick: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = CardBackground
@@ -449,6 +517,7 @@ private fun UserCard(
             // Avatar
             UserAvatar(
                 initial = user.avatarInitial,
+                photoUrl = user.photoUrl,
                 modifier = Modifier.size(48.dp)
             )
 
@@ -539,6 +608,7 @@ private fun UserCard(
 @Composable
 private fun UserAvatar(
     initial: String,
+    photoUrl: String? = null,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -547,13 +617,24 @@ private fun UserAvatar(
             .background(GreenLight),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = initial,
-            style = MaterialTheme.typography.bodyMedium.copy(
-                fontWeight = FontWeight.SemiBold
-            ),
-            color = GreenAccent
-        )
+        if (!photoUrl.isNullOrBlank()) {
+            AsyncImage(
+                model = photoUrl,
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(CircleShape),
+                contentScale = ContentScale.Crop
+            )
+        } else {
+            Text(
+                text = initial,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.SemiBold
+                ),
+                color = GreenAccent
+            )
+        }
     }
 }
 
