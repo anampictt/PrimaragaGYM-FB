@@ -24,6 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AdminPanelSettings
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
@@ -68,6 +69,10 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pws.primaragagym.ui.viewmodel.RoleListViewModel
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 
 // ============================================================================
 // COLORS - Match ManajemenPengguna visual style exactly
@@ -87,7 +92,8 @@ private val DividerColor = Color(0xFFE8E8E8)
 data class RoleUiModel(
     val id: String,
     val name: String,
-    val description: String
+    val description: String,
+    val createdAt: Date? = null
 )
 
 // ============================================================================
@@ -169,7 +175,8 @@ fun ManajemenRoleScreen(
             RoleUiModel(
                 id = it.roleId,
                 name = it.name,
-                description = it.description.ifBlank { "Hak akses ${it.name}" }
+                description = it.description.ifBlank { "Hak akses ${it.name}" },
+                createdAt = it.createdAt
             )
         }
     }
@@ -456,6 +463,32 @@ private fun RoleCard(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
+
+                if (role.createdAt != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    val dateStr = remember(role.createdAt) {
+                        val sdf = SimpleDateFormat("dd MMM yyyy, HH:mm 'WIB'", Locale("id", "ID")).apply {
+                            timeZone = TimeZone.getTimeZone("Asia/Jakarta")
+                        }
+                        sdf.format(role.createdAt)
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.DateRange,
+                            contentDescription = null,
+                            tint = TextMuted,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Text(
+                            text = "Dibuat: $dateStr",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TextMuted
+                        )
+                    }
+                }
             }
 
             // Actions

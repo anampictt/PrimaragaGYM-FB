@@ -47,6 +47,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 
 private val BackgroundColor = Color(0xFFF5F7FA)
 private val CardBackground = Color.White
@@ -430,8 +431,16 @@ private fun RiwayatVisitCard(
     val checkInDate = checkin.checkInAt ?: checkin.createdAt
     val checkOutDate = checkin.checkOutAt
 
-    val dateFormatter = remember { SimpleDateFormat("EEEE, dd MMM yyyy", Locale("id", "ID")) }
-    val timeFormatter = remember { SimpleDateFormat("HH:mm 'WIB'", Locale("id", "ID")) }
+    val dateFormatter = remember {
+        SimpleDateFormat("EEEE, dd MMM yyyy", Locale("id", "ID")).apply {
+            timeZone = TimeZone.getTimeZone("Asia/Jakarta")
+        }
+    }
+    val timeFormatter = remember {
+        SimpleDateFormat("HH:mm 'WIB'", Locale("id", "ID")).apply {
+            timeZone = TimeZone.getTimeZone("Asia/Jakarta")
+        }
+    }
 
     val formattedDate = checkInDate?.let { dateFormatter.format(it) } ?: "Tanggal tidak diketahui"
     val formattedCheckInTime = checkInDate?.let { timeFormatter.format(it) } ?: "-"

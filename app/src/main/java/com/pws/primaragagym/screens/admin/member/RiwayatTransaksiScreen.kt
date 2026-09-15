@@ -66,6 +66,7 @@ import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -342,7 +343,9 @@ private fun PaymentTransactionCard(payment: FirestorePayment) {
 
     val dateFormatted = remember(payment.paidAt, payment.createdAt) {
         val dateToFormat = payment.paidAt ?: payment.createdAt ?: Date()
-        val sdf = SimpleDateFormat("dd MMMM yyyy, HH:mm", Locale("id", "ID"))
+        val sdf = SimpleDateFormat("dd MMMM yyyy, HH:mm 'WIB'", Locale("id", "ID")).apply {
+            timeZone = TimeZone.getTimeZone("Asia/Jakarta")
+        }
         sdf.format(dateToFormat)
     }
 

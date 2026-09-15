@@ -38,6 +38,7 @@ import com.pws.primaragagym.domain.model.FirestoreUser
 import com.pws.primaragagym.ui.viewmodel.UserListViewModel
 import java.text.SimpleDateFormat
 import java.util.Locale
+import java.util.TimeZone
 
 private val BackgroundColor = Color(0xFFF5F7FA)
 private val CardBackground = Color.White
@@ -245,7 +246,11 @@ fun DetailPenggunaScreen(
                 }
             }
         } else {
-            val dateFormat = remember { SimpleDateFormat("dd MMMM yyyy, HH:mm 'WIB'", Locale("id", "ID")) }
+            val dateFormat = remember {
+                SimpleDateFormat("dd MMMM yyyy, HH:mm 'WIB'", Locale("id", "ID")).apply {
+                    timeZone = TimeZone.getTimeZone("Asia/Jakarta")
+                }
+            }
             val formattedCreatedAt = remember(user.createdAt) {
                 user.createdAt?.let { dateFormat.format(it) } ?: "Belum tercatat"
             }

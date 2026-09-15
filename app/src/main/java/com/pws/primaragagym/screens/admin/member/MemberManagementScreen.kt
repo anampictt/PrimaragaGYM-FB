@@ -58,6 +58,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.TimeZone
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -553,6 +556,25 @@ private fun MemberManagementCard(
                             color = GreenAccent
                         )
                         MemberStatusBadge(status = member.status)
+                    }
+
+                    val createdText = when {
+                        member.createdAt != null -> {
+                            val sdf = SimpleDateFormat("dd MMM yyyy, HH:mm 'WIB'", Locale("id", "ID")).apply {
+                                timeZone = TimeZone.getTimeZone("Asia/Jakarta")
+                            }
+                            sdf.format(member.createdAt)
+                        }
+                        member.startDate.isNotBlank() -> member.startDate
+                        else -> null
+                    }
+                    if (createdText != null) {
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Text(
+                            text = "Dibuat: $createdText",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TextMuted
+                        )
                     }
 
                     if (member.expiredDate.isNotBlank()) {

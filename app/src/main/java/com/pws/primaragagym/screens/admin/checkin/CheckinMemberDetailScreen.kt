@@ -30,6 +30,7 @@ import com.pws.primaragagym.ui.viewmodel.AuthViewModel
 import com.pws.primaragagym.ui.viewmodel.CheckinFirestoreViewModel
 import java.text.SimpleDateFormat
 import java.util.Locale
+import java.util.TimeZone
 
 private val BackgroundColor = Color(0xFFF5F7FA)
 private val CardBackground = Color.White
@@ -321,7 +322,9 @@ fun CheckinMemberDetailScreen(
                                     color = Color(0xFFE65100)
                                 )
                                 val inTime = uiState.activeCheckin?.checkInAt?.let {
-                                    SimpleDateFormat("HH:mm 'WIB'", Locale("id", "ID")).format(it)
+                                    SimpleDateFormat("HH:mm 'WIB'", Locale("id", "ID")).apply {
+                                        timeZone = TimeZone.getTimeZone("Asia/Jakarta")
+                                    }.format(it)
                                 } ?: "Hari ini"
                                 Text(
                                     text = "Tercatat check-in pada: $inTime",

@@ -58,6 +58,9 @@ import com.pws.primaragagym.screens.admin.member.MemberColors.GreenLight
 import com.pws.primaragagym.screens.admin.member.MemberColors.TextPrimary
 import com.pws.primaragagym.screens.admin.member.MemberColors.TextSecondary
 import com.pws.primaragagym.ui.theme.Dimens
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.TimeZone
 
 // ============================================================================
 // MAIN SCREEN
@@ -382,6 +385,25 @@ private fun MemberHubCard(
                     text = member.expiredDate,
                     style = MaterialTheme.typography.labelSmall,
                     color = TextSecondary
+                )
+            }
+
+            val createdText = when {
+                member.createdAt != null -> {
+                    val sdf = SimpleDateFormat("dd MMM yyyy, HH:mm 'WIB'", Locale("id", "ID")).apply {
+                        timeZone = TimeZone.getTimeZone("Asia/Jakarta")
+                    }
+                    sdf.format(member.createdAt)
+                }
+                member.startDate.isNotBlank() -> member.startDate
+                else -> null
+            }
+            if (createdText != null) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Dibuat: $createdText",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MemberColors.TextMuted
                 )
             }
         }

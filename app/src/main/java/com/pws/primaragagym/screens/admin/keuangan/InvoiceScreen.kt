@@ -174,7 +174,9 @@ private fun InvoiceCard(
     
     val formatDate = { date: java.util.Date? ->
         try {
-            val dateFormat = SimpleDateFormat("dd MMMM yyyy", Locale("id", "ID"))
+            val dateFormat = SimpleDateFormat("dd MMMM yyyy", Locale("id", "ID")).apply {
+                timeZone = java.util.TimeZone.getTimeZone("Asia/Jakarta")
+            }
             date?.let { dateFormat.format(it) } ?: ""
         } catch (e: Exception) { "" }
     }

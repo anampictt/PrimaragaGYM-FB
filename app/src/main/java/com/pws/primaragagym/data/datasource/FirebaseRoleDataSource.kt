@@ -159,7 +159,16 @@ class FirebaseRoleDataSource {
 
         for (role in defaultRoles) {
             val docRef = rolesCollection.document()
-            docRef.set(role.copy(roleId = docRef.id)).await()
+            val roleData = hashMapOf<String, Any?>(
+                "roleId" to docRef.id,
+                "name" to role.name,
+                "description" to role.description,
+                "permissions" to role.permissions,
+                "isActive" to role.isActive,
+                "createdAt" to FieldValue.serverTimestamp(),
+                "updatedAt" to FieldValue.serverTimestamp()
+            )
+            docRef.set(roleData).await()
         }
     }
 
@@ -199,12 +208,16 @@ class FirebaseRoleDataSource {
     suspend fun createRole(role: FirestoreRole): Result<String> {
         return try {
             val docRef = rolesCollection.document()
-            val roleWithId = role.copy(
-                roleId = docRef.id,
-                createdAt = Date(),
-                updatedAt = Date()
+            val roleData = hashMapOf<String, Any?>(
+                "roleId" to docRef.id,
+                "name" to role.name,
+                "description" to role.description,
+                "permissions" to role.permissions,
+                "isActive" to role.isActive,
+                "createdAt" to FieldValue.serverTimestamp(),
+                "updatedAt" to FieldValue.serverTimestamp()
             )
-            docRef.set(roleWithId).await()
+            docRef.set(roleData).await()
             Result.success(docRef.id)
         } catch (e: Exception) {
             if (e is kotlin.coroutines.cancellation.CancellationException) throw e

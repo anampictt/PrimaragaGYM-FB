@@ -994,7 +994,8 @@ private fun FirestoreMember.toUiModel(): MemberUiModel {
         startDate = startDate.ifEmpty { joinedAt?.formatDate() ?: "" },
         expiredDate = expiredDate,
         avatarInitial = initials,
-        planPrice = priceStr
+        planPrice = priceStr,
+        createdAt = createdAt ?: joinedAt
     )
 }
 
@@ -1024,7 +1025,8 @@ private fun FirestoreMembershipPlan.toUiModel(): MembershipPlanUiModel {
         price = price.formatCurrency(),
         duration = durationStr,
         maxMembers = maxMembers ?: 0,
-        isActive = isActive
+        isActive = isActive,
+        createdAt = createdAt
     )
 }
 
@@ -1042,16 +1044,20 @@ private fun FirestoreCheckin.toActivityMock(): CheckinActivityMock {
 
 private fun Date?.formatDate(): String {
     return try {
-        val dateFormat = SimpleDateFormat("dd MMMM yyyy", Locale("id", "ID"))
+        val dateFormat = SimpleDateFormat("dd MMMM yyyy", Locale("id", "ID")).apply {
+            timeZone = TimeZone.getTimeZone("Asia/Jakarta")
+        }
         this?.let { dateFormat.format(it) } ?: ""
     } catch (e: Exception) { "" }
 }
 
 private fun Date?.formatTime(): String {
     return try {
-        val timeFormat = SimpleDateFormat("HH:mm", Locale("id", "ID"))
-        this?.let { timeFormat.format(it) } ?: "" }
-    catch (e: Exception) { "" }
+        val timeFormat = SimpleDateFormat("HH:mm 'WIB'", Locale("id", "ID")).apply {
+            timeZone = TimeZone.getTimeZone("Asia/Jakarta")
+        }
+        this?.let { timeFormat.format(it) } ?: ""
+    } catch (e: Exception) { "" }
 }
 
 // ============================================================================

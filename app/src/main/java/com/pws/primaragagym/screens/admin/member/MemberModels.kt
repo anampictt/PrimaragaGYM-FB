@@ -1,6 +1,7 @@
 package com.pws.primaragagym.screens.admin.member
 
 import androidx.compose.ui.graphics.Color
+import java.util.Date
 
 // ============================================================================
 // COLORS - Match design system
@@ -38,7 +39,8 @@ data class MemberUiModel(
     val startDate: String,
     val expiredDate: String,
     val avatarInitial: String,
-    val planPrice: String = "Rp 350.000"
+    val planPrice: String = "Rp 350.000",
+    val createdAt: Date? = null
 )
 
 enum class MemberStatus(val displayName: String) {
@@ -72,7 +74,8 @@ data class MembershipPlanUiModel(
     val price: String,
     val duration: String,
     val maxMembers: Int,
-    val isActive: Boolean
+    val isActive: Boolean,
+    val createdAt: Date? = null
 )
 
 enum class PlanType(val displayName: String) {

@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
@@ -74,6 +75,10 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pws.primaragagym.ui.viewmodel.UserListViewModel
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 
 // ============================================================================
 // COLORS - Match design system
@@ -97,7 +102,8 @@ data class UserUiModel(
     val role: String,
     val status: String,
     val avatarInitial: String,
-    val photoUrl: String? = null
+    val photoUrl: String? = null,
+    val createdAt: Date? = null
 )
 
 // ============================================================================
@@ -202,7 +208,8 @@ fun ManajemenPenggunaScreen(
                 role = it.resolvedRole,
                 status = if (it.isActive) "Active" else "Inactive",
                 avatarInitial = initials,
-                photoUrl = it.photoUrl
+                photoUrl = it.photoUrl,
+                createdAt = it.createdAt
             )
         }
     }
@@ -551,10 +558,37 @@ private fun UserCard(
 
                 // Badges
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     RoleBadge(role = user.role)
                     StatusBadge(status = user.status)
+                }
+
+                if (user.createdAt != null) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    val dateStr = remember(user.createdAt) {
+                        val sdf = SimpleDateFormat("dd MMM yyyy, HH:mm 'WIB'", Locale("id", "ID")).apply {
+                            timeZone = TimeZone.getTimeZone("Asia/Jakarta")
+                        }
+                        sdf.format(user.createdAt)
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.DateRange,
+                            contentDescription = null,
+                            tint = TextMuted,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Text(
+                            text = "Dibuat: $dateStr",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TextMuted
+                        )
+                    }
                 }
             }
 

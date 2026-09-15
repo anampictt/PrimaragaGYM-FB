@@ -65,6 +65,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.TimeZone
 import com.pws.primaragagym.screens.admin.member.MemberColors.BackgroundColor
 import com.pws.primaragagym.screens.admin.member.MemberColors.CardBackground
 import com.pws.primaragagym.screens.admin.member.MemberColors.GreenAccent
@@ -372,6 +375,21 @@ private fun MembershipPlanCard(
                     if (plan.maxMembers > 0) {
                         PlanQuotaBadge(maxMembers = plan.maxMembers)
                     }
+                }
+
+                if (plan.createdAt != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    val dateStr = remember(plan.createdAt) {
+                        val sdf = SimpleDateFormat("dd MMM yyyy, HH:mm 'WIB'", Locale("id", "ID")).apply {
+                            timeZone = TimeZone.getTimeZone("Asia/Jakarta")
+                        }
+                        sdf.format(plan.createdAt)
+                    }
+                    Text(
+                        text = "Dibuat: $dateStr",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextMuted
+                    )
                 }
             }
 

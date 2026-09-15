@@ -60,7 +60,8 @@ object FirestoreMapper {
             startDate = startDate.ifEmpty { joinedAt?.toDisplayDate() ?: "" },
             expiredDate = expiredDate,
             avatarInitial = initials,
-            planPrice = priceStr
+            planPrice = priceStr,
+            createdAt = createdAt ?: joinedAt
         )
     }
 
@@ -90,7 +91,8 @@ object FirestoreMapper {
             price = price.toCurrency(),
             duration = durationStr,
             maxMembers = maxMembers ?: 0,
-            isActive = isActive
+            isActive = isActive,
+            createdAt = createdAt
         )
     }
 
