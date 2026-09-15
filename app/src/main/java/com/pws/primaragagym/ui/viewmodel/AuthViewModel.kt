@@ -114,7 +114,7 @@ class AuthViewModel(
         return when (permissionKey) {
             "check_in_out", "riwayat_check_in_out" -> perms["check_in_out"] == true || perms["check_in"] == true || perms["check_out"] == true || perms["riwayat_check_in_out"] == true
             "manajemen_member", "member" -> perms["manajemen_member"] == true || perms["member"] == true
-            "laporan", "laporan_keuangan" -> perms["laporan"] == true || perms["laporan_keuangan"] == true
+            "laporan", "laporan_keuangan", "keuangan" -> perms["laporan"] == true || perms["laporan_keuangan"] == true || perms["keuangan"] == true
             else -> false
         }
     }

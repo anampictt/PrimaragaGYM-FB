@@ -59,10 +59,22 @@ fun SuperAdminMainScreen(
     // Guard: prevent multiple concurrent pop operations
     var isPopInProgress by remember { mutableStateOf(false) }
 
+    // Check financial permission
+    val canAccessKeuangan = authViewModel.hasPermission("keuangan") || authViewModel.hasPermission("laporan")
+    val bottomNavItems = remember(canAccessKeuangan) {
+        buildList {
+            add(BottomNavItem.DASHBOARD)
+            if (canAccessKeuangan) {
+                add(BottomNavItem.KEUANGAN)
+            }
+            add(BottomNavItem.PENGATURAN_AKUN)
+        }
+    }
+
     // Map current route to BottomNavItem
     val selectedBottomNav = when {
-        currentRoute.startsWith(AppScreen.LaporanKeuangan.route) || currentRoute.startsWith(AppScreen.LaporanPemasukan.route) -> if (!isTablet) BottomNavItem.DASHBOARD else null
-        currentRoute.startsWith(AppScreen.Keuangan.route) || currentRoute.startsWith("admin/keuangan") -> BottomNavItem.KEUANGAN
+        currentRoute.startsWith(AppScreen.LaporanKeuangan.route) || currentRoute.startsWith(AppScreen.LaporanPemasukan.route) -> if (!isTablet && canAccessKeuangan) BottomNavItem.DASHBOARD else null
+        currentRoute.startsWith(AppScreen.Keuangan.route) || currentRoute.startsWith("admin/keuangan") -> if (canAccessKeuangan) BottomNavItem.KEUANGAN else null
         currentRoute == AppScreen.Profil.route -> BottomNavItem.PENGATURAN_AKUN
         currentRoute == AppScreen.SuperAdminDashboard.route -> BottomNavItem.DASHBOARD
         else -> if (!isTablet) BottomNavItem.DASHBOARD else null
@@ -186,6 +198,7 @@ fun SuperAdminMainScreen(
             bottomBar = {
                 BottomNavigationBar(
                     selectedItem = selectedBottomNav,
+                    items = bottomNavItems,
                     onItemSelected = onBottomNavSelected
                 )
             }

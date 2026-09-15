@@ -653,6 +653,7 @@ data class SuperAdminDashboardUiState(
     val totalUsers: Int = 0,
     val totalBranches: Int = 0,
     val totalMembers: Int = 0,
+    val todayRevenue: String = "Rp 0",
     val unreadNotifications: Int = 0,
     val error: String? = null
 )
@@ -662,6 +663,7 @@ class SuperAdminDashboardViewModel : ViewModel() {
     private val userAdminRepository: UserAdminRepository = UserAdminRepositoryImpl()
     private val branchRepository: BranchRepository = BranchRepositoryImpl()
     private val memberRepository: MemberRepository = MemberRepositoryImpl()
+    private val paymentRepository: PaymentRepository = PaymentRepositoryImpl()
     private val notificationRepository: NotificationRepository = NotificationRepositoryImpl()
 
     private val _uiState = MutableStateFlow(SuperAdminDashboardUiState())
@@ -681,6 +683,7 @@ class SuperAdminDashboardViewModel : ViewModel() {
                     totalMembers += memberRepository.getActiveMembersCount(branch.branchId).getOrDefault(0)
                 }
 
+                val todayRevenue = paymentRepository.getTodayRevenue("").getOrDefault(0L)
                 val unreadNotifications = notificationRepository.getUnreadCount()
 
                 _uiState.update { it.copy(
@@ -688,6 +691,7 @@ class SuperAdminDashboardViewModel : ViewModel() {
                     totalUsers = totalUsers.getOrDefault(0),
                     totalBranches = totalBranches.getOrDefault(0),
                     totalMembers = totalMembers,
+                    todayRevenue = todayRevenue.formatCurrency(),
                     unreadNotifications = unreadNotifications.getOrDefault(0)
                 )}
             } catch (e: Exception) {

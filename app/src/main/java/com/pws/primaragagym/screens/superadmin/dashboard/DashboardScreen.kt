@@ -226,7 +226,7 @@ fun SuperAdminDashboardContent(
         totalPengguna = uiState.totalUsers,
         totalCabang = uiState.totalBranches,
         totalMember = uiState.totalMembers,
-        pendapatan = "Rp 0",
+        pendapatan = uiState.todayRevenue.ifBlank { "Rp 0" },
         systemStatus = "Sistem aman dan terproteksi",
         lastLogin = authState.currentUser?.lastLogin?.ifBlank { null } ?: "Baru saja"
     )
@@ -258,20 +258,22 @@ fun SuperAdminDashboardContent(
                     val allowedMenuItems = remember(authState.permissions, authState.currentUser) {
                         allMenuItems.filter { authViewModel.hasPermission(it.id) }
                     }
-                    MenuUtamaSection(
-                        menuItems = allowedMenuItems,
-                        onUserManagementClick = onUserManagementClick,
-                        onRoleManagementClick = onRoleManagementClick,
-                        onBranchManagementClick = onBranchManagementClick,
-                        onMemberClick = onMemberClick,
-                        onCheckInOutClick = onCheckInOutClick,
-                        onRiwayatCheckInOutClick = onRiwayatCheckInOutClick,
-                        onCatatanKeuanganClick = onCatatanKeuanganClick,
-                        onNotificationClick = onNotificationClick,
-                        onReportClick = onReportClick,
-                        isTablet = isTablet
-                    )
-                    Spacer(modifier = Modifier.height(24.dp))
+                    if (allowedMenuItems.isNotEmpty()) {
+                        MenuUtamaSection(
+                            menuItems = allowedMenuItems,
+                            onUserManagementClick = onUserManagementClick,
+                            onRoleManagementClick = onRoleManagementClick,
+                            onBranchManagementClick = onBranchManagementClick,
+                            onMemberClick = onMemberClick,
+                            onCheckInOutClick = onCheckInOutClick,
+                            onRiwayatCheckInOutClick = onRiwayatCheckInOutClick,
+                            onCatatanKeuanganClick = onCatatanKeuanganClick,
+                            onNotificationClick = onNotificationClick,
+                            onReportClick = onReportClick,
+                            isTablet = isTablet
+                        )
+                        Spacer(modifier = Modifier.height(24.dp))
+                    }
                 }
                 InformasiSistemSection(data = data, isTablet = isTablet)
                 Spacer(modifier = Modifier.height(24.dp))
@@ -423,25 +425,13 @@ private fun SummaryCard(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Dynamic Statistics Row based on permissions
+            // Statistics Row: Total Member, Total Pengguna, Pendapatan
             data class StatEntry(val value: String, val label: String, val icon: ImageVector)
-            val statList = buildList {
-                if (authViewModel.hasPermission("manajemen_pengguna")) {
-                    add(StatEntry("${data.totalPengguna}", "Total Pengguna", Icons.Filled.Group))
-                }
-                if (authViewModel.hasPermission("manajemen_cabang")) {
-                    add(StatEntry("${data.totalCabang}", "Total Cabang", Icons.Filled.Business))
-                }
-                if (authViewModel.hasPermission("manajemen_member")) {
-                    add(StatEntry("${data.totalMember}", "Total Member", Icons.Filled.Person))
-                }
-                if (authViewModel.hasPermission("laporan")) {
-                    add(StatEntry(data.pendapatan, "Pendapatan", Icons.Filled.Payments))
-                }
-                if (isEmpty()) {
-                    add(StatEntry("Aktif", "Status Sistem", Icons.Filled.Security))
-                }
-            }.take(3)
+            val statList = listOf(
+                StatEntry("${data.totalMember}", "Total Member", Icons.Filled.Person),
+                StatEntry("${data.totalPengguna}", "Total Pengguna", Icons.Filled.Group),
+                StatEntry(data.pendapatan, "Pendapatan", Icons.Filled.Payments)
+            )
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -741,6 +731,7 @@ private fun InformasiSistemSection(
 @Composable
 fun BottomNavigationBar(
     selectedItem: BottomNavItem?,
+    items: List<BottomNavItem> = BottomNavItem.values().toList(),
     onItemSelected: (BottomNavItem) -> Unit
 ) {
     NavigationBar(
@@ -748,7 +739,7 @@ fun BottomNavigationBar(
         tonalElevation = 8.dp,
         modifier = Modifier.navigationBarsPadding()
     ) {
-        BottomNavItem.values().forEach { item ->
+        items.forEach { item ->
             val isSelected = selectedItem == item
             NavigationBarItem(
                 selected = isSelected,
@@ -840,7 +831,15 @@ fun TabletSidebar(
                 .verticalScroll(androidx.compose.foundation.rememberScrollState())
                 .padding(horizontal = 16.dp)
         ) {
-            val topNavItems = listOf(BottomNavItem.DASHBOARD, BottomNavItem.KEUANGAN)
+            val canAccessKeuangan = authViewModel.hasPermission("keuangan") || authViewModel.hasPermission("laporan")
+            val topNavItems = remember(canAccessKeuangan) {
+                buildList {
+                    add(BottomNavItem.DASHBOARD)
+                    if (canAccessKeuangan) {
+                        add(BottomNavItem.KEUANGAN)
+                    }
+                }
+            }
             topNavItems.forEachIndexed { index, item ->
                 val isSelected = selectedItem == item
                 TabletNavItem(
