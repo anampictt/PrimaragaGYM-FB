@@ -72,9 +72,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Download
@@ -97,7 +98,41 @@ import com.pws.primaragagym.screens.admin.member.MemberColors.GreenLight
 import com.pws.primaragagym.screens.admin.member.MemberColors.TextMuted
 import com.pws.primaragagym.screens.admin.member.MemberColors.TextPrimary
 import com.pws.primaragagym.screens.admin.member.MemberColors.TextSecondary
+import com.pws.primaragagym.screens.admin.member.MemberColors.DividerColor
 import com.pws.primaragagym.ui.theme.Dimens
+import android.Manifest
+import android.content.pm.PackageManager
+import android.graphics.ImageFormat
+import android.hardware.Camera
+import android.view.SurfaceHolder
+import android.view.SurfaceView
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.offset
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.FlashOff
+import androidx.compose.material.icons.filled.FlashOn
+import androidx.compose.material.icons.filled.Keyboard
+import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.core.content.ContextCompat
+import com.google.zxing.BinaryBitmap
+import com.google.zxing.MultiFormatReader
+import com.google.zxing.PlanarYUVLuminanceSource
+import com.google.zxing.common.HybridBinarizer
 
 // ============================================================================
 // FILTER TYPES
@@ -136,6 +171,7 @@ fun MemberManagementScreen(
     val uiState by viewModel.uiState.collectAsState()
 
     var memberToDelete by remember { mutableStateOf<MemberUiModel?>(null) }
+    var showQrScannerDialog by remember { mutableStateOf(false) }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -249,6 +285,7 @@ fun MemberManagementScreen(
             MemberSearchField(
                 query = searchQuery,
                 onQueryChange = { viewModel.searchMembers(it) },
+                onScanQrClick = { showQrScannerDialog = true },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(
@@ -377,6 +414,16 @@ fun MemberManagementScreen(
             }
         )
     }
+
+    if (showQrScannerDialog) {
+        MemberQrScannerDialog(
+            onDismiss = { showQrScannerDialog = false },
+            onScanResult = { scannedCode ->
+                viewModel.searchMembers(scannedCode)
+                showQrScannerDialog = false
+            }
+        )
+    }
 }
 
 // ============================================================================
@@ -420,15 +467,21 @@ private fun MemberManagementTopBar(onBackClick: () -> Unit) {
 private fun MemberSearchField(
     query: String,
     onQueryChange: (String) -> Unit,
+    onScanQrClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Box(
         modifier = modifier
             .fillMaxWidth()
             .height(48.dp)
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(Dimens.button_corner_radius))
+            .border(
+                width = 1.dp,
+                color = DividerColor,
+                shape = RoundedCornerShape(Dimens.button_corner_radius)
+            )
             .background(CardBackground)
-            .padding(horizontal = 16.dp),
+            .padding(start = 16.dp, end = 6.dp),
         contentAlignment = Alignment.CenterStart
     ) {
         Row(
@@ -468,7 +521,401 @@ private fun MemberSearchField(
                     modifier = Modifier.fillMaxWidth()
                 )
             }
+
+            if (query.isNotEmpty()) {
+                IconButton(
+                    onClick = { onQueryChange("") },
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Close,
+                        contentDescription = "Hapus Pencarian",
+                        tint = TextMuted,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+
+            IconButton(
+                onClick = onScanQrClick,
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.QrCodeScanner,
+                    contentDescription = "Scan QR Code Kartu Member",
+                    tint = GreenAccent,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
         }
+    }
+}
+
+// ============================================================================
+// QR CODE SCANNER DIALOG
+// ============================================================================
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MemberQrScannerDialog(
+    onDismiss: () -> Unit,
+    onScanResult: (String) -> Unit
+) {
+    val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
+
+    var hasCameraPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        hasCameraPermission = isGranted
+    }
+
+    LaunchedEffect(Unit) {
+        if (!hasCameraPermission) {
+            permissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
+
+    var isFlashOn by remember { mutableStateOf(false) }
+    var cameraRef by remember { mutableStateOf<Camera?>(null) }
+    var isScanned by remember { mutableStateOf(false) }
+    var cameraError by remember { mutableStateOf<String?>(null) }
+
+    // Manual input fallback dialog
+    var showManualInputDialog by remember { mutableStateOf(false) }
+    var manualCodeInput by remember { mutableStateOf("") }
+
+    val infiniteTransition = rememberInfiniteTransition(label = "scanner_laser")
+    val laserY by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "laser_anim"
+    )
+
+    fun handleScan(rawContent: String) {
+        if (isScanned) return
+        isScanned = true
+        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        val cleanCode = rawContent.trim().removePrefix("PRIMARAGA_MEMBER:")
+        onScanResult(cleanCode)
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFF121212))
+        ) {
+            if (hasCameraPermission && cameraError == null) {
+                // Live camera preview
+                AndroidView(
+                    modifier = Modifier.fillMaxSize(),
+                    factory = { ctx ->
+                        val surfaceView = SurfaceView(ctx)
+                        val holder = surfaceView.holder
+
+                        val callback = object : SurfaceHolder.Callback {
+                            var camera: Camera? = null
+                            var isProcessing = false
+                            var lastProcessTime = 0L
+
+                            override fun surfaceCreated(sh: SurfaceHolder) {
+                                try {
+                                    camera = Camera.open()
+                                    cameraRef = camera
+                                    camera?.setDisplayOrientation(90)
+                                    camera?.setPreviewDisplay(sh)
+
+                                    val params = camera?.parameters
+                                    params?.focusMode = Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE
+                                    params?.previewFormat = ImageFormat.NV21
+                                    camera?.parameters = params
+
+                                    camera?.setPreviewCallback { data, cam ->
+                                        val now = System.currentTimeMillis()
+                                        if (isProcessing || isScanned || now - lastProcessTime < 250) return@setPreviewCallback
+                                        isProcessing = true
+                                        lastProcessTime = now
+
+                                        try {
+                                            val size = cam.parameters.previewSize
+                                            val width = size.width
+                                            val height = size.height
+
+                                            val source = PlanarYUVLuminanceSource(
+                                                data, width, height,
+                                                0, 0, width, height, false
+                                            )
+                                            val binaryBitmap = BinaryBitmap(HybridBinarizer(source))
+                                            val reader = MultiFormatReader()
+                                            val result = reader.decodeWithState(binaryBitmap)
+
+                                            if (result != null && result.text.isNotBlank()) {
+                                                handleScan(result.text)
+                                            }
+                                        } catch (_: Exception) {
+                                            // No barcode detected in this frame
+                                        } finally {
+                                            isProcessing = false
+                                        }
+                                    }
+
+                                    camera?.startPreview()
+                                } catch (e: Exception) {
+                                    cameraError = "Kamera tidak dapat diakses: ${e.message}"
+                                    cameraRef = null
+                                }
+                            }
+
+                            override fun surfaceChanged(sh: SurfaceHolder, format: Int, w: Int, h: Int) {}
+
+                            override fun surfaceDestroyed(sh: SurfaceHolder) {
+                                try {
+                                    camera?.setPreviewCallback(null)
+                                    camera?.stopPreview()
+                                    camera?.release()
+                                    camera = null
+                                    cameraRef = null
+                                } catch (_: Exception) {}
+                            }
+                        }
+
+                        holder.addCallback(callback)
+                        surfaceView
+                    }
+                )
+            } else {
+                // Permission Denied or Camera Error View
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.QrCodeScanner,
+                        contentDescription = null,
+                        tint = GreenAccent,
+                        modifier = Modifier.size(64.dp)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = cameraError ?: "Izin Kamera Diperlukan",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = Color.White,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Izinkan akses kamera untuk memindai QR Code kartu member secara langsung, atau gunakan input manual.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.7f),
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    if (!hasCameraPermission) {
+                        Button(
+                            onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) },
+                            colors = ButtonDefaults.buttonColors(containerColor = GreenAccent)
+                        ) {
+                            Text("Beri Izin Kamera", color = Color.White)
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+                    OutlinedButton(
+                        onClick = { showManualInputDialog = true },
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = GreenAccent),
+                        border = BorderStroke(1.dp, GreenAccent)
+                    ) {
+                        Text("Input Kode Manual")
+                    }
+                }
+            }
+
+            // Target Overlay (Scanner Viewfinder)
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(260.dp)
+                        .border(2.dp, GreenAccent, RoundedCornerShape(16.dp))
+                ) {
+                    // Scanning animated laser line
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(2.dp)
+                            .offset(y = 260.dp * laserY)
+                            .background(GreenAccent)
+                    )
+                }
+            }
+
+            // Top Control Bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 40.dp)
+                    .align(Alignment.TopCenter),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier
+                        .size(44.dp)
+                        .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Tutup",
+                        tint = Color.White
+                    )
+                }
+
+                Text(
+                    text = "Scan Kartu Member",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = Color.White
+                )
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Flashlight button
+                    IconButton(
+                        onClick = {
+                            val cam = cameraRef
+                            if (cam != null) {
+                                try {
+                                    val params = cam.parameters
+                                    if (params.supportedFlashModes?.contains(Camera.Parameters.FLASH_MODE_TORCH) == true) {
+                                        params.flashMode = if (isFlashOn) {
+                                            Camera.Parameters.FLASH_MODE_OFF
+                                        } else {
+                                            Camera.Parameters.FLASH_MODE_TORCH
+                                        }
+                                        cam.parameters = params
+                                        isFlashOn = !isFlashOn
+                                    }
+                                } catch (_: Exception) {}
+                            }
+                        },
+                        modifier = Modifier
+                            .size(44.dp)
+                            .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = if (isFlashOn) Icons.Filled.FlashOn else Icons.Filled.FlashOff,
+                            contentDescription = "Flashlight",
+                            tint = if (isFlashOn) Color.Yellow else Color.White
+                        )
+                    }
+
+                    // Keyboard input button
+                    IconButton(
+                        onClick = { showManualInputDialog = true },
+                        modifier = Modifier
+                            .size(44.dp)
+                            .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Keyboard,
+                            contentDescription = "Input Manual",
+                            tint = Color.White
+                        )
+                    }
+                }
+            }
+
+            // Bottom Instructions Guide
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 48.dp, start = 24.dp, end = 24.dp)
+                    .align(Alignment.BottomCenter)
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Arahkan kamera ke QR Code kartu member",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                        color = Color.White,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Pencarian member akan terisi otomatis saat QR terdeteksi",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.7f),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
+    }
+
+    // Manual input dialog
+    if (showManualInputDialog) {
+        AlertDialog(
+            onDismissRequest = { showManualInputDialog = false },
+            title = {
+                Text(
+                    text = "Input Kode Member",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        text = "Masukkan kode kartu member (contoh: PRGM-01112):",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextSecondary
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = manualCodeInput,
+                        onValueChange = { manualCodeInput = it },
+                        placeholder = { Text("PRGM-XXXXX") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (manualCodeInput.isNotBlank()) {
+                            showManualInputDialog = false
+                            handleScan(manualCodeInput.trim())
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = GreenAccent)
+                ) {
+                    Text("Cari")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showManualInputDialog = false }) {
+                    Text("Batal", color = TextSecondary)
+                }
+            }
+        )
     }
 }
 
