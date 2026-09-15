@@ -14,6 +14,7 @@ interface MemberRepository {
     suspend fun getActiveMembersCount(branchId: String): Result<Int>
     suspend fun getNewMembersCount(branchId: String, date: java.util.Date): Result<Int>
     suspend fun getMembersWithExpiringMembership(branchId: String, daysAhead: Int = 7): Result<List<FirestoreMember>>
+    suspend fun generateNextMemberCode(): Result<String>
 }
 
 interface MembershipPlanRepository {

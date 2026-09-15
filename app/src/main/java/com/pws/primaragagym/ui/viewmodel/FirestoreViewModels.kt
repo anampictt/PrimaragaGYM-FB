@@ -163,6 +163,10 @@ class MemberListViewModel : ViewModel() {
         return memberRepository.getMemberById(memberId)
     }
 
+    suspend fun getNextMemberCode(): String {
+        return memberRepository.generateNextMemberCode().getOrDefault("PRMG-001")
+    }
+
     fun createMember(member: FirestoreMember, onComplete: ((Boolean, String?) -> Unit)? = null) {
         viewModelScope.launch {
             try {

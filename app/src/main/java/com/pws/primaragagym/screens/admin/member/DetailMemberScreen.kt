@@ -55,6 +55,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import com.pws.primaragagym.ui.viewmodel.MemberListViewModel
 import com.pws.primaragagym.ui.theme.Dimens
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.material.icons.filled.Phone
+import com.pws.primaragagym.R
 
 // ============================================================================
 // MAIN SCREEN
@@ -73,6 +77,7 @@ fun DetailMemberScreen(
     val screenWidthDp = configuration.screenWidthDp
     val isTablet = screenWidthDp >= 600
 
+    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
 
     // Find member from real data
@@ -183,6 +188,53 @@ fun DetailMemberScreen(
                     Spacer(modifier = Modifier.height(Dimens.spacing_3))
 
                     MemberStatusBadge(status = member.status)
+
+                    if (member.phone.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(Dimens.spacing_3))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Phone,
+                                contentDescription = null,
+                                tint = TextSecondary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = member.phone,
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                                color = TextPrimary
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(Dimens.spacing_4))
+
+                    // WhatsApp Action Button
+                    Button(
+                        onClick = {
+                            openWhatsApp(context, member.phone, member.name)
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF25D366)
+                        ),
+                        shape = RoundedCornerShape(Dimens.button_corner_radius),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_whatsapp),
+                            contentDescription = "WhatsApp",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Hubungi via WhatsApp",
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                            color = Color.White
+                        )
+                    }
                 }
             }
 
@@ -292,7 +344,9 @@ fun DetailMemberScreen(
 
                     InfoRow(label = "Nama Lengkap", value = member.name)
                     InfoRow(label = "ID Member", value = member.memberCode)
-                    InfoRow(label = "Nomor Telepon", value = member.phone)
+
+                    InfoRow(label = "Nomor Telepon", value = member.phone.ifBlank { "-" })
+
                     InfoRow(label = "Email", value = member.email)
                     InfoRow(label = "Alamat", value = member.address)
                 }

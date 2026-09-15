@@ -238,7 +238,11 @@ class FirebaseMemberDataSource {
     suspend fun createMember(member: com.pws.primaragagym.domain.model.FirestoreMember): Result<String> {
         return try {
             val docRef = membersCollection.document()
-            val memberCode = if (member.memberCode.isNotBlank()) member.memberCode.trim() else generateMemberCode()
+            val memberCode = if (member.memberCode.isNotBlank() && !member.memberCode.contains("...")) {
+                member.memberCode.trim()
+            } else {
+                generateMemberCode()
+            }
             val memberData = hashMapOf<String, Any?>(
                 "memberId" to docRef.id,
                 "memberCode" to memberCode,
@@ -413,23 +417,29 @@ class FirebaseMemberDataSource {
         }
     }
 
-    private suspend fun generateMemberCode(): String {
+    suspend fun generateMemberCode(): String {
         return try {
-            val snapshot = membersCollection
-                .orderBy("memberCode", Query.Direction.DESCENDING)
-                .limit(1)
-                .get()
-                .await()
-
-            if (snapshot.isEmpty) {
-                "MBR-000001"
-            } else {
-                val lastCode = snapshot.documents[0].getString("memberCode") ?: "MBR-000000"
-                val number = lastCode.removePrefix("MBR-").toIntOrNull() ?: 0
-                String.format("MBR-%06d", number + 1)
+            val snapshot = membersCollection.get().await()
+            var maxNumber = 0
+            for (doc in snapshot.documents) {
+                val code = doc.getString("memberCode") ?: doc.getString("id") ?: ""
+                val prmgMatch = Regex("""PRMG-(\d+)""", RegexOption.IGNORE_CASE).find(code)
+                if (prmgMatch != null) {
+                    val num = prmgMatch.groupValues[1].toIntOrNull() ?: 0
+                    if (num > maxNumber) maxNumber = num
+                }
             }
+            String.format(java.util.Locale.US, "PRMG-%03d", maxNumber + 1)
         } catch (e: Exception) {
-            "MBR-${System.currentTimeMillis()}"
+            "PRMG-001"
+        }
+    }
+
+    suspend fun generateNextMemberCode(): Result<String> {
+        return try {
+            Result.success(generateMemberCode())
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 }

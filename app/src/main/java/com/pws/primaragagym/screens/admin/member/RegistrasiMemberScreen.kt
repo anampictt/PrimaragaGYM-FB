@@ -66,6 +66,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.pws.primaragagym.screens.admin.member.MemberColors.BackgroundColor
 import com.pws.primaragagym.screens.admin.member.MemberColors.CardBackground
 import com.pws.primaragagym.screens.admin.member.MemberColors.GreenAccent
@@ -137,7 +139,6 @@ fun RegistrasiMemberScreen(
 
     // Validation errors
     var nameError by remember { mutableStateOf<String?>(null) }
-    var memberIdError by remember { mutableStateOf<String?>(null) }
     var phoneError by remember { mutableStateOf<String?>(null) }
     var planError by remember { mutableStateOf<String?>(null) }
     var paymentError by remember { mutableStateOf<String?>(null) }
@@ -170,6 +171,13 @@ fun RegistrasiMemberScreen(
                 }
                 if (matchingPlan != null) {
                     selectedPlan = matchingPlan
+                }
+            }
+        } else if (!isEditMode && (memberCodeInput.isBlank() || memberCodeInput.startsWith("MBR-", ignoreCase = true))) {
+            withContext(Dispatchers.IO) {
+                val nextCode = memberViewModel.getNextMemberCode()
+                withContext(Dispatchers.Main) {
+                    memberCodeInput = nextCode
                 }
             }
         }
@@ -262,17 +270,15 @@ fun RegistrasiMemberScreen(
 
                 Spacer(modifier = Modifier.height(Dimens.spacing_4))
 
-                // Member ID
+                // Member ID (Otomatis)
                 FormTextField(
-                    label = "ID Member",
-                    value = memberCodeInput,
-                    onValueChange = {
-                        memberCodeInput = it
-                        memberIdError = null
-                        generalError = null
-                    },
-                    error = memberIdError,
-                    placeholder = "Contoh: MBR-001"
+                    label = "ID Member (Otomatis)",
+                    value = memberCodeInput.ifBlank { "PRMG-..." },
+                    onValueChange = {},
+                    placeholder = "PRMG-001",
+                    readOnly = true,
+                    enabled = false,
+                    supportingText = "ID member dibuat otomatis oleh sistem"
                 )
 
                 Spacer(modifier = Modifier.height(Dimens.spacing_4))
@@ -458,10 +464,6 @@ fun RegistrasiMemberScreen(
                             nameError = "Nama wajib diisi"
                             hasError = true
                         }
-                        if (memberCodeInput.isBlank()) {
-                            memberIdError = "ID Member wajib diisi"
-                            hasError = true
-                        }
                         if (phone.isBlank()) {
                             phoneError = "Nomor telepon wajib diisi"
                             hasError = true
@@ -480,6 +482,12 @@ fun RegistrasiMemberScreen(
                         isSubmitting = true
                         generalError = null
 
+                        val finalMemberCode = if (memberCodeInput.isNotBlank() && !memberCodeInput.contains("...")) {
+                            memberCodeInput.trim()
+                        } else {
+                            ""
+                        }
+
                         val endDate = if (selectedPlan != null) calculateEndDate(startDate, selectedPlan!!) else ""
                         val planPriceNum = selectedPlan?.price?.filter { it.isDigit() }?.toLongOrNull() ?: 0L
                         val branchId = existingMember?.branchId?.ifBlank { null } ?: authState.currentUser?.branchId ?: ""
@@ -487,7 +495,7 @@ fun RegistrasiMemberScreen(
 
                         val memberObj = (existingMember ?: FirestoreMember(memberId = targetId)).copy(
                             memberId = targetId,
-                            memberCode = memberCodeInput.trim(),
+                            memberCode = finalMemberCode,
                             fullName = name.trim(),
                             phoneNumber = phone.trim(),
                             email = email.trim(),
@@ -657,7 +665,10 @@ private fun FormTextField(
     error: String? = null,
     keyboardType: KeyboardType = KeyboardType.Text,
     singleLine: Boolean = true,
-    minLines: Int = 1
+    minLines: Int = 1,
+    readOnly: Boolean = false,
+    enabled: Boolean = true,
+    supportingText: String? = null
 ) {
     Column {
         Text(
@@ -671,6 +682,8 @@ private fun FormTextField(
         OutlinedTextField(
             value = value,
             onValueChange = onValueChange,
+            readOnly = readOnly,
+            enabled = enabled,
             placeholder = {
                 Text(
                     text = placeholder,
@@ -680,6 +693,8 @@ private fun FormTextField(
             isError = error != null,
             supportingText = if (error != null) {
                 { Text(error, color = Color(0xFFE53935)) }
+            } else if (!supportingText.isNullOrBlank()) {
+                { Text(supportingText, color = TextMuted) }
             } else null,
             modifier = Modifier.fillMaxWidth(),
             singleLine = singleLine,
@@ -691,6 +706,9 @@ private fun FormTextField(
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = GreenAccent,
                 unfocusedBorderColor = Color(0xFFE0E0E0),
+                disabledBorderColor = Color(0xFFE0E0E0),
+                disabledContainerColor = Color(0xFFF7F8FA),
+                disabledTextColor = TextPrimary,
                 focusedContainerColor = CardBackground,
                 unfocusedContainerColor = CardBackground
             )

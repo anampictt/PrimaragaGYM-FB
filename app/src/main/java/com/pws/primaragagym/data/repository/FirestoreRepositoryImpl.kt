@@ -38,6 +38,9 @@ class MemberRepositoryImpl : MemberRepository {
 
     override suspend fun getMembersWithExpiringMembership(branchId: String, daysAhead: Int): Result<List<FirestoreMember>> =
         dataSource.getMembersWithExpiringMembership(branchId, daysAhead)
+
+    override suspend fun generateNextMemberCode(): Result<String> =
+        dataSource.generateNextMemberCode()
 }
 
 class MembershipPlanRepositoryImpl : MembershipPlanRepository {

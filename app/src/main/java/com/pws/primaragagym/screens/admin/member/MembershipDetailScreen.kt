@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Badge
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -45,8 +46,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.pws.primaragagym.R
 import com.pws.primaragagym.domain.model.FirestoreMember
 import com.pws.primaragagym.ui.theme.Dimens
 import kotlinx.coroutines.Dispatchers
@@ -65,6 +69,7 @@ fun MembershipDetailScreen(
     val configuration = LocalConfiguration.current
     val isTablet = configuration.screenWidthDp >= 600
     val horizontalPadding = if (isTablet) 32.dp else Dimens.screen_padding_horizontal
+    val context = LocalContext.current
 
     var member by remember { mutableStateOf<FirestoreMember?>(null) }
     var isLoading by remember { mutableStateOf(true) }
@@ -125,6 +130,7 @@ fun MembershipDetailScreen(
                                         memberId = dummy.id,
                                         memberCode = dummy.memberCode,
                                         fullName = dummy.name,
+                                        phoneNumber = dummy.phone,
                                         planName = dummy.planName,
                                         startDate = dummy.startDate,
                                         expiredDate = dummy.expiredDate,
@@ -204,6 +210,7 @@ fun MembershipDetailScreen(
         } else {
             val currentMember = member!!
             val name = currentMember.fullName.ifBlank { "Member" }
+            val phone = currentMember.phoneNumber.ifBlank { currentMember.phone }
             val initials = name.split(" ")
                 .filter { it.isNotBlank() }
                 .take(2)
@@ -273,6 +280,53 @@ fun MembershipDetailScreen(
                         )
                         Spacer(modifier = Modifier.height(Dimens.spacing_3))
                         MemberStatusBadge(status = statusEnum)
+
+                        if (phone.isNotBlank()) {
+                            Spacer(modifier = Modifier.height(Dimens.spacing_3))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Phone,
+                                    contentDescription = null,
+                                    tint = textSecondary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = phone,
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                                    color = textPrimary
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(Dimens.spacing_4))
+
+                        // WhatsApp Action Button
+                        Button(
+                            onClick = {
+                                openWhatsApp(context, phone, name)
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF25D366)
+                            ),
+                            shape = RoundedCornerShape(Dimens.button_corner_radius),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_whatsapp),
+                                contentDescription = "WhatsApp",
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Hubungi via WhatsApp",
+                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                color = Color.White
+                            )
+                        }
                     }
                 }
 
@@ -307,6 +361,7 @@ fun MembershipDetailScreen(
                         )
                         Spacer(modifier = Modifier.height(Dimens.spacing_4))
                         InfoRow("Harga", planPriceStr, textMuted, textPrimary)
+                        InfoRow("Nomor Telepon", phone.ifBlank { "-" }, textMuted, textPrimary)
                         InfoRow("Tanggal Mulai", startDateStr, textMuted, textPrimary)
                         InfoRow("Tanggal Berakhir", formatExpiredDateDisplay(expiredDateStr, currentMember.createdAt), textMuted, textPrimary)
                         InfoRow("Status", statusEnum.displayName, textMuted, textPrimary)
