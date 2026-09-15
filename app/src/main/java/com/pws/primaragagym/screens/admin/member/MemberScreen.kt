@@ -23,6 +23,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import com.pws.primaragagym.ui.components.shimmerEffect
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Style
@@ -132,40 +133,58 @@ fun MemberScreen(
             )
 
             if (isTablet) {
-                // Tablet: 3 columns grid
-                val recentMembers = uiState.members.take(6)
-                val rows = recentMembers.chunked(3)
-                rows.forEach { rowMembers ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(Dimens.spacing_3)
-                    ) {
-                        rowMembers.forEach { member ->
-                            MemberHubCard(
-                                member = member,
-                                onClick = { onMemberClick(member.id) },
-                                modifier = Modifier.weight(1f)
-                            )
+                if (uiState.isLoading && uiState.members.isEmpty()) {
+                    val rows = (1..6).chunked(3)
+                    rows.forEach { rowItems ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(Dimens.spacing_3)
+                        ) {
+                            rowItems.forEach {
+                                MemberHubCardShimmer(modifier = Modifier.weight(1f))
+                            }
                         }
-                        // Fill empty slots
-                        repeat(3 - rowMembers.size) {
-                            Spacer(modifier = Modifier.weight(1f))
-                        }
+                        Spacer(modifier = Modifier.height(Dimens.spacing_3))
                     }
-                    Spacer(modifier = Modifier.height(Dimens.spacing_3))
+                } else {
+                    val recentMembers = uiState.members.take(6)
+                    val rows = recentMembers.chunked(3)
+                    rows.forEach { rowMembers ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(Dimens.spacing_3)
+                        ) {
+                            rowMembers.forEach { member ->
+                                MemberHubCard(
+                                    member = member,
+                                    onClick = { onMemberClick(member.id) },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                            repeat(3 - rowMembers.size) {
+                                Spacer(modifier = Modifier.weight(1f))
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(Dimens.spacing_3))
+                    }
                 }
             } else {
-                // Phone: Horizontal scroll
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(Dimens.spacing_3),
                     contentPadding = PaddingValues(end = Dimens.spacing_4)
                 ) {
-                    items(uiState.members.take(6)) { member ->
-                        MemberHubCard(
-                            member = member,
-                            onClick = { onMemberClick(member.id) },
-                            modifier = Modifier.width(200.dp)
-                        )
+                    if (uiState.isLoading && uiState.members.isEmpty()) {
+                        items(4) {
+                            MemberHubCardShimmer(modifier = Modifier.width(200.dp))
+                        }
+                    } else {
+                        items(uiState.members.take(6)) { member ->
+                            MemberHubCard(
+                                member = member,
+                                onClick = { onMemberClick(member.id) },
+                                modifier = Modifier.width(200.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -365,6 +384,79 @@ private fun MemberHubCard(
                     color = TextSecondary
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun MemberHubCardShimmer(
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MemberColors.CardBackground
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 1.dp
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(Dimens.spacing_3)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .shimmerEffect()
+                )
+
+                Spacer(modifier = Modifier.width(Dimens.spacing_3))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(0.75f)
+                            .height(14.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .shimmerEffect()
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(0.45f)
+                            .height(12.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .shimmerEffect()
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(Dimens.spacing_3))
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.6f)
+                    .height(12.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .shimmerEffect()
+            )
+
+            Spacer(modifier = Modifier.height(Dimens.spacing_2))
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.35f)
+                    .height(18.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .shimmerEffect()
+            )
         }
     }
 }

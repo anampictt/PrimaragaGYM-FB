@@ -60,10 +60,16 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.runtime.collectAsState
+import com.pws.primaragagym.ui.components.shimmerEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.LaunchedEffect
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import com.pws.primaragagym.ui.theme.GreenPrimary
@@ -98,6 +104,12 @@ private data class DashboardData(
     val pendapatan: String,
     val systemStatus: String,
     val lastLogin: String
+)
+
+private data class StatEntry(
+    val value: String,
+    val label: String,
+    val icon: ImageVector
 )
 
 private val dashboardData = DashboardData(
@@ -252,7 +264,12 @@ fun SuperAdminDashboardContent(
                     .padding(horizontal = if (isTablet) 0.dp else 24.dp)
                     .padding(top = 24.dp)
             ) {
-                SummaryCard(data = data, authViewModel = authViewModel, isTablet = isTablet)
+                SummaryCard(
+                    data = data,
+                    authViewModel = authViewModel,
+                    isLoading = uiState.isLoading,
+                    isTablet = isTablet
+                )
                 Spacer(modifier = Modifier.height(24.dp))
                 if (!isTablet) {
                     val allowedMenuItems = remember(authState.permissions, authState.currentUser) {
@@ -317,14 +334,24 @@ private fun DashboardHeader(
                     color = TextSecondary
                 )
                 Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = data.title,
-                    style = MaterialTheme.typography.headlineLarge.copy(
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = if (isTablet) 32.sp else 28.sp
-                    ),
-                    color = TextPrimary
-                )
+                if (data.title.isBlank()) {
+                    Box(
+                        modifier = Modifier
+                            .width(160.dp)
+                            .height(34.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .shimmerEffect()
+                    )
+                } else {
+                    Text(
+                        text = data.title,
+                        style = MaterialTheme.typography.headlineLarge.copy(
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = if (isTablet) 32.sp else 28.sp
+                        ),
+                        color = TextPrimary
+                    )
+                }
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = data.subtitle,
@@ -381,6 +408,7 @@ private fun DashboardHeader(
 private fun SummaryCard(
     data: DashboardData,
     authViewModel: AuthViewModel,
+    isLoading: Boolean = false,
     isTablet: Boolean = false
 ) {
     Card(
@@ -425,27 +453,83 @@ private fun SummaryCard(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Statistics Row: Total Member, Total Pengguna, Pendapatan
-            data class StatEntry(val value: String, val label: String, val icon: ImageVector)
-            val statList = listOf(
-                StatEntry("${data.totalMember}", "Total Member", Icons.Filled.Person),
-                StatEntry("${data.totalPengguna}", "Total Pengguna", Icons.Filled.Group),
-                StatEntry(data.pendapatan, "Pendapatan", Icons.Filled.Payments)
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                statList.forEach { stat ->
-                    StatisticItem(
-                        value = stat.value,
-                        label = stat.label,
-                        icon = stat.icon
+            AnimatedContent(
+                targetState = isLoading,
+                transitionSpec = {
+                    fadeIn(animationSpec = tween(350)) togetherWith fadeOut(animationSpec = tween(350))
+                },
+                label = "SummaryCardContentAnimation"
+            ) { loading ->
+                if (loading) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        repeat(3) {
+                            StatisticItemShimmer()
+                        }
+                    }
+                } else {
+                    // Statistics Row: Total Member, Total Pengguna, Pendapatan
+                    val statList = listOf(
+                        StatEntry("${data.totalMember}", "Total Member", Icons.Filled.Person),
+                        StatEntry("${data.totalPengguna}", "Total Pengguna", Icons.Filled.Group),
+                        StatEntry(data.pendapatan, "Pendapatan", Icons.Filled.Payments)
                     )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        statList.forEach { stat ->
+                            StatisticItem(
+                                value = stat.value,
+                                label = stat.label,
+                                icon = stat.icon
+                            )
+                        }
+                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun StatisticItemShimmer() {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.padding(horizontal = 8.dp)
+    ) {
+        // Shimmer Circular Icon Container
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(CircleShape)
+                .shimmerEffect()
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Shimmer Value Box
+        Box(
+            modifier = Modifier
+                .width(64.dp)
+                .height(22.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .shimmerEffect()
+        )
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        // Shimmer Label Box
+        Box(
+            modifier = Modifier
+                .width(76.dp)
+                .height(14.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .shimmerEffect()
+        )
     }
 }
 
