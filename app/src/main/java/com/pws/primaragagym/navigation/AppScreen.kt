@@ -57,12 +57,6 @@ sealed class AppScreen(
         route = "superadmin/manajemen-role"
     )
 
-    data object ManajemenCabang : AppScreen(
-        title = R.string.manajemen_cabang,
-        icon = R.drawable.ic_launcher_background,
-        route = "superadmin/manajemen-cabang"
-    )
-
     data object TambahPengguna : AppScreen(
         title = R.string.tambah_pengguna,
         icon = R.drawable.ic_launcher_background,
@@ -97,15 +91,6 @@ sealed class AppScreen(
     ) {
         fun createRoute(roleId: String): String =
             "superadmin/manajemen-role/hak-akses?roleId=$roleId"
-    }
-
-    data object TambahCabang : AppScreen(
-        title = R.string.tambah_cabang,
-        icon = R.drawable.ic_launcher_background,
-        route = "superadmin/manajemen-cabang/tambah"
-    ) {
-        fun createRoute(branchId: String? = null): String =
-            if (branchId != null) "superadmin/manajemen-cabang/tambah?branchId=$branchId" else "superadmin/manajemen-cabang/tambah"
     }
 
     // ==================== ADMIN ====================

@@ -50,8 +50,6 @@ import com.pws.primaragagym.screens.admin.notifikasi.NotifikasiScreen
 import com.pws.primaragagym.screens.admin.notifikasi.NotificationDetailScreen
 import com.pws.primaragagym.screens.admin.notifikasi.NotificationSettingsScreen
 
-import com.pws.primaragagym.screens.superadmin.manajemancabang.ManajemenCabangScreen
-import com.pws.primaragagym.screens.superadmin.manajemancabang.TambahCabangScreen
 import com.pws.primaragagym.screens.superadmin.manajemenpengguna.ManajemenPenggunaScreen
 import com.pws.primaragagym.screens.superadmin.manajemenpengguna.TambahPenggunaScreen
 import com.pws.primaragagym.screens.superadmin.manajemenrole.ManajemenRoleScreen

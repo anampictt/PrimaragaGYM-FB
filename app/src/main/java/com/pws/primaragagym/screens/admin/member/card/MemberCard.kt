@@ -54,15 +54,9 @@ fun MemberCard(
     cornerRadius: Dp = 20.dp
 ) {
     var qrBitmap by remember { mutableStateOf<Bitmap?>(null) }
-    var barcodeBitmap by remember { mutableStateOf<Bitmap?>(null) }
 
-    LaunchedEffect(data.qrContent, data.memberCode) {
+    LaunchedEffect(data.qrContent) {
         qrBitmap = QrCodeGenerator.generateQrBitmap(data.qrContent)
-        barcodeBitmap = try {
-            BarcodeGenerator.generateBarcode128Bitmap(data.memberCode.ifBlank { data.qrContent }, 480, 100)
-        } catch (_: Exception) {
-            null
-        }
     }
 
     Card(
@@ -198,61 +192,33 @@ fun MemberCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(18.dp))
 
-            // QR Code
+            // QR Code (Persegi)
             qrBitmap?.let { bitmap ->
                 Box(
                     modifier = Modifier
-                        .size(88.dp)
-                        .clip(RoundedCornerShape(8.dp))
+                        .size(120.dp)
+                        .clip(RoundedCornerShape(12.dp))
                         .background(Color.White),
                     contentAlignment = Alignment.Center
                 ) {
                     Image(
                         bitmap = bitmap.asImageBitmap(),
-                        contentDescription = "QR Code",
-                        modifier = Modifier.size(84.dp),
+                        contentDescription = "QR Code Member",
+                        modifier = Modifier.size(112.dp),
                         contentScale = ContentScale.Fit
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Barcode Section
-            barcodeBitmap?.let { barcode ->
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Image(
-                        bitmap = barcode.asImageBitmap(),
-                        contentDescription = "Barcode Member",
-                        modifier = Modifier
-                            .fillMaxWidth(0.85f)
-                            .height(38.dp),
-                        contentScale = ContentScale.FillBounds
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = data.memberCode,
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.5.sp
-                        ),
-                        color = CardTextPrimary
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
             Text(
                 text = "PRIMARAGA GYM",
                 style = MaterialTheme.typography.labelSmall.copy(
-                    fontWeight = FontWeight.Medium,
-                    letterSpacing = 0.5.sp
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 1.sp
                 ),
                 color = CardTextMuted
             )

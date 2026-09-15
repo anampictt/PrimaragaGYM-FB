@@ -59,7 +59,6 @@ object ServiceLocator {
     fun providePlanListViewModel(): PlanListViewModel = PlanListViewModel()
     fun provideCheckinFirestoreViewModel(): CheckinFirestoreViewModel = CheckinFirestoreViewModel()
     fun provideSuperAdminDashboardViewModel(): SuperAdminDashboardViewModel = SuperAdminDashboardViewModel()
-    fun provideBranchListViewModel(): BranchListViewModel = BranchListViewModel()
     fun provideRoleListViewModel(): RoleListViewModel = RoleListViewModel()
     fun provideUserListViewModel(): UserListViewModel = UserListViewModel()
 }

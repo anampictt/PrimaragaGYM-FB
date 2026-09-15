@@ -10,7 +10,6 @@ import com.pws.primaragagym.screens.admin.member.PlanType
 import com.pws.primaragagym.screens.admin.member.TransactionStatus
 import com.pws.primaragagym.screens.admin.member.TransactionType
 import com.pws.primaragagym.screens.admin.member.TransactionUiModel
-import com.pws.primaragagym.screens.superadmin.manajemancabang.BranchUiModel
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -136,14 +135,6 @@ object FirestoreMapper {
             date = paidAt?.toDisplayDate() ?: "",
             amount = amount.toCurrency(),
             status = transactionStatus
-        )
-    }
-
-    fun FirestoreBranch.toUiModel(): BranchUiModel {
-        return BranchUiModel(
-            id = branchId,
-            name = name,
-            address = address
         )
     }
 

@@ -337,11 +337,15 @@ class FirebaseMemberDataSource {
 
     suspend fun getActiveMembersCount(branchId: String): Result<Int> {
         return try {
-            val snapshot = membersCollection
-                .whereEqualTo("branchId", branchId)
-                .whereEqualTo("status", "ACTIVE")
-                .get()
-                .await()
+            val query = if (branchId.isNotBlank()) {
+                membersCollection
+                    .whereEqualTo("branchId", branchId)
+                    .whereEqualTo("status", "ACTIVE")
+            } else {
+                membersCollection
+                    .whereEqualTo("status", "ACTIVE")
+            }
+            val snapshot = query.get().await()
             Result.success(snapshot.size())
         } catch (e: Exception) {
             Result.failure(Exception("Gagal menghitung member aktif. ${e.message}"))

@@ -116,7 +116,6 @@ private fun getDefaultAccessMenus(): List<AccessMenuUiModel> = listOf(
     AccessMenuUiModel("dashboard", "Dashboard", Icons.Filled.Dashboard, false),
     AccessMenuUiModel("manajemen_pengguna", "Manajemen Pengguna", Icons.Filled.Person, false),
     AccessMenuUiModel("manajemen_role", "Manajemen Role", Icons.Filled.Security, false),
-    AccessMenuUiModel("manajemen_cabang", "Manajemen Cabang", Icons.Filled.Home, false),
     AccessMenuUiModel("manajemen_member", "Member", Icons.Filled.Groups, false),
     AccessMenuUiModel("check_in_out", "Check In & Check Out", Icons.Filled.QrCodeScanner, false),
     AccessMenuUiModel("notifikasi", "Notifikasi", Icons.Filled.Notifications, false),

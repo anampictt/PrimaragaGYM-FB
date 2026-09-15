@@ -3,10 +3,8 @@
     <string name="dashboard">Dashboard</string>
     <string name="manajemen_pengguna">Manajemen Pengguna</string>
     <string name="manajemen_role">Manajemen Role</string>
-    <string name="manajemen_cabang">Manajemen Cabang</string>
     <string name="tambah_pengguna">Tambah Pengguna</string>
     <string name="tambah_role">Tambah Role</string>
-    <string name="tambah_cabang">Tambah Cabang</string>
     <string name="member">Member</string>
     <string name="check_in_checkout">Check In &amp; Check Out</string>
     <string name="catatan_keuangan">Catatan Keuangan</string>

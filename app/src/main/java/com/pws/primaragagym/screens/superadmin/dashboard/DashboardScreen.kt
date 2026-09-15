@@ -148,12 +148,6 @@ val allMenuItems = listOf(
         icon = Icons.Filled.Security
     ),
     MenuItem(
-        id = "manajemen_cabang",
-        title = "Manajemen Cabang",
-        description = "Kelola data cabang gym yang\ntersedia.",
-        icon = Icons.Filled.Shield
-    ),
-    MenuItem(
         id = "manajemen_member",
         title = "Member",
         description = "Kelola data member gym Anda.",
@@ -206,7 +200,6 @@ fun SuperAdminDashboardContent(
     authViewModel: AuthViewModel = viewModel(),
     onUserManagementClick: () -> Unit = {},
     onRoleManagementClick: () -> Unit = {},
-    onBranchManagementClick: () -> Unit = {},
     onMemberClick: () -> Unit = {},
     onCheckInOutClick: () -> Unit = {},
     onRiwayatCheckInOutClick: () -> Unit = {},
@@ -280,7 +273,6 @@ fun SuperAdminDashboardContent(
                             menuItems = allowedMenuItems,
                             onUserManagementClick = onUserManagementClick,
                             onRoleManagementClick = onRoleManagementClick,
-                            onBranchManagementClick = onBranchManagementClick,
                             onMemberClick = onMemberClick,
                             onCheckInOutClick = onCheckInOutClick,
                             onRiwayatCheckInOutClick = onRiwayatCheckInOutClick,
@@ -589,7 +581,6 @@ private fun MenuUtamaSection(
     menuItems: List<MenuItem>,
     onUserManagementClick: () -> Unit,
     onRoleManagementClick: () -> Unit,
-    onBranchManagementClick: () -> Unit,
     onMemberClick: () -> Unit,
     onCheckInOutClick: () -> Unit,
     onRiwayatCheckInOutClick: () -> Unit = {},
@@ -615,7 +606,6 @@ private fun MenuUtamaSection(
             val onClick = when (menuItem.id) {
                 "manajemen_pengguna" -> onUserManagementClick
                 "manajemen_role" -> onRoleManagementClick
-                "manajemen_cabang" -> onBranchManagementClick
                 "manajemen_member" -> onMemberClick
                 "check_in_out" -> onCheckInOutClick
                 "riwayat_check_in_out" -> onRiwayatCheckInOutClick
@@ -865,7 +855,6 @@ fun TabletSidebar(
     onItemSelected: (BottomNavItem) -> Unit,
     onUserManagementClick: () -> Unit,
     onRoleManagementClick: () -> Unit,
-    onBranchManagementClick: () -> Unit,
     onMemberClick: () -> Unit,
     onCheckInOutClick: () -> Unit,
     onRiwayatCheckInOutClick: () -> Unit = {},
@@ -950,7 +939,6 @@ fun TabletSidebar(
                     val click = when (menuItem.id) {
                         "manajemen_pengguna" -> onUserManagementClick
                         "manajemen_role" -> onRoleManagementClick
-                        "manajemen_cabang" -> onBranchManagementClick
                         "manajemen_member" -> onMemberClick
                         "check_in_out" -> onCheckInOutClick
                         "riwayat_check_in_out" -> onRiwayatCheckInOutClick

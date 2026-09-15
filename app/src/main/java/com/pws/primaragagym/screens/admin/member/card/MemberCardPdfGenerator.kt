@@ -49,11 +49,6 @@ object MemberCardPdfGenerator {
     ): Result<ByteArray> {
         return try {
             val qrBitmap = QrCodeGenerator.generateQrBitmap(data.qrContent)
-            val barcodeBitmap = try {
-                BarcodeGenerator.generateBarcode128Bitmap(data.memberCode.ifBlank { data.qrContent }, 400, 70)
-            } catch (_: Exception) {
-                null
-            }
             val pageWidthPx = (CARD_WIDTH_INCH * dpi).toInt()
             val pageHeightPx = (CARD_HEIGHT_INCH * dpi).toInt()
 
@@ -63,7 +58,7 @@ object MemberCardPdfGenerator {
             val canvas: Canvas = page.canvas
 
             val scale = dpi / 72f
-            drawCard(canvas, data, qrBitmap, barcodeBitmap, scale, pageWidthPx.toFloat(), pageHeightPx.toFloat())
+            drawCard(canvas, data, qrBitmap, scale, pageWidthPx.toFloat(), pageHeightPx.toFloat())
 
             pdfDocument.finishPage(page)
 
@@ -81,7 +76,6 @@ object MemberCardPdfGenerator {
         canvas: Canvas,
         data: MemberCardData,
         qrBitmap: Bitmap,
-        barcodeBitmap: Bitmap?,
         scale: Float,
         width: Float,
         height: Float
@@ -221,7 +215,6 @@ object MemberCardPdfGenerator {
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
         }
 
-        val dateLabelWidth = 60f * scale
         canvas.drawText("Aktif", padding, y + 12f * scale, labelPaint)
         canvas.drawText(data.startDate, padding, y + 26f * scale, valuePaint)
 
@@ -240,10 +233,10 @@ object MemberCardPdfGenerator {
         }
         canvas.drawText("Berakhir", width - padding, y + 12f * scale, endLabelPaint)
         canvas.drawText(data.expiredDate, width - padding, y + 26f * scale, endValuePaint)
-        y += 40f * scale
+        y += 44f * scale
 
-        // QR Code
-        val qrSize = 72f * scale
+        // QR Code (Persegi)
+        val qrSize = 96f * scale
         val qrX = (width - qrSize) / 2
         val qrBgPaint = Paint().apply {
             color = CardWhite
@@ -257,39 +250,18 @@ object MemberCardPdfGenerator {
         )
         val scaledQr = Bitmap.createScaledBitmap(qrBitmap, qrSize.toInt(), qrSize.toInt(), true)
         canvas.drawBitmap(scaledQr, qrX, y, null)
-        y += qrSize + 8f * scale
-
-        // Barcode
-        if (barcodeBitmap != null) {
-            val barcodeWidth = width - (padding * 2)
-            val barcodeHeight = 32f * scale
-            val barcodeX = padding
-            val scaledBarcode = Bitmap.createScaledBitmap(barcodeBitmap, barcodeWidth.toInt(), barcodeHeight.toInt(), true)
-            canvas.drawBitmap(scaledBarcode, barcodeX, y, null)
-            y += barcodeHeight + 4f * scale
-
-            val codeTextPaint = Paint().apply {
-                color = CardTextPrimary
-                isAntiAlias = true
-                textSize = 9f * scale
-                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-                textAlign = Paint.Align.CENTER
-                letterSpacing = 0.12f
-            }
-            canvas.drawText(data.memberCode, width / 2, y + 8f * scale, codeTextPaint)
-            y += 14f * scale
-        }
+        y += qrSize + 16f * scale
 
         // Footer
         val footerPaint = Paint().apply {
             color = CardTextMuted
             isAntiAlias = true
-            textSize = 9f * scale
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+            textSize = 10f * scale
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             textAlign = Paint.Align.CENTER
+            letterSpacing = 0.08f
         }
-        val footerWidth = footerPaint.measureText("PRIMARAGA GYM")
-        canvas.drawText("PRIMARAGA GYM", width / 2, y + 10f * scale, footerPaint)
+        canvas.drawText("PRIMARAGA GYM", width / 2, y, footerPaint)
     }
 
     fun savePdfToFile(

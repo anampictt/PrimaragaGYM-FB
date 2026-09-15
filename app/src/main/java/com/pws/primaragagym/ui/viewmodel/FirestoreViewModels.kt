@@ -661,7 +661,6 @@ data class SuperAdminDashboardUiState(
 class SuperAdminDashboardViewModel : ViewModel() {
 
     private val userAdminRepository: UserAdminRepository = UserAdminRepositoryImpl()
-    private val branchRepository: BranchRepository = BranchRepositoryImpl()
     private val memberRepository: MemberRepository = MemberRepositoryImpl()
     private val paymentRepository: PaymentRepository = PaymentRepositoryImpl()
     private val notificationRepository: NotificationRepository = NotificationRepositoryImpl()
@@ -675,21 +674,14 @@ class SuperAdminDashboardViewModel : ViewModel() {
 
             try {
                 val totalUsers = userAdminRepository.getUsersCount()
-                val totalBranches = branchRepository.getActiveBranchesCount()
-                val branches = branchRepository.getBranches()
-
-                var totalMembers = 0
-                branches.getOrNull()?.forEach { branch ->
-                    totalMembers += memberRepository.getActiveMembersCount(branch.branchId).getOrDefault(0)
-                }
-
+                val totalMembers = memberRepository.getActiveMembersCount("").getOrDefault(0)
                 val todayRevenue = paymentRepository.getTodayRevenue("").getOrDefault(0L)
                 val unreadNotifications = notificationRepository.getUnreadCount()
 
                 _uiState.update { it.copy(
                     isLoading = false,
                     totalUsers = totalUsers.getOrDefault(0),
-                    totalBranches = totalBranches.getOrDefault(0),
+                    totalBranches = 0,
                     totalMembers = totalMembers,
                     todayRevenue = todayRevenue.formatCurrency(),
                     unreadNotifications = unreadNotifications.getOrDefault(0)
@@ -701,151 +693,6 @@ class SuperAdminDashboardViewModel : ViewModel() {
     }
 }
 
-// ============================================================================
-// BRANCH MANAGEMENT VIEWMODEL
-// ============================================================================
-data class BranchListUiState(
-    val isLoading: Boolean = true,
-    val branches: List<FirestoreBranch> = emptyList(),
-    val filteredBranches: List<FirestoreBranch> = emptyList(),
-    val searchQuery: String = "",
-    val error: String? = null
-)
-
-class BranchListViewModel : ViewModel() {
-
-    private val branchRepository: BranchRepository = BranchRepositoryImpl()
-
-    private val _uiState = MutableStateFlow(BranchListUiState())
-    val uiState: StateFlow<BranchListUiState> = _uiState.asStateFlow()
-
-    init {
-        observeBranches()
-    }
-
-    fun observeBranches() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
-            branchRepository.observeBranches(isActive = null)
-                .catch { e ->
-                    _uiState.update { it.copy(isLoading = false, error = e.message) }
-                }
-                .collect { branches ->
-                    _uiState.update { state ->
-                        val filtered = if (state.searchQuery.isBlank()) {
-                            branches
-                        } else {
-                            branches.filter {
-                                it.name.contains(state.searchQuery, ignoreCase = true) ||
-                                it.address.contains(state.searchQuery, ignoreCase = true)
-                            }
-                        }
-                        state.copy(
-                            isLoading = false,
-                            branches = branches,
-                            filteredBranches = filtered,
-                            error = null
-                        )
-                    }
-                }
-        }
-    }
-
-    fun loadBranches() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
-
-            try {
-                branchRepository.getBranches(isActive = null)
-                    .onSuccess { branches ->
-                        _uiState.update { state ->
-                            val filtered = if (state.searchQuery.isBlank()) {
-                                branches
-                            } else {
-                                branches.filter {
-                                    it.name.contains(state.searchQuery, ignoreCase = true) ||
-                                    it.address.contains(state.searchQuery, ignoreCase = true)
-                                }
-                            }
-                            state.copy(
-                                isLoading = false,
-                                branches = branches,
-                                filteredBranches = filtered
-                            )
-                        }
-                    }
-                    .onFailure { e ->
-                        _uiState.update { it.copy(isLoading = false, error = e.message) }
-                    }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false, error = e.message) }
-            }
-        }
-    }
-
-    fun searchBranches(query: String) {
-        _uiState.update { state ->
-            val filtered = if (query.isBlank()) {
-                state.branches
-            } else {
-                state.branches.filter {
-                    it.name.contains(query, ignoreCase = true) ||
-                    it.address.contains(query, ignoreCase = true)
-                }
-            }
-            state.copy(searchQuery = query, filteredBranches = filtered)
-        }
-    }
-
-    suspend fun getBranchById(branchId: String): Result<FirestoreBranch> {
-        return branchRepository.getBranchById(branchId)
-    }
-
-    fun createBranch(branch: FirestoreBranch, onComplete: ((Boolean, String?) -> Unit)? = null) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
-            branchRepository.createBranch(branch)
-                .onSuccess {
-                    loadBranches()
-                    onComplete?.invoke(true, null)
-                }
-                .onFailure { e ->
-                    _uiState.update { it.copy(isLoading = false, error = e.message) }
-                    onComplete?.invoke(false, e.message)
-                }
-        }
-    }
-
-    fun updateBranch(branch: FirestoreBranch, onComplete: ((Boolean, String?) -> Unit)? = null) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
-            branchRepository.updateBranch(branch)
-                .onSuccess {
-                    loadBranches()
-                    onComplete?.invoke(true, null)
-                }
-                .onFailure { e ->
-                    _uiState.update { it.copy(isLoading = false, error = e.message) }
-                    onComplete?.invoke(false, e.message)
-                }
-        }
-    }
-
-    fun deleteBranch(branchId: String, onComplete: ((Boolean, String?) -> Unit)? = null) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
-            branchRepository.deleteBranch(branchId)
-                .onSuccess {
-                    loadBranches()
-                    onComplete?.invoke(true, null)
-                }
-                .onFailure { e ->
-                    _uiState.update { it.copy(isLoading = false, error = e.message) }
-                    onComplete?.invoke(false, e.message)
-                }
-        }
-    }
-}
 
 // ============================================================================
 // ROLE MANAGEMENT VIEWMODEL

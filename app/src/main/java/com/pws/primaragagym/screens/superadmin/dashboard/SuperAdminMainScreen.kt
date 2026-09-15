@@ -28,8 +28,6 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.pws.primaragagym.navigation.AppScreen
 import com.pws.primaragagym.navigation.sharedAdminRoutes
-import com.pws.primaragagym.screens.superadmin.manajemancabang.ManajemenCabangScreen
-import com.pws.primaragagym.screens.superadmin.manajemancabang.TambahCabangScreen
 import com.pws.primaragagym.screens.superadmin.manajemenpengguna.DetailPenggunaScreen
 import com.pws.primaragagym.screens.superadmin.manajemenpengguna.ManajemenPenggunaScreen
 import com.pws.primaragagym.screens.superadmin.manajemenpengguna.TambahPenggunaScreen
@@ -84,7 +82,6 @@ fun SuperAdminMainScreen(
     val selectedMenuKey = when {
         currentRoute.startsWith("superadmin/manajemen-pengguna") -> "manajemen_pengguna"
         currentRoute.startsWith("superadmin/manajemen-role") -> "manajemen_role"
-        currentRoute.startsWith("superadmin/manajemen-cabang") -> "manajemen_cabang"
         currentRoute.startsWith(AppScreen.Member.route) -> "manajemen_member"
         currentRoute.startsWith(AppScreen.CheckInCheckout.route) -> "check_in_out"
         currentRoute.startsWith(AppScreen.Keuangan.route) && !currentRoute.startsWith(AppScreen.LaporanPemasukan.route) -> "keuangan"
@@ -96,12 +93,11 @@ fun SuperAdminMainScreen(
     val selectedMenuIndex = when (selectedMenuKey) {
         "manajemen_pengguna" -> 0
         "manajemen_role" -> 1
-        "manajemen_cabang" -> 2
-        "manajemen_member" -> 3
-        "check_in_out" -> 4
-        "keuangan" -> 5
-        "notifikasi" -> 6
-        "laporan" -> 7
+        "manajemen_member" -> 2
+        "check_in_out" -> 3
+        "keuangan" -> 4
+        "notifikasi" -> 5
+        "laporan" -> 6
         else -> null
     }
 
@@ -174,7 +170,6 @@ fun SuperAdminMainScreen(
                 onItemSelected = onBottomNavSelected,
                 onUserManagementClick = { safeNavigate(AppScreen.ManajemenPengguna.route) },
                 onRoleManagementClick = { safeNavigate(AppScreen.ManajemenRole.route) },
-                onBranchManagementClick = { safeNavigate(AppScreen.ManajemenCabang.route) },
                 onMemberClick = { safeNavigate(AppScreen.Member.route) },
                 onCheckInOutClick = { safeNavigate(AppScreen.CheckInCheckout.route) },
                 onRiwayatCheckInOutClick = { safeNavigate(AppScreen.RiwayatCheckinCheckout.route) },
@@ -235,7 +230,6 @@ private fun SuperAdminNestedNavHost(
                 authViewModel = authViewModel,
                 onUserManagementClick = { navController.navigate(AppScreen.ManajemenPengguna.route) },
                 onRoleManagementClick = { navController.navigate(AppScreen.ManajemenRole.route) },
-                onBranchManagementClick = { navController.navigate(AppScreen.ManajemenCabang.route) },
                 onMemberClick = { navController.navigate(AppScreen.Member.route) },
                 onCheckInOutClick = { navController.navigate(AppScreen.CheckInCheckout.route) },
                 onRiwayatCheckInOutClick = { navController.navigate(AppScreen.RiwayatCheckinCheckout.route) },
@@ -341,35 +335,6 @@ private fun SuperAdminNestedNavHost(
             val roleId = backStackEntry.arguments?.getString("roleId") ?: ""
             HakAksesScreen(
                 roleId = roleId,
-                onBackClick = { safePopBack() },
-                onSubmitSuccess = { safePopBack() }
-            )
-        }
-
-        composable(AppScreen.ManajemenCabang.route) {
-            ManajemenCabangScreen(
-                onBackClick = { safePopBack() },
-                onAddBranchClick = { navController.navigate(AppScreen.TambahCabang.createRoute()) },
-                onEditBranch = { branch ->
-                    navController.navigate(AppScreen.TambahCabang.createRoute(branch.id))
-                },
-                onDeleteBranch = { }
-            )
-        }
-
-        composable(
-            route = "superadmin/manajemen-cabang/tambah?branchId={branchId}",
-            arguments = listOf(
-                navArgument("branchId") {
-                    type = NavType.StringType
-                    nullable = true
-                    defaultValue = null
-                }
-            )
-        ) { backStackEntry ->
-            val branchId = backStackEntry.arguments?.getString("branchId")
-            TambahCabangScreen(
-                branchId = branchId,
                 onBackClick = { safePopBack() },
                 onSubmitSuccess = { safePopBack() }
             )

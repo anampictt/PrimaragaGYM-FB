@@ -89,7 +89,6 @@ private fun getInitialRoleAccessMenus(): List<RoleAccessMenuItem> = listOf(
     RoleAccessMenuItem("dashboard", "Dashboard", Icons.Filled.Dashboard, false),
     RoleAccessMenuItem("manajemen_pengguna", "Manajemen Pengguna", Icons.Filled.Person, false),
     RoleAccessMenuItem("manajemen_role", "Manajemen Role", Icons.Filled.Security, false),
-    RoleAccessMenuItem("manajemen_cabang", "Manajemen Cabang", Icons.Filled.Home, false),
     RoleAccessMenuItem("manajemen_member", "Member", Icons.Filled.Groups, false),
     RoleAccessMenuItem("check_in_out", "Check In & Check Out", Icons.Filled.QrCodeScanner, false),
     RoleAccessMenuItem("notifikasi", "Notifikasi", Icons.Filled.Notifications, false),
