@@ -88,7 +88,29 @@ fun parseExpiredDate(expiredDateStr: String?, createdAt: Date? = null): Date? {
     for (sdf in formatsWithTime) {
         try {
             val d = sdf.parse(cleanStr)
-            if (d != null) return d
+            if (d != null) {
+                // Jika ada createdAt dan tanggal expired adalah 1 hari setelah waktu pendaftaran (paket 1 hari/24 jam),
+                // pastikan jam expired minimal sama dengan jam pendaftaran agar genap 24 jam dari awal waktu daftar
+                if (createdAt != null) {
+                    val createdCal = Calendar.getInstance(jakartaTz).apply { time = createdAt }
+                    val dCal = Calendar.getInstance(jakartaTz).apply { time = d }
+                    val diffDays = (dCal.get(Calendar.DAY_OF_YEAR) - createdCal.get(Calendar.DAY_OF_YEAR)) +
+                            (dCal.get(Calendar.YEAR) - createdCal.get(Calendar.YEAR)) * 365
+                    if (diffDays == 1) {
+                        val createdHour = createdCal.get(Calendar.HOUR_OF_DAY)
+                        val createdMin = createdCal.get(Calendar.MINUTE)
+                        val dHour = dCal.get(Calendar.HOUR_OF_DAY)
+                        val dMin = dCal.get(Calendar.MINUTE)
+                        if (dHour < createdHour || (dHour == createdHour && dMin < createdMin)) {
+                            dCal.set(Calendar.HOUR_OF_DAY, createdHour)
+                            dCal.set(Calendar.MINUTE, createdMin)
+                            dCal.set(Calendar.SECOND, createdCal.get(Calendar.SECOND))
+                            return dCal.time
+                        }
+                    }
+                }
+                return d
+            }
         } catch (_: Exception) {}
     }
 

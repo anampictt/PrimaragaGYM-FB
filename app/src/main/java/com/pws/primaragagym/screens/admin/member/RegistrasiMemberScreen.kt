@@ -125,13 +125,16 @@ fun RegistrasiMemberScreen(
     var address by remember { mutableStateOf("") }
     var selectedPlan by remember { mutableStateOf<MembershipPlanUiModel?>(null) }
     var paymentMethod by remember { mutableStateOf<PaymentMethod?>(null) }
-    val todayFormatted = remember {
+    val jakartaTz = remember { TimeZone.getTimeZone("Asia/Jakarta") }
+    fun getJakartaDateTimeFormatted(date: Date = Calendar.getInstance(jakartaTz).time): String {
         val sdf = SimpleDateFormat("dd MMMM yyyy, HH:mm 'WIB'", Locale("id", "ID")).apply {
-            timeZone = TimeZone.getTimeZone("Asia/Jakarta")
+            timeZone = jakartaTz
         }
-        sdf.format(Date())
+        return sdf.format(date)
     }
-    var startDate by remember { mutableStateOf(todayFormatted) }
+
+    var isCustomStartDate by remember { mutableStateOf(false) }
+    var startDate by remember { mutableStateOf(getJakartaDateTimeFormatted()) }
 
     var isSubmitting by remember { mutableStateOf(false) }
     var generalError by remember { mutableStateOf<String?>(null) }
@@ -160,6 +163,7 @@ fun RegistrasiMemberScreen(
                 address = fresh.address
                 if (fresh.startDate.isNotBlank()) {
                     startDate = fresh.startDate
+                    isCustomStartDate = true
                 }
                 paymentMethod = PaymentMethod.entries.find {
                     it.name.equals(fresh.paymentMethod, ignoreCase = true) ||
@@ -173,11 +177,16 @@ fun RegistrasiMemberScreen(
                     selectedPlan = matchingPlan
                 }
             }
-        } else if (!isEditMode && (memberCodeInput.isBlank() || memberCodeInput.startsWith("MBR-", ignoreCase = true))) {
-            withContext(Dispatchers.IO) {
-                val nextCode = memberViewModel.getNextMemberCode()
-                withContext(Dispatchers.Main) {
-                    memberCodeInput = nextCode
+        } else if (!isEditMode) {
+            if (!isCustomStartDate) {
+                startDate = getJakartaDateTimeFormatted()
+            }
+            if (memberCodeInput.isBlank() || memberCodeInput.startsWith("MBR-", ignoreCase = true)) {
+                withContext(Dispatchers.IO) {
+                    val nextCode = memberViewModel.getNextMemberCode()
+                    withContext(Dispatchers.Main) {
+                        memberCodeInput = nextCode
+                    }
                 }
             }
         }
@@ -381,12 +390,13 @@ fun RegistrasiMemberScreen(
                                 )
                             }
                             Spacer(modifier = Modifier.height(4.dp))
+                            val displayStartDate = startDate
                             Text(
-                                text = "Tanggal Mulai: $startDate",
+                                text = "Tanggal Mulai: $displayStartDate",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = TextSecondary
                             )
-                            val endDate = calculateEndDate(startDate, selectedPlan!!)
+                            val endDate = calculateEndDate(displayStartDate, selectedPlan!!)
                             Text(
                                 text = "Tanggal Berakhir: $endDate",
                                 style = MaterialTheme.typography.bodyMedium.copy(
@@ -404,7 +414,10 @@ fun RegistrasiMemberScreen(
                 DatePickerField(
                     label = "Tanggal Mulai",
                     value = startDate,
-                    onDateSelected = { startDate = it }
+                    onDateSelected = {
+                        isCustomStartDate = true
+                        startDate = it
+                    }
                 )
 
                 Spacer(modifier = Modifier.height(Dimens.spacing_4))
@@ -488,7 +501,8 @@ fun RegistrasiMemberScreen(
                             ""
                         }
 
-                        val endDate = if (selectedPlan != null) calculateEndDate(startDate, selectedPlan!!) else ""
+                        val finalStartDate = startDate.trim().ifBlank { getJakartaDateTimeFormatted() }
+                        val endDate = if (selectedPlan != null) calculateEndDate(finalStartDate, selectedPlan!!) else ""
                         val planPriceNum = selectedPlan?.price?.filter { it.isDigit() }?.toLongOrNull() ?: 0L
                         val branchId = existingMember?.branchId?.ifBlank { null } ?: authState.currentUser?.branchId ?: ""
                         val targetId = memberId ?: existingMember?.memberId ?: ""
@@ -505,7 +519,7 @@ fun RegistrasiMemberScreen(
                             planPrice = planPriceNum,
                             planType = selectedPlan?.type?.name ?: "MONTHLY",
                             duration = selectedPlan?.duration ?: "",
-                            startDate = startDate.trim(),
+                            startDate = finalStartDate,
                             expiredDate = endDate.trim(),
                             paymentMethod = paymentMethod?.displayName ?: "Cash",
                             branchId = branchId,
@@ -1056,4 +1070,31 @@ private fun calculateEndDate(startDateStr: String, plan: MembershipPlanUiModel):
         timeZone = jakartaTz
     }
     return outputFormat.format(cal.time)
+}
+
+private fun parseDateToKey(dateStr: String, tz: TimeZone): String? {
+    if (dateStr.isBlank()) return null
+    val formats = listOf(
+        SimpleDateFormat("dd MMMM yyyy, HH:mm 'WIB'", Locale("id", "ID")),
+        SimpleDateFormat("dd MMM yyyy, HH:mm 'WIB'", Locale("id", "ID")),
+        SimpleDateFormat("dd MMMM yyyy, HH:mm", Locale("id", "ID")),
+        SimpleDateFormat("dd MMM yyyy, HH:mm", Locale("id", "ID")),
+        SimpleDateFormat("dd MMMM yyyy", Locale("id", "ID")),
+        SimpleDateFormat("dd MMM yyyy", Locale("id", "ID")),
+        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()),
+        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()),
+        SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()),
+        SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+    ).onEach { it.timeZone = tz }
+
+    for (sdf in formats) {
+        try {
+            val d = sdf.parse(dateStr.trim())
+            if (d != null) {
+                val out = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).apply { timeZone = tz }
+                return out.format(d)
+            }
+        } catch (_: Exception) {}
+    }
+    return null
 }

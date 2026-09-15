@@ -10,6 +10,9 @@ import com.google.firebase.firestore.DocumentSnapshot
 import kotlinx.coroutines.tasks.await
 import java.util.Calendar
 import java.util.Date
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.TimeZone
 
 class FirestoreCollections {
     companion object {
@@ -243,6 +246,53 @@ class FirebaseMemberDataSource {
             } else {
                 generateMemberCode()
             }
+
+            val jakartaTz = TimeZone.getTimeZone("Asia/Jakarta")
+            val nowJakarta = Calendar.getInstance(jakartaTz).time
+            val sdfJakarta = SimpleDateFormat("dd MMMM yyyy, HH:mm 'WIB'", Locale("id", "ID")).apply {
+                timeZone = jakartaTz
+            }
+
+            var finalStartDate = member.startDate.trim()
+            var finalExpiredDate = member.expiredDate.trim()
+
+            val dLower = member.duration.lowercase().trim()
+            val isDailyPlan = (dLower.contains("hari") && (dLower.contains("1") || member.duration.filter { it.isDigit() } == "1")) ||
+                              member.planType.equals("DAILY", ignoreCase = true)
+
+            val todayDateKey = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).apply { timeZone = jakartaTz }.format(nowJakarta)
+            val parsedStartDateKey = parseDateToKey(finalStartDate, jakartaTz)
+
+            // Jika startDate kosong, gunakan waktu sekarang Jakarta
+            if (finalStartDate.isBlank()) {
+                finalStartDate = sdfJakarta.format(nowJakarta)
+            }
+
+            // Jika expiredDate belum diisi atau kosong, hitung otomatis dari finalStartDate
+            if (finalExpiredDate.isBlank()) {
+                val calExp = Calendar.getInstance(jakartaTz).apply {
+                    val parsed = parseDate(finalStartDate, jakartaTz)
+                    time = parsed ?: nowJakarta
+                    when {
+                        isDailyPlan -> add(Calendar.DAY_OF_YEAR, 1)
+                        dLower.contains("hari") -> {
+                            val days = member.duration.filter { it.isDigit() }.toIntOrNull() ?: 1
+                            add(Calendar.DAY_OF_YEAR, days)
+                        }
+                        dLower.contains("bulan") || dLower.contains("month") || member.planType.equals("MONTHLY", ignoreCase = true) -> {
+                            val months = member.duration.filter { it.isDigit() }.toIntOrNull() ?: 1
+                            add(Calendar.MONTH, months)
+                        }
+                        dLower.contains("tahun") || dLower.contains("year") || member.planType.equals("YEARLY", ignoreCase = true) -> {
+                            val years = member.duration.filter { it.isDigit() }.toIntOrNull() ?: 1
+                            add(Calendar.YEAR, years)
+                        }
+                        else -> add(Calendar.MONTH, 1)
+                    }
+                }
+                finalExpiredDate = sdfJakarta.format(calExp.time)
+            }
+
             val memberData = hashMapOf<String, Any?>(
                 "memberId" to docRef.id,
                 "memberCode" to memberCode,
@@ -257,8 +307,8 @@ class FirebaseMemberDataSource {
                 "planPrice" to member.planPrice,
                 "planType" to member.planType,
                 "duration" to member.duration,
-                "startDate" to member.startDate,
-                "expiredDate" to member.expiredDate,
+                "startDate" to finalStartDate,
+                "expiredDate" to finalExpiredDate,
                 "paymentMethod" to member.paymentMethod,
                 "branchId" to member.branchId,
                 "status" to member.status.ifEmpty { "ACTIVE" },
@@ -441,5 +491,56 @@ class FirebaseMemberDataSource {
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    private fun parseDate(dateStr: String, tz: TimeZone): Date? {
+        if (dateStr.isBlank()) return null
+        val formats = listOf(
+            SimpleDateFormat("dd MMMM yyyy, HH:mm 'WIB'", Locale("id", "ID")),
+            SimpleDateFormat("dd MMM yyyy, HH:mm 'WIB'", Locale("id", "ID")),
+            SimpleDateFormat("dd MMMM yyyy, HH:mm", Locale("id", "ID")),
+            SimpleDateFormat("dd MMM yyyy, HH:mm", Locale("id", "ID")),
+            SimpleDateFormat("dd MMMM yyyy", Locale("id", "ID")),
+            SimpleDateFormat("dd MMM yyyy", Locale("id", "ID")),
+            SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()),
+            SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()),
+            SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()),
+            SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+        ).onEach { it.timeZone = tz }
+
+        for (sdf in formats) {
+            try {
+                val d = sdf.parse(dateStr.trim())
+                if (d != null) return d
+            } catch (_: Exception) {}
+        }
+        return null
+    }
+
+    private fun parseDateToKey(dateStr: String, tz: TimeZone): String? {
+        if (dateStr.isBlank()) return null
+        val formats = listOf(
+            SimpleDateFormat("dd MMMM yyyy, HH:mm 'WIB'", Locale("id", "ID")),
+            SimpleDateFormat("dd MMM yyyy, HH:mm 'WIB'", Locale("id", "ID")),
+            SimpleDateFormat("dd MMMM yyyy, HH:mm", Locale("id", "ID")),
+            SimpleDateFormat("dd MMM yyyy, HH:mm", Locale("id", "ID")),
+            SimpleDateFormat("dd MMMM yyyy", Locale("id", "ID")),
+            SimpleDateFormat("dd MMM yyyy", Locale("id", "ID")),
+            SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()),
+            SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()),
+            SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()),
+            SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+        ).onEach { it.timeZone = tz }
+
+        for (sdf in formats) {
+            try {
+                val d = sdf.parse(dateStr.trim())
+                if (d != null) {
+                    val out = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).apply { timeZone = tz }
+                    return out.format(d)
+                }
+            } catch (_: Exception) {}
+        }
+        return null
     }
 }
