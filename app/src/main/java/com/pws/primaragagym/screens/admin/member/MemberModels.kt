@@ -78,7 +78,8 @@ data class MembershipPlanUiModel(
 enum class PlanType(val displayName: String) {
     DAILY("Harian"),
     MONTHLY("Bulanan"),
-    YEARLY("Tahunan")
+    YEARLY("Tahunan"),
+    CUSTOM("Custom")
 }
 
 // ============================================================================

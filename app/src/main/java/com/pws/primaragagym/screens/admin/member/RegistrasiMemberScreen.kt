@@ -888,6 +888,7 @@ private fun PlanPickerDialog(
                                     PlanType.DAILY -> Pair(Color(0xFFE3F2FD), Color(0xFF1976D2))
                                     PlanType.MONTHLY -> Pair(Color(0xFFE8F5E9), GreenAccent)
                                     PlanType.YEARLY -> Pair(Color(0xFFFFF3E0), Color(0xFFF57C00))
+                                    PlanType.CUSTOM -> Pair(Color(0xFFF3E5F5), Color(0xFF7B1FA2))
                                 }
                                 Box(
                                     modifier = Modifier
@@ -1005,6 +1006,7 @@ private fun calculateEndDate(startDateStr: String, plan: MembershipPlanUiModel):
         // Fallback by PlanType
         plan.type == PlanType.DAILY -> cal.add(Calendar.DAY_OF_YEAR, 1)
         plan.type == PlanType.YEARLY -> cal.add(Calendar.YEAR, 1)
+        plan.type == PlanType.CUSTOM -> cal.add(Calendar.DAY_OF_YEAR, extractedNumber ?: 30)
         else -> cal.add(Calendar.MONTH, 1) // default monthly
     }
 

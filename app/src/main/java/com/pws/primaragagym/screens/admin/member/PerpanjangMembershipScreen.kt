@@ -671,6 +671,11 @@ private fun calculateRenewalEndDate(
     val number = digits.toIntOrNull()
 
     when {
+        // Custom Plan (misal: "10 Hari", "45 Hari", atau type CUSTOM)
+        planType.equals("CUSTOM", ignoreCase = true) -> {
+            val days = number ?: 30
+            cal.add(Calendar.DAY_OF_YEAR, days)
+        }
         // Tahunan / Yearly
         dLower.contains("tahun") || dLower.contains("year") || planType.equals("YEARLY", ignoreCase = true) -> {
             val years = if (number != null && !dLower.contains("hari") && !dLower.contains("bulan")) number else 1

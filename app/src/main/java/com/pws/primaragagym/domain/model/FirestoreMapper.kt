@@ -66,8 +66,9 @@ object FirestoreMapper {
 
     fun FirestoreMembershipPlan.toUiModel(): MembershipPlanUiModel {
         val planType = when {
-            type.equals("DAILY", ignoreCase = true) || durationType.equals("DAY", ignoreCase = true) -> PlanType.DAILY
+            type.equals("DAILY", ignoreCase = true) || (durationType.equals("DAY", ignoreCase = true) && durationValue == 1) -> PlanType.DAILY
             type.equals("YEARLY", ignoreCase = true) || durationType.equals("YEAR", ignoreCase = true) -> PlanType.YEARLY
+            type.equals("CUSTOM", ignoreCase = true) || durationType.equals("CUSTOM", ignoreCase = true) || (durationType.equals("DAY", ignoreCase = true) && durationValue != 30) -> PlanType.CUSTOM
             else -> PlanType.MONTHLY
         }
 
@@ -78,6 +79,7 @@ object FirestoreMapper {
                 PlanType.DAILY -> "$durationValue Hari"
                 PlanType.YEARLY -> "$durationValue Tahun"
                 PlanType.MONTHLY -> "$durationValue Bulan"
+                PlanType.CUSTOM -> "$durationValue Hari"
             }
         }
 

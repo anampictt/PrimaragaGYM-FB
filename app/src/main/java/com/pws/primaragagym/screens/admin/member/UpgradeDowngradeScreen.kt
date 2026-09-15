@@ -911,6 +911,7 @@ private fun getPlanDurationDisplay(plan: FirestoreMembershipPlan): String {
     val tLower = plan.type.lowercase().trim()
 
     return when {
+        tLower == "custom" || plan.type.equals("CUSTOM", ignoreCase = true) -> if (d.isNotBlank()) "Custom ($d)" else "Custom"
         dLower.contains("365") || dLower.contains("tahun") || dLower.contains("year") || tLower == "yearly" -> "Tahunan (1 Tahun)"
         dLower.contains("30") || dLower.contains("bulan") || dLower.contains("month") || tLower == "monthly" -> "Bulanan (30 Hari)"
         dLower.contains("hari") || dLower.contains("day") || tLower == "daily" -> "Harian (1 Hari)"
@@ -918,6 +919,7 @@ private fun getPlanDurationDisplay(plan: FirestoreMembershipPlan): String {
         else -> when (plan.type.uppercase()) {
             "DAILY" -> "Harian (1 Hari)"
             "YEARLY" -> "Tahunan (1 Tahun)"
+            "CUSTOM" -> "Custom"
             else -> "Bulanan (30 Hari)"
         }
     }
@@ -933,6 +935,15 @@ private fun calculateUpgradeEndDate(newPlan: FirestoreMembershipPlan): String {
     val number = digits.toIntOrNull()
 
     when {
+        // Custom Plan (misal: "10 Hari", "45 Hari", type CUSTOM)
+        tLower == "custom" || dtLower == "custom" -> {
+            val days = when {
+                newPlan.durationValue != null && newPlan.durationValue > 0 -> newPlan.durationValue
+                number != null && number > 0 -> number
+                else -> 30
+            }
+            cal.add(Calendar.DAY_OF_YEAR, days)
+        }
         // Tahunan / Yearly (365 hari, 1 tahun, YEARLY, YEAR)
         dLower.contains("tahun") || dLower.contains("year") || dLower.contains("365") ||
         tLower == "yearly" || dtLower == "year" -> {

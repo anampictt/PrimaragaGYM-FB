@@ -89,7 +89,7 @@ fun MembershipPlanScreen(
 
     val planState by viewModel.uiState.collectAsState()
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Semua", "Harian", "Bulanan", "Tahunan")
+    val tabs = listOf("Semua", "Harian", "Bulanan", "Tahunan", "Custom")
 
     var planToDelete by remember { mutableStateOf<MembershipPlanUiModel?>(null) }
 
@@ -116,6 +116,7 @@ fun MembershipPlanScreen(
             1 -> planState.plans.filter { it.type == PlanType.DAILY }
             2 -> planState.plans.filter { it.type == PlanType.MONTHLY }
             3 -> planState.plans.filter { it.type == PlanType.YEARLY }
+            4 -> planState.plans.filter { it.type == PlanType.CUSTOM }
             else -> planState.plans
         }
     }
@@ -407,6 +408,7 @@ private fun PlanTypeBadge(type: PlanType) {
         PlanType.DAILY -> Pair(Color(0xFFE3F2FD), Color(0xFF1976D2))
         PlanType.MONTHLY -> Pair(Color(0xFFE8F5E9), GreenAccent)
         PlanType.YEARLY -> Pair(Color(0xFFFFF3E0), Color(0xFFF57C00))
+        PlanType.CUSTOM -> Pair(Color(0xFFF3E5F5), Color(0xFF7B1FA2))
     }
 
     Box(
