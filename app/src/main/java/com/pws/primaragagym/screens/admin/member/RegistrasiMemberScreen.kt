@@ -842,44 +842,22 @@ fun RegistrasiMemberScreen(
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // Baris Tombol: Cetak Invoice & Print Nota
-                        Row(
+                        // Tombol Print Nota
+                        OutlinedButton(
+                            onClick = {
+                                InvoiceReceiptHelper.printReceipt(context, invData)
+                            },
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            shape = RoundedCornerShape(8.dp)
                         ) {
-                            OutlinedButton(
-                                onClick = {
-                                    InvoiceReceiptHelper.printInvoice(context, invData)
-                                },
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.Receipt,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp),
-                                    tint = TextPrimary
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Cetak Invoice", fontSize = 11.sp, color = TextPrimary)
-                            }
-
-                            OutlinedButton(
-                                onClick = {
-                                    InvoiceReceiptHelper.printReceipt(context, invData)
-                                },
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.Print,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp),
-                                    tint = TextPrimary
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Print Nota", fontSize = 11.sp, color = TextPrimary)
-                            }
+                            Icon(
+                                imageVector = Icons.Filled.Print,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = TextPrimary
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Print Nota", color = TextPrimary)
                         }
                     }
 
