@@ -82,8 +82,10 @@ fun SuperAdminMainScreen(
         currentRoute.startsWith("superadmin/manajemen-pengguna") -> "manajemen_pengguna"
         currentRoute.startsWith("superadmin/manajemen-role") -> "manajemen_role"
         currentRoute.startsWith(AppScreen.Member.route) -> "manajemen_member"
+        currentRoute.startsWith(AppScreen.RiwayatCheckinCheckout.route) -> "riwayat_check_in_out"
         currentRoute.startsWith(AppScreen.CheckInCheckout.route) -> "check_in_out"
         currentRoute.startsWith(AppScreen.Notifikasi.route) -> "notifikasi"
+        currentRoute.startsWith("admin/laporan") -> "laporan"
         else -> null
     }
 
@@ -92,7 +94,9 @@ fun SuperAdminMainScreen(
         "manajemen_role" -> 1
         "manajemen_member" -> 2
         "check_in_out" -> 3
-        "notifikasi" -> 4
+        "riwayat_check_in_out" -> 4
+        "notifikasi" -> 5
+        "laporan" -> 6
         else -> null
     }
 
@@ -226,6 +230,7 @@ private fun SuperAdminNestedNavHost(
                 onUserManagementClick = { navController.navigate(AppScreen.ManajemenPengguna.route) },
                 onRoleManagementClick = { navController.navigate(AppScreen.ManajemenRole.route) },
                 onMemberClick = { navController.navigate(AppScreen.Member.route) },
+                onMemberDetailClick = { memberId -> navController.navigate(AppScreen.MembershipDetail.createRoute(memberId)) },
                 onCheckInOutClick = { navController.navigate(AppScreen.CheckInCheckout.route) },
                 onRiwayatCheckInOutClick = { navController.navigate(AppScreen.RiwayatCheckinCheckout.route) },
                 onCatatanKeuanganClick = { navController.navigate(AppScreen.Keuangan.route) },

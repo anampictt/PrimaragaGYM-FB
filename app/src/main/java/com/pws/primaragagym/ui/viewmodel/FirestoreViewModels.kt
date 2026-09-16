@@ -663,6 +663,9 @@ data class SuperAdminDashboardUiState(
     val totalMembers: Int = 0,
     val todayRevenue: String = "Rp 0",
     val unreadNotifications: Int = 0,
+    val birthdayMembers: List<BirthdayMemberItem> = emptyList(),
+    val activeNeverCheckinMembers: List<ActiveNeverCheckinMemberItem> = emptyList(),
+    val inactiveMembers: List<InactiveMemberItem> = emptyList(),
     val error: String? = null
 )
 
@@ -672,6 +675,7 @@ class SuperAdminDashboardViewModel : ViewModel() {
     private val memberRepository: MemberRepository = MemberRepositoryImpl()
     private val paymentRepository: PaymentRepository = PaymentRepositoryImpl()
     private val notificationRepository: NotificationRepository = NotificationRepositoryImpl()
+    private val checkinRepository: CheckinRepository = CheckinRepositoryImpl()
 
     private val _uiState = MutableStateFlow(SuperAdminDashboardUiState())
     val uiState: StateFlow<SuperAdminDashboardUiState> = _uiState.asStateFlow()
@@ -686,13 +690,31 @@ class SuperAdminDashboardViewModel : ViewModel() {
                 val todayRevenue = paymentRepository.getTodayRevenue("").getOrDefault(0L)
                 val unreadNotifications = notificationRepository.getUnreadCount()
 
+                // Member insights data
+                val allMembers = memberRepository.getMembers(limit = 500).getOrDefault(emptyList())
+                val allCheckins = checkinRepository.getAllCheckins("", limit = 1000).getOrDefault(emptyList())
+
+                val checkedInMemberIds = HashSet<String>()
+                val checkedInMemberCodes = HashSet<String>()
+                allCheckins.forEach { checkin ->
+                    if (checkin.memberId.isNotBlank()) checkedInMemberIds.add(checkin.memberId.trim())
+                    if (checkin.memberCode.isNotBlank()) checkedInMemberCodes.add(checkin.memberCode.trim())
+                }
+
+                val birthdayMembers = calculateUpcomingBirthdays(allMembers, maxDaysAhead = 7)
+                val activeNeverCheckinMembers = calculateActiveNeverCheckin(allMembers, checkedInMemberIds, checkedInMemberCodes)
+                val inactiveMembers = calculateLongInactiveMembers(allMembers)
+
                 _uiState.update { it.copy(
                     isLoading = false,
                     totalUsers = totalUsers.getOrDefault(0),
                     totalBranches = 0,
                     totalMembers = totalMembers,
                     todayRevenue = todayRevenue.formatCurrency(),
-                    unreadNotifications = unreadNotifications.getOrDefault(0)
+                    unreadNotifications = unreadNotifications.getOrDefault(0),
+                    birthdayMembers = birthdayMembers,
+                    activeNeverCheckinMembers = activeNeverCheckinMembers,
+                    inactiveMembers = inactiveMembers
                 )}
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.message) }

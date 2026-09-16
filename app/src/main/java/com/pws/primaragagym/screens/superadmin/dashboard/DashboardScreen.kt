@@ -36,17 +36,46 @@ import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.filled.Cake
+import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
+import java.net.URLEncoder
+import com.pws.primaragagym.domain.model.BirthdayMemberItem
+import com.pws.primaragagym.domain.model.ActiveNeverCheckinMemberItem
+import com.pws.primaragagym.domain.model.InactiveMemberItem
+import com.pws.primaragagym.domain.model.MemberInsightType
+import com.pws.primaragagym.domain.model.formatBirthdayCountdown
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -198,6 +227,7 @@ fun SuperAdminDashboardContent(
     onUserManagementClick: () -> Unit = {},
     onRoleManagementClick: () -> Unit = {},
     onMemberClick: () -> Unit = {},
+    onMemberDetailClick: (String) -> Unit = {},
     onCheckInOutClick: () -> Unit = {},
     onRiwayatCheckInOutClick: () -> Unit = {},
     onCatatanKeuanganClick: () -> Unit = {},
@@ -210,6 +240,8 @@ fun SuperAdminDashboardContent(
     
     val authState by authViewModel.uiState.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
+
+    var activeInsightDialog by remember { mutableStateOf<MemberInsightType?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.loadDashboard()
@@ -261,6 +293,17 @@ fun SuperAdminDashboardContent(
                     isTablet = isTablet
                 )
                 Spacer(modifier = Modifier.height(24.dp))
+                MemberInsightsSection(
+                    birthdayMembers = uiState.birthdayMembers,
+                    activeNeverCheckinMembers = uiState.activeNeverCheckinMembers,
+                    inactiveMembers = uiState.inactiveMembers,
+                    isLoading = uiState.isLoading,
+                    isTablet = isTablet,
+                    onInsightClick = { insightType ->
+                        activeInsightDialog = insightType
+                    }
+                )
+                Spacer(modifier = Modifier.height(24.dp))
                 if (!isTablet) {
                     val allowedMenuItems = remember(authState.permissions, authState.currentUser) {
                         allMenuItems.filter { authViewModel.hasPermission(it.id) }
@@ -285,6 +328,20 @@ fun SuperAdminDashboardContent(
                 Spacer(modifier = Modifier.height(24.dp))
             }
         }
+    }
+
+    if (activeInsightDialog != null) {
+        MemberInsightDetailDialog(
+            type = activeInsightDialog!!,
+            birthdayMembers = uiState.birthdayMembers,
+            activeNeverCheckinMembers = uiState.activeNeverCheckinMembers,
+            inactiveMembers = uiState.inactiveMembers,
+            onDismiss = { activeInsightDialog = null },
+            onMemberDetailClick = { memberId ->
+                activeInsightDialog = null
+                onMemberDetailClick(memberId)
+            }
+        )
     }
 }
 
@@ -599,6 +656,823 @@ private fun StatisticItem(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
+    }
+}
+
+// ============================================================================
+// MEMBER INSIGHTS SECTION
+// ============================================================================
+@Composable
+private fun MemberInsightsSection(
+    birthdayMembers: List<BirthdayMemberItem>,
+    activeNeverCheckinMembers: List<ActiveNeverCheckinMemberItem>,
+    inactiveMembers: List<InactiveMemberItem>,
+    isLoading: Boolean = false,
+    isTablet: Boolean = false,
+    onInsightClick: (MemberInsightType) -> Unit
+) {
+    Column {
+        Text(
+            text = "Informasi Member",
+            style = MaterialTheme.typography.titleMedium.copy(
+                fontWeight = FontWeight.SemiBold
+            ),
+            color = TextPrimary,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
+
+        if (isTablet) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                MemberInsightCard(
+                    title = "Akan Ulang Tahun",
+                    subtitle = if (birthdayMembers.isEmpty()) "Tidak ada dalam 7 hari" else "${birthdayMembers.size} member (7 hari ke depan)",
+                    count = birthdayMembers.size,
+                    icon = Icons.Filled.Cake,
+                    accentColor = Color(0xFFE91E63),
+                    containerColor = Color(0xFFFCE4EC),
+                    isTablet = true,
+                    onClick = { onInsightClick(MemberInsightType.BIRTHDAY) },
+                    modifier = Modifier.weight(1f)
+                )
+
+                MemberInsightCard(
+                    title = "Aktif Belum Check-in",
+                    subtitle = if (activeNeverCheckinMembers.isEmpty()) "Semua sudah pernah datang" else "${activeNeverCheckinMembers.size} member belum pernah datang",
+                    count = activeNeverCheckinMembers.size,
+                    icon = Icons.Filled.FitnessCenter,
+                    accentColor = Color(0xFFEF6C00),
+                    containerColor = Color(0xFFFFF3E0),
+                    isTablet = true,
+                    onClick = { onInsightClick(MemberInsightType.NEVER_CHECKIN) },
+                    modifier = Modifier.weight(1f)
+                )
+
+                MemberInsightCard(
+                    title = "Belum Perpanjang",
+                    subtitle = if (inactiveMembers.isEmpty()) "Tidak ada member expired" else "${inactiveMembers.size} member perlu win-back",
+                    count = inactiveMembers.size,
+                    icon = Icons.Filled.History,
+                    accentColor = Color(0xFFD32F2F),
+                    containerColor = Color(0xFFFFEBEE),
+                    isTablet = true,
+                    onClick = { onInsightClick(MemberInsightType.INACTIVE) },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        } else {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                MemberInsightCard(
+                    title = "Member Akan Ulang Tahun",
+                    subtitle = if (birthdayMembers.isEmpty()) "Tidak ada dalam 7 hari ke depan" else "${birthdayMembers.size} member dalam 7 hari ke depan",
+                    count = birthdayMembers.size,
+                    icon = Icons.Filled.Cake,
+                    accentColor = Color(0xFFE91E63),
+                    containerColor = Color(0xFFFCE4EC),
+                    isTablet = false,
+                    onClick = { onInsightClick(MemberInsightType.BIRTHDAY) }
+                )
+
+                MemberInsightCard(
+                    title = "Aktif Tapi Belum Check-in",
+                    subtitle = if (activeNeverCheckinMembers.isEmpty()) "Semua member aktif sudah check-in" else "${activeNeverCheckinMembers.size} member belum pernah latihan",
+                    count = activeNeverCheckinMembers.size,
+                    icon = Icons.Filled.FitnessCenter,
+                    accentColor = Color(0xFFEF6C00),
+                    containerColor = Color(0xFFFFF3E0),
+                    isTablet = false,
+                    onClick = { onInsightClick(MemberInsightType.NEVER_CHECKIN) }
+                )
+
+                MemberInsightCard(
+                    title = "Tidak Aktif / Belum Perpanjang",
+                    subtitle = if (inactiveMembers.isEmpty()) "Tidak ada member expired" else "${inactiveMembers.size} member expired belum perpanjang",
+                    count = inactiveMembers.size,
+                    icon = Icons.Filled.History,
+                    accentColor = Color(0xFFD32F2F),
+                    containerColor = Color(0xFFFFEBEE),
+                    isTablet = false,
+                    onClick = { onInsightClick(MemberInsightType.INACTIVE) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MemberInsightCard(
+    title: String,
+    subtitle: String,
+    count: Int,
+    icon: ImageVector,
+    accentColor: Color,
+    containerColor: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    isTablet: Boolean = false
+) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = CardBackground
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        if (isTablet) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .clip(CircleShape)
+                            .background(containerColor),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = accentColor,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(containerColor)
+                            .padding(horizontal = 9.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = "$count Member",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.5.sp
+                            ),
+                            color = accentColor
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.5.sp
+                    ),
+                    color = TextPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+                    color = TextSecondary,
+                    maxLines = 2,
+                    lineHeight = 16.sp,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.heightIn(min = 34.dp)
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = "Lihat rincian",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 11.5.sp
+                        ),
+                        color = accentColor
+                    )
+                    Icon(
+                        imageVector = Icons.Filled.ChevronRight,
+                        contentDescription = null,
+                        tint = accentColor,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        } else {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(46.dp)
+                        .clip(CircleShape)
+                        .background(containerColor),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = accentColor,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(14.dp))
+
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.titleSmall.copy(
+                                fontWeight = FontWeight.SemiBold
+                            ),
+                            color = TextPrimary
+                        )
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(containerColor)
+                                .padding(horizontal = 8.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = "$count",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold
+                                ),
+                                color = accentColor
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Icon(
+                    imageVector = Icons.Filled.ChevronRight,
+                    contentDescription = null,
+                    tint = accentColor,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+        }
+    }
+}
+
+private data class InsightThemeConfig(
+    val title: String,
+    val icon: ImageVector,
+    val accentColor: Color,
+    val containerColor: Color
+)
+
+@Composable
+private fun MemberInsightDetailDialog(
+    type: MemberInsightType,
+    birthdayMembers: List<BirthdayMemberItem>,
+    activeNeverCheckinMembers: List<ActiveNeverCheckinMemberItem>,
+    inactiveMembers: List<InactiveMemberItem>,
+    onDismiss: () -> Unit,
+    onMemberDetailClick: (String) -> Unit
+) {
+    val context = LocalContext.current
+    val configuration = LocalConfiguration.current
+    val isTablet = configuration.screenWidthDp >= 600
+    var searchQuery by remember { mutableStateOf("") }
+
+    val config = when (type) {
+        MemberInsightType.BIRTHDAY -> InsightThemeConfig(
+            title = "Member Akan Ulang Tahun",
+            icon = Icons.Filled.Cake,
+            accentColor = Color(0xFFE91E63),
+            containerColor = Color(0xFFFCE4EC)
+        )
+        MemberInsightType.NEVER_CHECKIN -> InsightThemeConfig(
+            title = "Aktif Belum Pernah Check-in",
+            icon = Icons.Filled.FitnessCenter,
+            accentColor = Color(0xFFEF6C00),
+            containerColor = Color(0xFFFFF3E0)
+        )
+        MemberInsightType.INACTIVE -> InsightThemeConfig(
+            title = "Belum Perpanjang Membership",
+            icon = Icons.Filled.History,
+            accentColor = Color(0xFFD32F2F),
+            containerColor = Color(0xFFFFEBEE)
+        )
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            modifier = Modifier
+                .widthIn(min = 320.dp, max = if (isTablet) 560.dp else 420.dp)
+                .fillMaxWidth(if (isTablet) 0.85f else 0.94f)
+                .padding(vertical = if (isTablet) 24.dp else 16.dp),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(if (isTablet) 24.dp else 18.dp)
+            ) {
+                // Header Dialog
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clip(CircleShape)
+                                .background(config.containerColor),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = config.icon,
+                                contentDescription = null,
+                                tint = config.accentColor,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        Column {
+                            Text(
+                                text = config.title,
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = if (isTablet) 17.sp else 15.sp
+                                ),
+                                color = TextPrimary
+                            )
+                            val count = when (type) {
+                                MemberInsightType.BIRTHDAY -> birthdayMembers.size
+                                MemberInsightType.NEVER_CHECKIN -> activeNeverCheckinMembers.size
+                                MemberInsightType.INACTIVE -> inactiveMembers.size
+                            }
+                            Text(
+                                text = "$count member terdata",
+                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+                                color = TextSecondary
+                            )
+                        }
+                    }
+
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            imageVector = Icons.Filled.Close,
+                            contentDescription = "Tutup",
+                            tint = TextSecondary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Search field
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = { Text("Cari nama atau kode member...", fontSize = 13.sp) },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Filled.Search,
+                            contentDescription = null,
+                            tint = TextMuted,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(
+                                    imageVector = Icons.Filled.Close,
+                                    contentDescription = "Hapus",
+                                    tint = TextMuted,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = GreenAccent,
+                        unfocusedBorderColor = Color(0xFFE5E7EB),
+                        focusedContainerColor = Color(0xFFF9FAFB),
+                        unfocusedContainerColor = Color(0xFFF9FAFB)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // List Data sesuai tipe
+                when (type) {
+                    MemberInsightType.BIRTHDAY -> {
+                        val filtered = birthdayMembers.filter {
+                            it.member.fullName.contains(searchQuery, ignoreCase = true) ||
+                            it.member.memberCode.contains(searchQuery, ignoreCase = true)
+                        }
+                        if (filtered.isEmpty()) {
+                            EmptyInsightState(
+                                message = if (searchQuery.isNotEmpty()) "Tidak ada member yang cocok dengan pencarian." else "Tidak ada member yang berulang tahun dalam 7 hari ke depan 🎉"
+                            )
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = if (isTablet) 460.dp else 400.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                items(filtered, key = { it.member.memberId.ifBlank { it.member.memberCode } }) { item ->
+                                    val bdayCountdown = formatBirthdayCountdown(item.daysRemaining)
+                                    val isToday = item.daysRemaining == 0
+                                    val bdayMsg = "Halo Kak ${item.member.fullName}, segenap keluarga Primaraga Gym mengucapkan Selamat Ulang Tahun! 🎂🎉 Semoga sehat selalu, panjang umur, dan semakin bersemangat berolahraga bersama Primaraga Gym! 💪"
+
+                                    InsightMemberCardItem(
+                                        name = item.member.fullName,
+                                        code = item.member.memberCode,
+                                        badgeText = bdayCountdown,
+                                        badgeBgColor = if (isToday) Color(0xFFFCE4EC) else Color(0xFFF3E5F5),
+                                        badgeTextColor = if (isToday) Color(0xFFC2185B) else Color(0xFF7B1FA2),
+                                        detailInfo = "Tanggal: ${item.formattedBirthday}" + if (item.ageThisYear != null) " • Usia: ${item.ageThisYear} thn" else "",
+                                        phone = item.member.phoneNumber,
+                                        onWhatsAppClick = {
+                                            sendInsightWhatsApp(context, item.member.phoneNumber, bdayMsg)
+                                        },
+                                        onDetailClick = {
+                                            onMemberDetailClick(item.member.memberId)
+                                        },
+                                        actionLabel = "Kirim Ucapan"
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    MemberInsightType.NEVER_CHECKIN -> {
+                        val filtered = activeNeverCheckinMembers.filter {
+                            it.member.fullName.contains(searchQuery, ignoreCase = true) ||
+                            it.member.memberCode.contains(searchQuery, ignoreCase = true)
+                        }
+                        if (filtered.isEmpty()) {
+                            EmptyInsightState(
+                                message = if (searchQuery.isNotEmpty()) "Tidak ada member yang cocok dengan pencarian." else "Hebat! Semua member aktif sudah pernah check-in latihan 💪"
+                            )
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = if (isTablet) 460.dp else 400.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                items(filtered, key = { it.member.memberId.ifBlank { it.member.memberCode } }) { item ->
+                                    val checkinMsg = "Halo Kak ${item.member.fullName}, kami dari tim Primaraga Gym melihat Kakak sudah aktif terdaftar tapi belum sempat datang latihan nih. Ada yang bisa kami bantu atau jadwalkan pengenalan alat gym? Kami tunggu kedatangannya ya Kak! 💪🔥"
+
+                                    InsightMemberCardItem(
+                                        name = item.member.fullName,
+                                        code = item.member.memberCode,
+                                        badgeText = "0x Check-in",
+                                        badgeBgColor = Color(0xFFFFF3E0),
+                                        badgeTextColor = Color(0xFFE65100),
+                                        detailInfo = "Bergabung: ${item.formattedJoinDate} (${item.daysSinceJoined} hari lalu)",
+                                        phone = item.member.phoneNumber,
+                                        onWhatsAppClick = {
+                                            sendInsightWhatsApp(context, item.member.phoneNumber, checkinMsg)
+                                        },
+                                        onDetailClick = {
+                                            onMemberDetailClick(item.member.memberId)
+                                        },
+                                        actionLabel = "Sapa Member"
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    MemberInsightType.INACTIVE -> {
+                        val filtered = inactiveMembers.filter {
+                            it.member.fullName.contains(searchQuery, ignoreCase = true) ||
+                            it.member.memberCode.contains(searchQuery, ignoreCase = true)
+                        }
+                        if (filtered.isEmpty()) {
+                            EmptyInsightState(
+                                message = if (searchQuery.isNotEmpty()) "Tidak ada member yang cocok dengan pencarian." else "Tidak ada member yang tidak aktif ✨"
+                            )
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = if (isTablet) 460.dp else 400.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                items(filtered, key = { it.member.memberId.ifBlank { it.member.memberCode } }) { item ->
+                                    val winbackMsg = "Halo Kak ${item.member.fullName}, kami kangen latihan bareng Kakak di Primaraga Gym! Yuk aktifkan kembali membership Kakak dan dapatkan promo perpanjangan menarik hari ini. Ditunggu kedatangannya ya Kak! 🏋️‍♂️"
+
+                                    InsightMemberCardItem(
+                                        name = item.member.fullName,
+                                        code = item.member.memberCode,
+                                        badgeText = item.formattedExpiredTimeAgo,
+                                        badgeBgColor = Color(0xFFFFEBEE),
+                                        badgeTextColor = Color(0xFFC62828),
+                                        detailInfo = "Expired: ${item.formattedExpiredDisplay}" + if (item.member.planName.isNotBlank()) " • Paket: ${item.member.planName}" else "",
+                                        phone = item.member.phoneNumber,
+                                        onWhatsAppClick = {
+                                            sendInsightWhatsApp(context, item.member.phoneNumber, winbackMsg)
+                                        },
+                                        onDetailClick = {
+                                            onMemberDetailClick(item.member.memberId)
+                                        },
+                                        actionLabel = "Tawarkan Promo"
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InsightMemberCardItem(
+    name: String,
+    code: String,
+    badgeText: String,
+    badgeBgColor: Color,
+    badgeTextColor: Color,
+    detailInfo: String,
+    phone: String = "",
+    onWhatsAppClick: () -> Unit,
+    onDetailClick: () -> Unit,
+    actionLabel: String
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAFB)),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEEEEEE))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Avatar initial
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(GreenPrimaryLight.copy(alpha = 0.35f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = name.firstOrNull()?.uppercase() ?: "M",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = GreenAccent
+                        )
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = name,
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.5.sp
+                            ),
+                            color = TextPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        if (code.isNotBlank()) {
+                            Text(
+                                text = "($code)",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = TextMuted
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(2.dp))
+
+                    Text(
+                        text = detailInfo,
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+                        color = TextSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // Badge
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(badgeBgColor)
+                        .padding(horizontal = 9.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = badgeText,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 11.5.sp
+                        ),
+                        color = badgeTextColor
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Footer Row: Phone info on left, balanced action buttons on right
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (phone.isNotBlank() && phone != "-") {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.weight(1f, fill = false)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Phone,
+                            contentDescription = null,
+                            tint = TextMuted,
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Text(
+                            text = phone,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 11.5.sp,
+                                color = TextSecondary
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                } else {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(
+                        onClick = onDetailClick,
+                        modifier = Modifier.height(34.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = TextPrimary
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFD0D5DD)),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 0.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.OpenInNew,
+                            contentDescription = null,
+                            tint = TextSecondary,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Detail",
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 11.5.sp
+                            ),
+                            color = TextPrimary
+                        )
+                    }
+
+                    Button(
+                        onClick = onWhatsAppClick,
+                        modifier = Modifier.height(34.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF25D366) // WhatsApp Green
+                        ),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 14.dp, vertical = 0.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Chat,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = actionLabel,
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 11.5.sp
+                            ),
+                            color = Color.White
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptyInsightState(message: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 36.dp, horizontal = 16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodyMedium,
+            color = TextSecondary,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+private fun sendInsightWhatsApp(context: Context, rawPhone: String, message: String) {
+    val digits = rawPhone.filter { it.isDigit() }
+    if (digits.isBlank()) {
+        Toast.makeText(context, "Nomor WhatsApp member belum terisi", Toast.LENGTH_SHORT).show()
+        return
+    }
+
+    val formattedPhone = when {
+        digits.startsWith("0") -> "62" + digits.substring(1)
+        digits.startsWith("62") -> digits
+        else -> digits
+    }
+
+    try {
+        val encoded = URLEncoder.encode(message, "UTF-8")
+        val uri = Uri.parse("https://wa.me/$formattedPhone?text=$encoded")
+        val intent = Intent(Intent.ACTION_VIEW, uri)
+        context.startActivity(intent)
+    } catch (e: Exception) {
+        Toast.makeText(context, "Tidak dapat membuka WhatsApp: ${e.message}", Toast.LENGTH_SHORT).show()
     }
 }
 
