@@ -58,7 +58,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
@@ -410,7 +413,7 @@ private fun SummaryCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp)
+                .padding(if (isTablet) 20.dp else 16.dp)
         ) {
             // Header with title and date
             Row(
@@ -437,7 +440,7 @@ private fun SummaryCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(18.dp))
 
             AnimatedContent(
                 targetState = isLoading,
@@ -449,10 +452,14 @@ private fun SummaryCard(
                 if (loading) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Top
                     ) {
                         repeat(3) {
-                            StatisticItemShimmer()
+                            StatisticItemShimmer(
+                                isTablet = isTablet,
+                                modifier = Modifier.weight(1f)
+                            )
                         }
                     }
                 } else {
@@ -465,13 +472,16 @@ private fun SummaryCard(
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Top
                     ) {
                         statList.forEach { stat ->
                             StatisticItem(
                                 value = stat.value,
                                 label = stat.label,
-                                icon = stat.icon
+                                icon = stat.icon,
+                                isTablet = isTablet,
+                                modifier = Modifier.weight(1f)
                             )
                         }
                     }
@@ -482,37 +492,40 @@ private fun SummaryCard(
 }
 
 @Composable
-private fun StatisticItemShimmer() {
+private fun StatisticItemShimmer(
+    isTablet: Boolean = false,
+    modifier: Modifier = Modifier
+) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.padding(horizontal = 8.dp)
+        modifier = modifier.padding(horizontal = 2.dp)
     ) {
         // Shimmer Circular Icon Container
         Box(
             modifier = Modifier
-                .size(48.dp)
+                .size(if (isTablet) 50.dp else 44.dp)
                 .clip(CircleShape)
                 .shimmerEffect()
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
         // Shimmer Value Box
         Box(
             modifier = Modifier
-                .width(64.dp)
-                .height(22.dp)
+                .width(if (isTablet) 64.dp else 56.dp)
+                .height(if (isTablet) 22.dp else 18.dp)
                 .clip(RoundedCornerShape(6.dp))
                 .shimmerEffect()
         )
 
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(4.dp))
 
         // Shimmer Label Box
         Box(
             modifier = Modifier
-                .width(76.dp)
-                .height(14.dp)
+                .width(if (isTablet) 76.dp else 64.dp)
+                .height(12.dp)
                 .clip(RoundedCornerShape(4.dp))
                 .shimmerEffect()
         )
@@ -523,16 +536,18 @@ private fun StatisticItemShimmer() {
 private fun StatisticItem(
     value: String,
     label: String,
-    icon: ImageVector = Icons.Filled.Person
+    icon: ImageVector = Icons.Filled.Person,
+    isTablet: Boolean = false,
+    modifier: Modifier = Modifier
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.padding(horizontal = 8.dp)
+        modifier = modifier.padding(horizontal = 2.dp)
     ) {
         // Icon container
         Box(
             modifier = Modifier
-                .size(48.dp)
+                .size(if (isTablet) 50.dp else 44.dp)
                 .clip(CircleShape)
                 .background(IconBackground),
             contentAlignment = Alignment.Center
@@ -541,28 +556,48 @@ private fun StatisticItem(
                 imageVector = icon,
                 contentDescription = null,
                 tint = GreenAccent,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(if (isTablet) 24.dp else 22.dp)
             )
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Dynamic font sizing based on length to prevent wrapping on narrow screens
+        val valueFontSize = when {
+            isTablet -> if (value.length > 10) 18.sp else 22.sp
+            value.length > 13 -> 11.5.sp
+            value.length > 10 -> 13.sp
+            value.length > 7 -> 14.5.sp
+            value.length > 4 -> 16.sp
+            else -> 20.sp
+        }
 
         // Value
         Text(
             text = value,
-            style = MaterialTheme.typography.headlineSmall.copy(
-                fontWeight = FontWeight.Bold
+            style = TextStyle(
+                fontSize = valueFontSize,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
             ),
-            color = TextPrimary
+            color = TextPrimary,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Ellipsis
         )
 
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(3.dp))
 
         // Label
         Text(
             text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = TextMuted
+            style = MaterialTheme.typography.bodySmall.copy(
+                fontSize = if (isTablet) 12.sp else 10.5.sp,
+                textAlign = TextAlign.Center
+            ),
+            color = TextMuted,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }
