@@ -45,6 +45,26 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.Print
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.TableChart
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import android.widget.Toast
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -65,6 +85,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -111,12 +132,16 @@ private val menuItems = listOf(
         title = "Invoice / Kwitansi",
         description = "Lihat dan kelola bukti pembayaran.",
         icon = Icons.Filled.ReceiptLong,
-        badge = "3"
     ),
     MenuItem(
         title = "Laporan Pemasukan",
         description = "Lihat ringkasan pemasukan berdasarkan periode.",
         icon = Icons.Filled.Assessment
+    ),
+    MenuItem(
+        title = "Export Laporan",
+        description = "Unduh & bagikan laporan keuangan ke format PDF atau Excel.",
+        icon = Icons.Filled.Download
     )
 )
 
@@ -139,6 +164,41 @@ fun KeuanganScreen(
 
     val authState by authViewModel.uiState.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
+    var showExportDialog by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
+    val calendar = Calendar.getInstance()
+
+    val datePickerDialog = remember {
+        DatePickerDialog(
+            context,
+            { _, year, month, dayOfMonth ->
+                val selected = Calendar.getInstance().apply {
+                    set(Calendar.YEAR, year)
+                    set(Calendar.MONTH, month)
+                    set(Calendar.DAY_OF_MONTH, dayOfMonth)
+                }.time
+                viewModel.setChartFilter("PILIH_TANGGAL", selected)
+            },
+            calendar.get(Calendar.YEAR),
+            calendar.get(Calendar.MONTH),
+            calendar.get(Calendar.DAY_OF_MONTH)
+        )
+    }
+
+    val selectedDateLabel = remember(uiState.selectedCustomDate) {
+        uiState.selectedCustomDate?.let {
+            SimpleDateFormat("dd MMM yyyy", Locale("id", "ID")).format(it)
+        }
+    }
+
+    val periodSubtitle = when (uiState.chartFilter) {
+        "HARI_INI" -> "Hari Ini"
+        "7_HARI" -> "7 Hari Terakhir"
+        "BULAN_INI" -> "Bulan Ini"
+        "PILIH_TANGGAL" -> selectedDateLabel ?: "Pilih Tanggal"
+        else -> "Hari Ini"
+    }
 
     LaunchedEffect(authState.currentUser) {
         val branchId = authState.currentUser?.branchId ?: ""
@@ -149,6 +209,23 @@ fun KeuanganScreen(
         val format = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
         format.maximumFractionDigits = 0
         format.format(amount)
+    }
+
+    // 3 Financial Cards: Pendapatan, Pengeluaran, Laba Bersih (mengikuti filter yang dipilih)
+    val displayIncome = if (uiState.chartFilter == "HARI_INI" && uiState.filteredTotalIncome == 0L && uiState.todayRevenue > 0L) {
+        uiState.todayRevenue
+    } else {
+        uiState.filteredTotalIncome
+    }
+    val displayExpense = if (uiState.chartFilter == "HARI_INI" && uiState.filteredTotalExpense == 0L && uiState.todayExpense > 0L) {
+        uiState.todayExpense
+    } else {
+        uiState.filteredTotalExpense
+    }
+    val displayProfit = if (uiState.chartFilter == "HARI_INI" && uiState.filteredTotalIncome == 0L && uiState.filteredTotalExpense == 0L && (uiState.todayRevenue > 0L || uiState.todayExpense > 0L)) {
+        uiState.todayNetProfit
+    } else {
+        uiState.filteredNetProfit
     }
 
     Scaffold(
@@ -195,15 +272,117 @@ fun KeuanganScreen(
                     vertical = Dimens.spacing_5
                 )
         ) {
-            // Header Title
-            Text(
-                text = "Ringkasan Hari Ini",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                color = TextPrimary,
-                modifier = Modifier.padding(bottom = Dimens.spacing_3)
-            )
+            // Header Title & Active Period Badge & Export Button (Responsive)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = Dimens.spacing_3),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Ringkasan Keuangan",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = TextPrimary
+                    )
+                    Text(
+                        text = "Periode: $periodSubtitle",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = GreenAccent,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
 
-            // 3 Financial Cards: Pendapatan Hari Ini, Pengeluaran Hari Ini, Laba Bersih Hari Ini
+                OutlinedButton(
+                    onClick = { showExportDialog = true },
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                    border = BorderStroke(1.dp, GreenAccent.copy(alpha = 0.6f)),
+                    modifier = Modifier.height(30.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = GreenAccent
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Download,
+                        contentDescription = null,
+                        tint = GreenAccent,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Export",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = GreenAccent
+                    )
+                }
+            }
+
+            // Filter Chips Scrollable Row (Diletakkan di Ringkasan)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(bottom = Dimens.spacing_4),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                FilterChip(
+                    selected = uiState.chartFilter == "HARI_INI",
+                    onClick = { viewModel.setChartFilter("HARI_INI", null) },
+                    label = { Text("Hari Ini", fontSize = 12.sp) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = GreenAccent,
+                        selectedLabelColor = Color.White
+                    )
+                )
+                FilterChip(
+                    selected = uiState.chartFilter == "7_HARI",
+                    onClick = { viewModel.setChartFilter("7_HARI", null) },
+                    label = { Text("7 Hari Terakhir", fontSize = 12.sp) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = GreenAccent,
+                        selectedLabelColor = Color.White
+                    )
+                )
+                FilterChip(
+                    selected = uiState.chartFilter == "BULAN_INI",
+                    onClick = { viewModel.setChartFilter("BULAN_INI", null) },
+                    label = { Text("Bulan Ini", fontSize = 12.sp) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = GreenAccent,
+                        selectedLabelColor = Color.White
+                    )
+                )
+                FilterChip(
+                    selected = uiState.chartFilter == "PILIH_TANGGAL",
+                    onClick = { datePickerDialog.show() },
+                    label = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Filled.CalendarMonth,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = if (uiState.chartFilter == "PILIH_TANGGAL" && selectedDateLabel != null)
+                                    selectedDateLabel else "Pilih Tanggal",
+                                fontSize = 12.sp
+                            )
+                        }
+                    },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = GreenAccent,
+                        selectedLabelColor = Color.White
+                    )
+                )
+            }
+
+
+
             if (isTablet) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -211,8 +390,8 @@ fun KeuanganScreen(
                 ) {
                     SummaryMetricCard(
                         title = "Pendapatan Kotor",
-                        subtitle = "Hari Ini",
-                        value = formatCurrency(uiState.todayRevenue),
+                        subtitle = periodSubtitle,
+                        value = formatCurrency(displayIncome),
                         icon = Icons.Filled.TrendingUp,
                         iconBg = StatRevenueBg,
                         iconTint = GreenAccent,
@@ -220,8 +399,8 @@ fun KeuanganScreen(
                     )
                     SummaryMetricCard(
                         title = "Pengeluaran",
-                        subtitle = "Hari Ini",
-                        value = formatCurrency(uiState.todayExpense),
+                        subtitle = periodSubtitle,
+                        value = formatCurrency(displayExpense),
                         icon = Icons.Filled.TrendingDown,
                         iconBg = ExpenseBg,
                         iconTint = ExpenseRed,
@@ -229,12 +408,12 @@ fun KeuanganScreen(
                     )
                     SummaryMetricCard(
                         title = "Laba Bersih",
-                        subtitle = "Hari Ini (Net)",
-                        value = formatCurrency(uiState.todayNetProfit),
+                        subtitle = "$periodSubtitle (Net)",
+                        value = formatCurrency(displayProfit),
                         icon = Icons.Filled.AccountBalance,
-                        iconBg = if (uiState.todayNetProfit >= 0) ProfitBg else ExpenseBg,
-                        iconTint = if (uiState.todayNetProfit >= 0) ProfitBlue else ExpenseRed,
-                        valueColor = if (uiState.todayNetProfit >= 0) ProfitBlue else ExpenseRed,
+                        iconBg = if (displayProfit >= 0) ProfitBg else ExpenseBg,
+                        iconTint = if (displayProfit >= 0) ProfitBlue else ExpenseRed,
+                        valueColor = if (displayProfit >= 0) ProfitBlue else ExpenseRed,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -246,8 +425,8 @@ fun KeuanganScreen(
                     ) {
                         SummaryMetricCard(
                             title = "Pendapatan Kotor",
-                            subtitle = "Hari Ini",
-                            value = formatCurrency(uiState.todayRevenue),
+                            subtitle = periodSubtitle,
+                            value = formatCurrency(displayIncome),
                             icon = Icons.Filled.TrendingUp,
                             iconBg = StatRevenueBg,
                             iconTint = GreenAccent,
@@ -255,8 +434,8 @@ fun KeuanganScreen(
                         )
                         SummaryMetricCard(
                             title = "Pengeluaran",
-                            subtitle = "Hari Ini",
-                            value = formatCurrency(uiState.todayExpense),
+                            subtitle = periodSubtitle,
+                            value = formatCurrency(displayExpense),
                             icon = Icons.Filled.TrendingDown,
                             iconBg = ExpenseBg,
                             iconTint = ExpenseRed,
@@ -266,8 +445,9 @@ fun KeuanganScreen(
 
                     // Laba Bersih Highlight Card
                     HighlightNetProfitCard(
-                        netProfit = uiState.todayNetProfit,
-                        formattedProfit = formatCurrency(uiState.todayNetProfit),
+                        netProfit = displayProfit,
+                        formattedProfit = formatCurrency(displayProfit),
+                        periodLabel = periodSubtitle,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -275,13 +455,10 @@ fun KeuanganScreen(
 
             Spacer(modifier = Modifier.height(Dimens.spacing_6))
 
-            // Interactive Chart Section
+            // Interactive Chart Section (mengikuti filter Ringkasan)
             FinancialChartCard(
                 uiState = uiState,
-                formatCurrency = formatCurrency,
-                onFilterSelected = { filter, date ->
-                    viewModel.setChartFilter(filter, date)
-                }
+                periodSubtitle = periodSubtitle
             )
 
             Spacer(modifier = Modifier.height(Dimens.spacing_8))
@@ -296,20 +473,74 @@ fun KeuanganScreen(
                 modifier = Modifier.padding(bottom = Dimens.spacing_4)
             )
 
-            val onClicks = listOf(onCatatPembayaranClick, onInvoiceClick, onLaporanClick)
-            menuItems.forEachIndexed { index, menuItem ->
-                val onClick: () -> Unit = onClicks.getOrElse(index) { {} }
-                KeuanganMenuCard(
-                    menuItem = menuItem,
-                    onClick = onClick
-                )
-                if (index < menuItems.lastIndex) {
-                    Spacer(modifier = Modifier.height(Dimens.spacing_3))
+            val onClicks = listOf(
+                onCatatPembayaranClick,
+                onInvoiceClick,
+                onLaporanClick,
+                { showExportDialog = true }
+            )
+            if (isTablet) {
+                // Tablet: 2x2 Responsive Grid
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(Dimens.spacing_3)
+                ) {
+                    KeuanganMenuCard(
+                        menuItem = menuItems[0],
+                        onClick = onCatatPembayaranClick,
+                        modifier = Modifier.weight(1f)
+                    )
+                    KeuanganMenuCard(
+                        menuItem = menuItems[1],
+                        onClick = onInvoiceClick,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Spacer(modifier = Modifier.height(Dimens.spacing_3))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(Dimens.spacing_3)
+                ) {
+                    KeuanganMenuCard(
+                        menuItem = menuItems[2],
+                        onClick = onLaporanClick,
+                        modifier = Modifier.weight(1f)
+                    )
+                    KeuanganMenuCard(
+                        menuItem = menuItems[3],
+                        onClick = { showExportDialog = true },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            } else {
+                // Phone: 1 Column List
+                menuItems.forEachIndexed { index, menuItem ->
+                    val onClick: () -> Unit = onClicks.getOrElse(index) { {} }
+                    KeuanganMenuCard(
+                        menuItem = menuItem,
+                        onClick = onClick
+                    )
+                    if (index < menuItems.lastIndex) {
+                        Spacer(modifier = Modifier.height(Dimens.spacing_3))
+                    }
                 }
             }
 
             Spacer(modifier = Modifier.height(Dimens.spacing_6))
         }
+    }
+
+    if (showExportDialog) {
+        ExportLaporanDialog(
+            periodSubtitle = periodSubtitle,
+            totalIncome = displayIncome,
+            totalExpense = displayExpense,
+            netProfit = displayProfit,
+            transactions = uiState.filteredPayments,
+            adminName = authState.currentUser?.name ?: "Admin Kasir",
+            formatCurrency = formatCurrency,
+            onDismiss = { showExportDialog = false }
+        )
     }
 }
 
@@ -391,6 +622,7 @@ private fun SummaryMetricCard(
 private fun HighlightNetProfitCard(
     netProfit: Long,
     formattedProfit: String,
+    periodLabel: String = "Hari Ini",
     modifier: Modifier = Modifier
 ) {
     val isPositive = netProfit >= 0
@@ -429,7 +661,7 @@ private fun HighlightNetProfitCard(
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(
-                        text = "Laba Bersih Hari Ini",
+                        text = "Laba Bersih ($periodLabel)",
                         style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium),
                         color = TextSecondary
                     )
@@ -457,40 +689,12 @@ private fun HighlightNetProfitCard(
 // ============================================================================
 // FINANCIAL CHART CARD
 // ============================================================================
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FinancialChartCard(
     uiState: KeuanganUiState,
-    formatCurrency: (Long) -> String,
-    onFilterSelected: (String, Date?) -> Unit,
+    periodSubtitle: String,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    val calendar = Calendar.getInstance()
-
-    val datePickerDialog = remember {
-        DatePickerDialog(
-            context,
-            { _, year, month, dayOfMonth ->
-                val selected = Calendar.getInstance().apply {
-                    set(Calendar.YEAR, year)
-                    set(Calendar.MONTH, month)
-                    set(Calendar.DAY_OF_MONTH, dayOfMonth)
-                }.time
-                onFilterSelected("PILIH_TANGGAL", selected)
-            },
-            calendar.get(Calendar.YEAR),
-            calendar.get(Calendar.MONTH),
-            calendar.get(Calendar.DAY_OF_MONTH)
-        )
-    }
-
-    val selectedDateLabel = remember(uiState.selectedCustomDate) {
-        uiState.selectedCustomDate?.let {
-            SimpleDateFormat("dd MMM yyyy", Locale("id", "ID")).format(it)
-        }
-    }
-
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -502,7 +706,7 @@ private fun FinancialChartCard(
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            // Header with Chart Icon
+            // Header with Chart Icon & Active Period Subtitle
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
@@ -529,111 +733,9 @@ private fun FinancialChartCard(
                         color = TextPrimary
                     )
                     Text(
-                        text = "Tren perbandingan cash flow menurut periode",
+                        text = "Tren perbandingan cash flow ($periodSubtitle)",
                         style = MaterialTheme.typography.labelSmall,
                         color = TextSecondary
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Filter Chips Scrollable Row
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                FilterChip(
-                    selected = uiState.chartFilter == "HARI_INI",
-                    onClick = { onFilterSelected("HARI_INI", null) },
-                    label = { Text("Hari Ini", fontSize = 12.sp) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = GreenAccent,
-                        selectedLabelColor = Color.White
-                    )
-                )
-                FilterChip(
-                    selected = uiState.chartFilter == "7_HARI",
-                    onClick = { onFilterSelected("7_HARI", null) },
-                    label = { Text("7 Hari Terakhir", fontSize = 12.sp) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = GreenAccent,
-                        selectedLabelColor = Color.White
-                    )
-                )
-                FilterChip(
-                    selected = uiState.chartFilter == "BULAN_INI",
-                    onClick = { onFilterSelected("BULAN_INI", null) },
-                    label = { Text("Bulan Ini", fontSize = 12.sp) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = GreenAccent,
-                        selectedLabelColor = Color.White
-                    )
-                )
-                FilterChip(
-                    selected = uiState.chartFilter == "PILIH_TANGGAL",
-                    onClick = { datePickerDialog.show() },
-                    label = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Filled.CalendarMonth,
-                                contentDescription = null,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = if (uiState.chartFilter == "PILIH_TANGGAL" && selectedDateLabel != null)
-                                    selectedDateLabel else "Pilih Tanggal",
-                                fontSize = 12.sp
-                            )
-                        }
-                    },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = GreenAccent,
-                        selectedLabelColor = Color.White
-                    )
-                )
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Period Summary Stats Bar
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(BackgroundColor)
-                    .padding(vertical = 10.dp, horizontal = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(horizontalAlignment = Alignment.Start) {
-                    Text("Total Pemasukan", fontSize = 10.sp, color = TextMuted)
-                    Text(
-                        text = formatCurrency(uiState.filteredTotalIncome),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = GreenAccent
-                    )
-                }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Total Pengeluaran", fontSize = 10.sp, color = TextMuted)
-                    Text(
-                        text = formatCurrency(uiState.filteredTotalExpense),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = ExpenseRed
-                    )
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text("Laba Bersih", fontSize = 10.sp, color = TextMuted)
-                    Text(
-                        text = formatCurrency(uiState.filteredNetProfit),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (uiState.filteredNetProfit >= 0) ProfitBlue else ExpenseRed
                     )
                 }
             }
@@ -885,10 +987,11 @@ private fun LineChartCanvas(
 @Composable
 private fun KeuanganMenuCard(
     menuItem: MenuItem,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(Dimens.card_corner_radius),
@@ -963,4 +1066,553 @@ private fun KeuanganMenuCard(
             )
         }
     }
+}
+
+// ============================================================================
+// EXPORT LAPORAN DIALOG
+// ============================================================================
+@Composable
+private fun ExportLaporanDialog(
+    periodSubtitle: String,
+    totalIncome: Long,
+    totalExpense: Long,
+    netProfit: Long,
+    transactions: List<com.pws.primaragagym.domain.model.FirestorePayment>,
+    adminName: String,
+    formatCurrency: (Long) -> String,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val configuration = LocalConfiguration.current
+    val isTablet = configuration.screenWidthDp >= 600
+    var selectedFormat by remember { mutableStateOf("PDF") } // "PDF" or "EXCEL"
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            dismissOnBackPress = true,
+            dismissOnClickOutside = true
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = if (isTablet) 36.dp else 14.dp, vertical = 20.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = CardBackground),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                modifier = Modifier
+                    .fillMaxWidth(if (isTablet) 0.55f else 1f)
+                    .wrapContentHeight()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(if (isTablet) 24.dp else 16.dp)
+                ) {
+                    // Header Dialog
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Export Laporan Keuangan",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = TextPrimary
+                            )
+                            Text(
+                                text = "Unduh atau bagikan laporan arus kas",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = TextSecondary
+                            )
+                        }
+                        IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
+                            Icon(
+                                imageVector = Icons.Filled.Close,
+                                contentDescription = "Tutup",
+                                tint = TextMuted,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Period & Summary Box
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(BackgroundColor)
+                            .padding(12.dp)
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Periode Laporan:",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = TextMuted
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(GreenLight)
+                                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                                ) {
+                                    Text(
+                                        text = periodSubtitle,
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                        color = GreenAccent
+                                    )
+                                }
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("Pemasukan", fontSize = 10.sp, color = TextMuted)
+                                    Text(
+                                        text = formatCurrency(totalIncome),
+                                        fontSize = if (isTablet) 13.sp else 11.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = GreenAccent,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("Pengeluaran", fontSize = 10.sp, color = TextMuted)
+                                    Text(
+                                        text = formatCurrency(totalExpense),
+                                        fontSize = if (isTablet) 13.sp else 11.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = ExpenseRed,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.End) {
+                                    Text("Laba Bersih", fontSize = 10.sp, color = TextMuted)
+                                    Text(
+                                        text = formatCurrency(netProfit),
+                                        fontSize = if (isTablet) 13.sp else 11.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (netProfit >= 0) ProfitBlue else ExpenseRed,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "${transactions.size} transaksi tercatat",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = TextSecondary,
+                                fontSize = 10.5.sp
+                            )
+                            Text(
+                                text = if (netProfit >= 0) "Status: Surplus (Untung)" else "Status: Defisit (Rugi)",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                                color = if (netProfit >= 0) ProfitBlue else ExpenseRed,
+                                fontSize = 10.5.sp
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Pilih Format Header
+                Text(
+                    text = "Pilih Format Dokumen:",
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = TextPrimary
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Option 1: PDF Card
+                val isPdf = selectedFormat == "PDF"
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { selectedFormat = "PDF" }
+                        .border(
+                            width = if (isPdf) 2.dp else 1.dp,
+                            color = if (isPdf) GreenAccent else Color(0xFFE2E8F0),
+                            shape = RoundedCornerShape(12.dp)
+                        ),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isPdf) GreenLight.copy(alpha = 0.5f) else Color.White
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFFEE2E2)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.PictureAsPdf,
+                                contentDescription = null,
+                                tint = Color(0xFFDC2626),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Dokumen PDF (.pdf)",
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                color = TextPrimary
+                            )
+                            Text(
+                                text = "Format resmi A4, siap cetak & arsip",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = TextSecondary
+                            )
+                        }
+                        if (isPdf) {
+                            Box(
+                                modifier = Modifier
+                                    .size(22.dp)
+                                    .clip(CircleShape)
+                                    .background(GreenAccent),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Check,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Option 2: Excel Card
+                val isExcel = selectedFormat == "EXCEL"
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { selectedFormat = "EXCEL" }
+                        .border(
+                            width = if (isExcel) 2.dp else 1.dp,
+                            color = if (isExcel) GreenAccent else Color(0xFFE2E8F0),
+                            shape = RoundedCornerShape(12.dp)
+                        ),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isExcel) GreenLight.copy(alpha = 0.5f) else Color.White
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFDCFCE7)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.TableChart,
+                                contentDescription = null,
+                                tint = Color(0xFF16A34A),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Spreadsheet Excel (.csv)",
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                color = TextPrimary
+                            )
+                            Text(
+                                text = "Buka di Excel, Google Sheets, & WPS",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = TextSecondary
+                            )
+                        }
+                        if (isExcel) {
+                            Box(
+                                modifier = Modifier
+                                    .size(22.dp)
+                                    .clip(CircleShape)
+                                    .background(GreenAccent),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Check,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Export Actions Data
+                val exportData = remember(periodSubtitle, totalIncome, totalExpense, netProfit, transactions, adminName) {
+                    FinancialReportExportData(
+                        gymName = "PRIMARAGA GYM",
+                        title = "LAPORAN KEUANGAN & ARUS KAS",
+                        periodLabel = periodSubtitle,
+                        totalIncome = totalIncome,
+                        totalExpense = totalExpense,
+                        netProfit = netProfit,
+                        transactions = transactions,
+                        adminName = adminName
+                    )
+                }
+
+                // Fully Responsive Action Buttons
+                if (isTablet) {
+                    // TABLET LAYOUT: 1 Row with ample space
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                try {
+                                    if (selectedFormat == "PDF") {
+                                        val file = LaporanKeuanganExportHelper.generatePdfReport(context, exportData)
+                                        LaporanKeuanganExportHelper.openFile(context, file, "application/pdf")
+                                    } else {
+                                        val file = LaporanKeuanganExportHelper.generateExcelReport(context, exportData)
+                                        LaporanKeuanganExportHelper.openFile(context, file, "text/csv")
+                                    }
+                                    onDismiss()
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Gagal membuka: ${e.message}", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1f).height(44.dp),
+                            border = BorderStroke(1.dp, GreenAccent)
+                        ) {
+                            Icon(imageVector = Icons.Filled.Visibility, contentDescription = null, modifier = Modifier.size(16.dp), tint = GreenAccent)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Buka File", fontSize = 13.sp, color = GreenAccent, fontWeight = FontWeight.SemiBold)
+                        }
+
+                        if (selectedFormat == "PDF") {
+                            OutlinedButton(
+                                onClick = {
+                                    try {
+                                        val file = LaporanKeuanganExportHelper.generatePdfReport(context, exportData)
+                                        LaporanKeuanganExportHelper.printPdf(context, file, "Laporan_Keuangan_${periodSubtitle}")
+                                        onDismiss()
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "Gagal mencetak: ${e.message}", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.weight(1f).height(44.dp),
+                                border = BorderStroke(1.dp, Color(0xFF64748B))
+                            ) {
+                                Icon(imageVector = Icons.Filled.Print, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color(0xFF64748B))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Cetak PDF", fontSize = 13.sp, color = Color(0xFF64748B), fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+
+                        Button(
+                            onClick = {
+                                try {
+                                    if (selectedFormat == "PDF") {
+                                        val file = LaporanKeuanganExportHelper.generatePdfReport(context, exportData)
+                                        LaporanKeuanganExportHelper.shareFile(
+                                            context,
+                                            file,
+                                            "application/pdf",
+                                            "Laporan Keuangan Primaraga Gym ($periodSubtitle)"
+                                        )
+                                    } else {
+                                        val file = LaporanKeuanganExportHelper.generateExcelReport(context, exportData)
+                                        LaporanKeuanganExportHelper.shareFile(
+                                            context,
+                                            file,
+                                            "text/csv",
+                                            "Laporan Keuangan Primaraga Gym ($periodSubtitle)"
+                                        )
+                                    }
+                                    onDismiss()
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Gagal membagikan: ${e.message}", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1.3f).height(44.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = GreenAccent)
+                        ) {
+                            Icon(imageVector = Icons.Filled.Share, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Bagikan Laporan", fontSize = 13.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                } else {
+                    // PHONE LAYOUT: Primary Bagikan Button (Full Width) + 2 Equal Secondary Buttons Row
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                try {
+                                    if (selectedFormat == "PDF") {
+                                        val file = LaporanKeuanganExportHelper.generatePdfReport(context, exportData)
+                                        LaporanKeuanganExportHelper.shareFile(
+                                            context,
+                                            file,
+                                            "application/pdf",
+                                            "Laporan Keuangan Primaraga Gym ($periodSubtitle)"
+                                        )
+                                    } else {
+                                        val file = LaporanKeuanganExportHelper.generateExcelReport(context, exportData)
+                                        LaporanKeuanganExportHelper.shareFile(
+                                            context,
+                                            file,
+                                            "text/csv",
+                                            "Laporan Keuangan Primaraga Gym ($periodSubtitle)"
+                                        )
+                                    }
+                                    onDismiss()
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Gagal membagikan: ${e.message}", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(46.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = GreenAccent)
+                        ) {
+                            Icon(imageVector = Icons.Filled.Share, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color.White)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (selectedFormat == "PDF") "Bagikan PDF (WhatsApp / File)" else "Bagikan File Excel",
+                                fontSize = 13.sp,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1
+                            )
+                        }
+
+                        if (selectedFormat == "PDF") {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedButton(
+                                    onClick = {
+                                        try {
+                                            val file = LaporanKeuanganExportHelper.generatePdfReport(context, exportData)
+                                            LaporanKeuanganExportHelper.openFile(context, file, "application/pdf")
+                                            onDismiss()
+                                        } catch (e: Exception) {
+                                            Toast.makeText(context, "Gagal membuka: ${e.message}", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(42.dp),
+                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                                    border = BorderStroke(1.dp, GreenAccent)
+                                ) {
+                                    Icon(imageVector = Icons.Filled.Visibility, contentDescription = null, modifier = Modifier.size(15.dp), tint = GreenAccent)
+                                    Spacer(modifier = Modifier.width(5.dp))
+                                    Text("Buka File", fontSize = 12.sp, color = GreenAccent, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                                }
+
+                                OutlinedButton(
+                                    onClick = {
+                                        try {
+                                            val file = LaporanKeuanganExportHelper.generatePdfReport(context, exportData)
+                                            LaporanKeuanganExportHelper.printPdf(context, file, "Laporan_Keuangan_${periodSubtitle}")
+                                            onDismiss()
+                                        } catch (e: Exception) {
+                                            Toast.makeText(context, "Gagal mencetak: ${e.message}", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(42.dp),
+                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                                    border = BorderStroke(1.dp, Color(0xFF64748B))
+                                ) {
+                                    Icon(imageVector = Icons.Filled.Print, contentDescription = null, modifier = Modifier.size(15.dp), tint = Color(0xFF64748B))
+                                    Spacer(modifier = Modifier.width(5.dp))
+                                    Text("Cetak PDF", fontSize = 12.sp, color = Color(0xFF64748B), fontWeight = FontWeight.SemiBold, maxLines = 1)
+                                }
+                            }
+                        } else {
+                            OutlinedButton(
+                                onClick = {
+                                    try {
+                                        val file = LaporanKeuanganExportHelper.generateExcelReport(context, exportData)
+                                        LaporanKeuanganExportHelper.openFile(context, file, "text/csv")
+                                        onDismiss()
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "Gagal membuka: ${e.message}", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(42.dp),
+                                border = BorderStroke(1.dp, GreenAccent)
+                            ) {
+                                Icon(imageVector = Icons.Filled.Visibility, contentDescription = null, modifier = Modifier.size(16.dp), tint = GreenAccent)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Buka di Excel / Google Sheets", fontSize = 12.sp, color = GreenAccent, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 }

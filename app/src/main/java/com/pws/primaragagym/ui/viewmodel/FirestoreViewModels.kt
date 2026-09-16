@@ -1083,13 +1083,14 @@ data class KeuanganUiState(
     val todayNetProfit: Long = 0,           // Laba Bersih Hari Ini (Revenue - Expense)
     val monthRevenue: Long = 0,
     val todayTransactions: Int = 0,
-    val chartFilter: String = "7_HARI",     // "HARI_INI", "7_HARI", "BULAN_INI", "PILIH_TANGGAL"
+    val chartFilter: String = "HARI_INI",     // "HARI_INI", "7_HARI", "BULAN_INI", "PILIH_TANGGAL"
     val selectedCustomDate: Date? = null,
     val chartPoints: List<FinancialChartPoint> = emptyList(),
     val filteredTotalIncome: Long = 0,
     val filteredTotalExpense: Long = 0,
     val filteredNetProfit: Long = 0,
     val recentTransactions: List<FirestorePayment> = emptyList(),
+    val filteredPayments: List<FirestorePayment> = emptyList(),
     val error: String? = null,
     val successMessage: String? = null,
     val branchId: String = ""
@@ -1333,7 +1334,8 @@ class KeuanganViewModel : ViewModel() {
                         filteredTotalIncome = totIncome,
                         filteredTotalExpense = totExpense,
                         filteredNetProfit = totIncome - totExpense,
-                        recentTransactions = payments.take(20)
+                        recentTransactions = payments.take(20),
+                        filteredPayments = payments
                     )
                 }
             } catch (e: Exception) {
