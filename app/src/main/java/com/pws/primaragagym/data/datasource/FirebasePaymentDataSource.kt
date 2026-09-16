@@ -23,7 +23,11 @@ class FirebasePaymentDataSource {
         paymentMethod: String,
         paymentType: String,
         planName: String = "",
-        proofUrl: String? = null
+        proofUrl: String? = null,
+        transactionType: String = "INCOME",
+        category: String = "",
+        notes: String = "",
+        transactionDate: Date = Date()
     ): Result<String> {
         return try {
             val invoiceNumber = generateInvoiceNumber()
@@ -36,9 +40,12 @@ class FirebasePaymentDataSource {
                 "amount" to amount,
                 "paymentMethod" to paymentMethod,
                 "paymentType" to paymentType,
+                "transactionType" to transactionType,
+                "category" to category,
+                "notes" to notes,
                 "status" to "PAID",
-                "paidAt" to Date(),
-                "createdAt" to Date(),
+                "paidAt" to transactionDate,
+                "createdAt" to transactionDate,
                 "updatedAt" to Date()
             )
             if (!proofUrl.isNullOrBlank()) {
@@ -64,34 +71,36 @@ class FirebasePaymentDataSource {
         branchId: String,
         startDate: Date? = null,
         endDate: Date? = null,
-        limit: Int = 50,
+        limit: Int = 100,
         lastDocumentId: String? = null
     ): Result<List<com.pws.primaragagym.domain.model.FirestorePayment>> {
         return try {
-            var query: Query = paymentsCollection
-                .whereEqualTo("branchId", branchId)
-                .orderBy("paidAt", Query.Direction.DESCENDING)
-                .limit(limit.toLong())
+            val snapshot = try {
+                if (branchId.isNotBlank()) {
+                    val bSnap = paymentsCollection.whereEqualTo("branchId", branchId).get().await()
+                    if (bSnap.isEmpty) {
+                        paymentsCollection.get().await()
+                    } else bSnap
+                } else {
+                    paymentsCollection.get().await()
+                }
+            } catch (_: Exception) {
+                paymentsCollection.get().await()
+            }
+
+            var payments = snapshot.documents.mapNotNull { doc ->
+                doc.toObject(com.pws.primaragagym.domain.model.FirestorePayment::class.java)
+            }.filter { payment ->
+                branchId.isBlank() || payment.branchId.isBlank() || payment.branchId == branchId
+            }
 
             if (startDate != null) {
-                query = query.whereGreaterThanOrEqualTo("paidAt", startDate)
+                payments = payments.filter { (it.paidAt ?: it.createdAt) != null && (it.paidAt ?: it.createdAt)!!.time >= startDate.time }
             }
-
             if (endDate != null) {
-                query = query.whereLessThan("paidAt", endDate)
+                payments = payments.filter { (it.paidAt ?: it.createdAt) != null && (it.paidAt ?: it.createdAt)!!.time <= endDate.time }
             }
-
-            if (lastDocumentId != null) {
-                val lastDoc = paymentsCollection.document(lastDocumentId).get().await()
-                if (lastDoc.exists()) {
-                    query = query.startAfter(lastDoc)
-                }
-            }
-
-            val snapshot = query.get().await()
-            val payments = snapshot.documents.mapNotNull { doc ->
-                doc.toObject(com.pws.primaragagym.domain.model.FirestorePayment::class.java)
-            }
+            payments = payments.sortedByDescending { it.paidAt ?: it.createdAt }.take(limit)
             Result.success(payments)
         } catch (e: Exception) {
             Result.failure(Exception("Gagal memuat data pembayaran. ${e.message}"))
@@ -126,17 +135,35 @@ class FirebasePaymentDataSource {
     suspend fun getTodayRevenue(branchId: String): Result<Long> {
         return try {
             val startOfDay = getStartOfDay()
+            val endOfDay = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, 23)
+                set(Calendar.MINUTE, 59)
+                set(Calendar.SECOND, 59)
+                set(Calendar.MILLISECOND, 999)
+            }.time
 
-            val snapshot = paymentsCollection
-                .whereEqualTo("branchId", branchId)
-                .whereEqualTo("status", "PAID")
-                .whereGreaterThanOrEqualTo("paidAt", startOfDay)
-                .get()
-                .await()
+            val snapshot = try {
+                if (branchId.isNotBlank()) {
+                    val bSnap = paymentsCollection.whereEqualTo("branchId", branchId).get().await()
+                    if (bSnap.isEmpty) {
+                        paymentsCollection.get().await()
+                    } else bSnap
+                } else {
+                    paymentsCollection.get().await()
+                }
+            } catch (_: Exception) {
+                paymentsCollection.get().await()
+            }
 
-            val totalRevenue = snapshot.documents
-                .mapNotNull { it.getLong("amount") ?: 0L }
-                .sum()
+            val totalRevenue = snapshot.documents.mapNotNull { doc ->
+                doc.toObject(com.pws.primaragagym.domain.model.FirestorePayment::class.java)
+            }.filter { payment ->
+                val pDate = payment.paidAt ?: payment.createdAt
+                val isToday = pDate != null && pDate.time >= startOfDay.time && pDate.time <= endOfDay.time
+                val isIncome = payment.transactionType != "EXPENSE"
+                val branchMatches = branchId.isBlank() || payment.branchId.isBlank() || payment.branchId == branchId
+                isToday && isIncome && branchMatches
+            }.sumOf { it.amount }
 
             Result.success(totalRevenue)
         } catch (e: Exception) {
@@ -144,16 +171,67 @@ class FirebasePaymentDataSource {
         }
     }
 
+    suspend fun getTodayExpense(branchId: String): Result<Long> {
+        return try {
+            val startOfDay = getStartOfDay()
+            val endOfDay = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, 23)
+                set(Calendar.MINUTE, 59)
+                set(Calendar.SECOND, 59)
+                set(Calendar.MILLISECOND, 999)
+            }.time
+
+            val snapshot = try {
+                if (branchId.isNotBlank()) {
+                    val bSnap = paymentsCollection.whereEqualTo("branchId", branchId).get().await()
+                    if (bSnap.isEmpty) {
+                        paymentsCollection.get().await()
+                    } else bSnap
+                } else {
+                    paymentsCollection.get().await()
+                }
+            } catch (_: Exception) {
+                paymentsCollection.get().await()
+            }
+
+            val totalExpense = snapshot.documents.mapNotNull { doc ->
+                doc.toObject(com.pws.primaragagym.domain.model.FirestorePayment::class.java)
+            }.filter { payment ->
+                val pDate = payment.paidAt ?: payment.createdAt
+                val isToday = pDate != null && pDate.time >= startOfDay.time && pDate.time <= endOfDay.time
+                val isExpense = payment.transactionType == "EXPENSE"
+                val branchMatches = branchId.isBlank() || payment.branchId.isBlank() || payment.branchId == branchId
+                isToday && isExpense && branchMatches
+            }.sumOf { it.amount }
+
+            Result.success(totalExpense)
+        } catch (e: Exception) {
+            Result.failure(Exception("Gagal memuat pengeluaran hari ini. ${e.message}"))
+        }
+    }
+
     suspend fun getTodayRevenueByMethod(branchId: String): Result<Map<String, Long>> {
         return try {
             val startOfDay = getStartOfDay()
+            val endOfDay = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, 23)
+                set(Calendar.MINUTE, 59)
+                set(Calendar.SECOND, 59)
+                set(Calendar.MILLISECOND, 999)
+            }.time
 
-            val snapshot = paymentsCollection
-                .whereEqualTo("branchId", branchId)
-                .whereEqualTo("status", "PAID")
-                .whereGreaterThanOrEqualTo("paidAt", startOfDay)
-                .get()
-                .await()
+            val snapshot = try {
+                if (branchId.isNotBlank()) {
+                    val bSnap = paymentsCollection.whereEqualTo("branchId", branchId).get().await()
+                    if (bSnap.isEmpty) {
+                        paymentsCollection.get().await()
+                    } else bSnap
+                } else {
+                    paymentsCollection.get().await()
+                }
+            } catch (_: Exception) {
+                paymentsCollection.get().await()
+            }
 
             val revenueByMethod = mutableMapOf(
                 "CASH" to 0L,
@@ -161,10 +239,23 @@ class FirebasePaymentDataSource {
                 "QRIS" to 0L
             )
 
-            snapshot.documents.forEach { doc ->
-                val method = doc.getString("paymentMethod") ?: "CASH"
-                val amount = doc.getLong("amount") ?: 0L
-                revenueByMethod[method] = (revenueByMethod[method] ?: 0L) + amount
+            snapshot.documents.mapNotNull { doc ->
+                doc.toObject(com.pws.primaragagym.domain.model.FirestorePayment::class.java)
+            }.filter { payment ->
+                val pDate = payment.paidAt ?: payment.createdAt
+                val isToday = pDate != null && pDate.time >= startOfDay.time && pDate.time <= endOfDay.time
+                val isIncome = payment.transactionType != "EXPENSE"
+                val branchMatches = branchId.isBlank() || payment.branchId.isBlank() || payment.branchId == branchId
+                isToday && isIncome && branchMatches
+            }.forEach { payment ->
+                val method = payment.paymentMethod.uppercase()
+                val targetKey = when {
+                    method.contains("CASH") -> "CASH"
+                    method.contains("TRANSFER") -> "TRANSFER"
+                    method.contains("QRIS") -> "QRIS"
+                    else -> "CASH"
+                }
+                revenueByMethod[targetKey] = (revenueByMethod[targetKey] ?: 0L) + payment.amount
             }
 
             Result.success(revenueByMethod)

@@ -653,7 +653,10 @@ fun UpgradeDowngradeScreen(
                                                         paymentMethod = selectedPayment!!.displayName,
                                                         paymentType = paymentType,
                                                         planName = "$actionPlanPrefix ${selected.name} ($durationFormatted)",
-                                                        proofUrl = finalProofUrl
+                                                        proofUrl = finalProofUrl,
+                                                        transactionType = "INCOME",
+                                                        category = "Pembayaran Membership",
+                                                        notes = "$actionPlanPrefix membership"
                                                     )
 
                                                     withContext(Dispatchers.Main) {

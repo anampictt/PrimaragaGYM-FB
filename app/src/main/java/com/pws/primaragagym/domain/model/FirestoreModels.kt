@@ -172,7 +172,10 @@ data class FirestorePayment(
     val branchId: String = "",
     val amount: Long = 0,
     val paymentMethod: String = "CASH", // CASH, TRANSFER, QRIS
-    val paymentType: String = "NEW_MEMBERSHIP", // NEW_MEMBERSHIP, RENEWAL, UPGRADE, DOWNGRADE, OTHER
+    val paymentType: String = "NEW_MEMBERSHIP", // NEW_MEMBERSHIP, RENEWAL, UPGRADE, DOWNGRADE, OTHER, EXPENSE
+    val transactionType: String = "INCOME", // INCOME, EXPENSE
+    val category: String = "", // MEMBERSHIP, MAKANAN, GAJI_KARYAWAN, LISTRIK_AIR, ALAT_GYM, OPERASIONAL, LAINNYA
+    val notes: String = "",
     val planName: String = "",
     val proofUrl: String? = null,
     val status: String = "PAID", // PAID, PENDING, CANCELLED

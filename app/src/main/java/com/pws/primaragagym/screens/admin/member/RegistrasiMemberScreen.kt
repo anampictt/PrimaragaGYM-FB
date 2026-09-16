@@ -635,7 +635,10 @@ fun RegistrasiMemberScreen(
                                                 paymentMethod = memberObj.paymentMethod,
                                                 paymentType = "REGISTRASI",
                                                 planName = "Registrasi ${memberObj.planName} (${memberObj.duration})",
-                                                proofUrl = finalPaymentProofUrl
+                                                proofUrl = finalPaymentProofUrl,
+                                                transactionType = "INCOME",
+                                                category = "Pembayaran Membership",
+                                                notes = "Registrasi member baru"
                                             )
                                         } catch (_: Exception) {}
                                     }

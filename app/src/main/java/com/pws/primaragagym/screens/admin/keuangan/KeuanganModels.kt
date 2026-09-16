@@ -31,6 +31,12 @@ object KeuanganColors {
     val TransferBg = Color(0xFFE3F2FD)
     val QrisBg = Color(0xFFE8F5E9)
 
+    // Expense & Profit colors
+    val ExpenseRed = Color(0xFFE53935)
+    val ExpenseBg = Color(0xFFFFEBEE)
+    val ProfitBlue = Color(0xFF1E88E5)
+    val ProfitBg = Color(0xFFE3F2FD)
+
     // Unread notification
     val UnreadBackground = Color(0xFFF0F7F2)
 }

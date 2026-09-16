@@ -505,7 +505,10 @@ fun PerpanjangMembershipScreen(
                                                     paymentMethod = selectedPayment!!.displayName,
                                                     paymentType = "RENEWAL",
                                                     planName = "Perpanjang ${currentMember.planName} ($durationStr)",
-                                                    proofUrl = finalProofUrl
+                                                    proofUrl = finalProofUrl,
+                                                    transactionType = "INCOME",
+                                                    category = "Pembayaran Membership",
+                                                    notes = "Perpanjang membership"
                                                 )
 
                                                 withContext(Dispatchers.Main) {

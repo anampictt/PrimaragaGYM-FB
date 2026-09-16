@@ -79,11 +79,16 @@ interface PaymentRepository {
         paymentMethod: String,
         paymentType: String,
         planName: String = "",
-        proofUrl: String? = null
+        proofUrl: String? = null,
+        transactionType: String = "INCOME",
+        category: String = "",
+        notes: String = "",
+        transactionDate: java.util.Date = java.util.Date()
     ): Result<String>
     suspend fun getPaymentsByBranch(branchId: String, startDate: java.util.Date? = null, endDate: java.util.Date? = null, limit: Int = 50, lastDocumentId: String? = null): Result<List<FirestorePayment>>
     suspend fun getPaymentsByMember(memberId: String): Result<List<FirestorePayment>>
     suspend fun getTodayRevenue(branchId: String): Result<Long>
+    suspend fun getTodayExpense(branchId: String): Result<Long>
     suspend fun getTodayRevenueByMethod(branchId: String): Result<Map<String, Long>>
     suspend fun getPaymentById(paymentId: String): Result<FirestorePayment>
     suspend fun cancelPayment(paymentId: String): Result<Unit>

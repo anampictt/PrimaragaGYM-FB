@@ -1068,11 +1068,28 @@ private fun Date?.formatTime(): String {
 // ============================================================================
 // KEUANGAN VIEWMODEL (FIRESTORE)
 // ============================================================================
+data class FinancialChartPoint(
+    val label: String,
+    val income: Long,
+    val expense: Long,
+    val net: Long = income - expense
+)
+
 data class KeuanganUiState(
-    val isLoading: Boolean = true,
-    val todayRevenue: Long = 0,
+    val isLoading: Boolean = false,
+    val isSubmitting: Boolean = false,
+    val todayRevenue: Long = 0,             // Pendapatan Kotor Hari Ini
+    val todayExpense: Long = 0,             // Pengeluaran Hari Ini
+    val todayNetProfit: Long = 0,           // Laba Bersih Hari Ini (Revenue - Expense)
     val monthRevenue: Long = 0,
     val todayTransactions: Int = 0,
+    val chartFilter: String = "7_HARI",     // "HARI_INI", "7_HARI", "BULAN_INI", "PILIH_TANGGAL"
+    val selectedCustomDate: Date? = null,
+    val chartPoints: List<FinancialChartPoint> = emptyList(),
+    val filteredTotalIncome: Long = 0,
+    val filteredTotalExpense: Long = 0,
+    val filteredNetProfit: Long = 0,
+    val recentTransactions: List<FirestorePayment> = emptyList(),
     val error: String? = null,
     val successMessage: String? = null,
     val branchId: String = ""
@@ -1092,13 +1109,15 @@ class KeuanganViewModel : ViewModel() {
 
             try {
                 val todayRevenue = paymentRepository.getTodayRevenue(branchId).getOrDefault(0L)
+                val todayExpense = paymentRepository.getTodayExpense(branchId).getOrDefault(0L)
+                val todayNetProfit = todayRevenue - todayExpense
                 
                 val calendar = Calendar.getInstance()
                 val month = calendar.get(Calendar.MONTH) + 1
                 val year = calendar.get(Calendar.YEAR)
                 val monthlyReport = reportRepository.getMonthlyReport(branchId, year, month).getOrNull()
-                val monthRevenue = monthlyReport?.totalRevenue ?: todayRevenue // Fallback to today if month report not ready
-                
+                val monthRevenue = monthlyReport?.totalRevenue ?: todayRevenue
+
                 // Fetch today's transactions count
                 val today = Date()
                 val startOfDay = Calendar.getInstance().apply {
@@ -1117,19 +1136,256 @@ class KeuanganViewModel : ViewModel() {
                     set(Calendar.MILLISECOND, 999)
                 }.time
                 
-                val paymentsResult = paymentRepository.getPaymentsByBranch(branchId, startDate = startOfDay, endDate = endOfDay, limit = 100)
-                val todayTransactions = paymentsResult.getOrDefault(emptyList()).size
+                val todayPaymentsResult = paymentRepository.getPaymentsByBranch(branchId, startDate = startOfDay, endDate = endOfDay, limit = 100)
+                val todayTransactions = todayPaymentsResult.getOrDefault(emptyList()).size
 
                 _uiState.update { state ->
                     state.copy(
-                        isLoading = false,
                         todayRevenue = todayRevenue,
+                        todayExpense = todayExpense,
+                        todayNetProfit = todayNetProfit,
                         monthRevenue = monthRevenue,
                         todayTransactions = todayTransactions
                     )
                 }
+
+                // Load chart data for current filter
+                loadChartData(branchId, _uiState.value.chartFilter, _uiState.value.selectedCustomDate)
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.message) }
+            }
+        }
+    }
+
+    fun setChartFilter(filter: String, customDate: Date? = null) {
+        val branchId = _uiState.value.branchId
+        _uiState.update { it.copy(chartFilter = filter, selectedCustomDate = customDate, isLoading = true) }
+        loadChartData(branchId, filter, customDate)
+    }
+
+    private fun loadChartData(branchId: String, filter: String, customDate: Date?) {
+        viewModelScope.launch {
+            try {
+                val (startDate, endDate) = when (filter) {
+                    "HARI_INI" -> {
+                        val s = Calendar.getInstance().apply {
+                            set(Calendar.HOUR_OF_DAY, 0)
+                            set(Calendar.MINUTE, 0)
+                            set(Calendar.SECOND, 0)
+                            set(Calendar.MILLISECOND, 0)
+                        }.time
+                        val e = Calendar.getInstance().apply {
+                            set(Calendar.HOUR_OF_DAY, 23)
+                            set(Calendar.MINUTE, 59)
+                            set(Calendar.SECOND, 59)
+                            set(Calendar.MILLISECOND, 999)
+                        }.time
+                        Pair(s, e)
+                    }
+                    "7_HARI" -> {
+                        val s = Calendar.getInstance().apply {
+                            add(Calendar.DAY_OF_YEAR, -6)
+                            set(Calendar.HOUR_OF_DAY, 0)
+                            set(Calendar.MINUTE, 0)
+                            set(Calendar.SECOND, 0)
+                            set(Calendar.MILLISECOND, 0)
+                        }.time
+                        val e = Calendar.getInstance().apply {
+                            set(Calendar.HOUR_OF_DAY, 23)
+                            set(Calendar.MINUTE, 59)
+                            set(Calendar.SECOND, 59)
+                            set(Calendar.MILLISECOND, 999)
+                        }.time
+                        Pair(s, e)
+                    }
+                    "BULAN_INI" -> {
+                        val s = Calendar.getInstance().apply {
+                            set(Calendar.DAY_OF_MONTH, 1)
+                            set(Calendar.HOUR_OF_DAY, 0)
+                            set(Calendar.MINUTE, 0)
+                            set(Calendar.SECOND, 0)
+                            set(Calendar.MILLISECOND, 0)
+                        }.time
+                        val e = Calendar.getInstance().apply {
+                            set(Calendar.DAY_OF_MONTH, getActualMaximum(Calendar.DAY_OF_MONTH))
+                            set(Calendar.HOUR_OF_DAY, 23)
+                            set(Calendar.MINUTE, 59)
+                            set(Calendar.SECOND, 59)
+                            set(Calendar.MILLISECOND, 999)
+                        }.time
+                        Pair(s, e)
+                    }
+                    "PILIH_TANGGAL" -> {
+                        val target = customDate ?: Date()
+                        val s = Calendar.getInstance().apply {
+                            time = target
+                            set(Calendar.HOUR_OF_DAY, 0)
+                            set(Calendar.MINUTE, 0)
+                            set(Calendar.SECOND, 0)
+                            set(Calendar.MILLISECOND, 0)
+                        }.time
+                        val e = Calendar.getInstance().apply {
+                            time = target
+                            set(Calendar.HOUR_OF_DAY, 23)
+                            set(Calendar.MINUTE, 59)
+                            set(Calendar.SECOND, 59)
+                            set(Calendar.MILLISECOND, 999)
+                        }.time
+                        Pair(s, e)
+                    }
+                    else -> Pair(null, null)
+                }
+
+                val paymentsResult = paymentRepository.getPaymentsByBranch(
+                    branchId = branchId,
+                    startDate = startDate,
+                    endDate = endDate,
+                    limit = 300
+                )
+                val payments = paymentsResult.getOrDefault(emptyList())
+
+                val points = when (filter) {
+                    "HARI_INI", "PILIH_TANGGAL" -> {
+                        val intervals = listOf(
+                            Triple("06-09", 6, 9),
+                            Triple("09-12", 9, 12),
+                            Triple("12-15", 12, 15),
+                            Triple("15-18", 15, 18),
+                            Triple("18-21", 18, 21),
+                            Triple("21-24", 21, 24)
+                        )
+                        intervals.map { (label, startHour, endHour) ->
+                            val slotPayments = payments.filter { p ->
+                                val pDate = p.paidAt ?: p.createdAt
+                                if (pDate != null) {
+                                    val cal = Calendar.getInstance().apply { time = pDate }
+                                    val h = cal.get(Calendar.HOUR_OF_DAY)
+                                    h in startHour until endHour
+                                } else false
+                            }
+                            val inc = slotPayments.filter { it.transactionType != "EXPENSE" }.sumOf { it.amount }
+                            val exp = slotPayments.filter { it.transactionType == "EXPENSE" }.sumOf { it.amount }
+                            FinancialChartPoint(label = label, income = inc, expense = exp)
+                        }
+                    }
+                    "7_HARI" -> {
+                        val dayFormat = SimpleDateFormat("EEE d", Locale("id", "ID"))
+                        (6 downTo 0).map { daysAgo ->
+                            val targetCal = Calendar.getInstance().apply {
+                                add(Calendar.DAY_OF_YEAR, -daysAgo)
+                            }
+                            val dayStart = Calendar.getInstance().apply {
+                                time = targetCal.time
+                                set(Calendar.HOUR_OF_DAY, 0)
+                                set(Calendar.MINUTE, 0)
+                                set(Calendar.SECOND, 0)
+                                set(Calendar.MILLISECOND, 0)
+                            }.time
+                            val dayEnd = Calendar.getInstance().apply {
+                                time = targetCal.time
+                                set(Calendar.HOUR_OF_DAY, 23)
+                                set(Calendar.MINUTE, 59)
+                                set(Calendar.SECOND, 59)
+                                set(Calendar.MILLISECOND, 999)
+                            }.time
+
+                            val dayPayments = payments.filter { p ->
+                                val pDate = p.paidAt ?: p.createdAt
+                                pDate != null && pDate.time >= dayStart.time && pDate.time <= dayEnd.time
+                            }
+                            val inc = dayPayments.filter { it.transactionType != "EXPENSE" }.sumOf { it.amount }
+                            val exp = dayPayments.filter { it.transactionType == "EXPENSE" }.sumOf { it.amount }
+                            FinancialChartPoint(label = dayFormat.format(targetCal.time), income = inc, expense = exp)
+                        }
+                    }
+                    "BULAN_INI" -> {
+                        val buckets = listOf(
+                            Triple("Tgl 1-7", 1, 7),
+                            Triple("Tgl 8-14", 8, 14),
+                            Triple("Tgl 15-21", 15, 21),
+                            Triple("Tgl 22-28", 22, 28),
+                            Triple("Tgl 29+", 29, 31)
+                        )
+                        buckets.map { (label, startD, endD) ->
+                            val bPayments = payments.filter { p ->
+                                val pDate = p.paidAt ?: p.createdAt
+                                if (pDate != null) {
+                                    val cal = Calendar.getInstance().apply { time = pDate }
+                                    val d = cal.get(Calendar.DAY_OF_MONTH)
+                                    d in startD..endD
+                                } else false
+                            }
+                            val inc = bPayments.filter { it.transactionType != "EXPENSE" }.sumOf { it.amount }
+                            val exp = bPayments.filter { it.transactionType == "EXPENSE" }.sumOf { it.amount }
+                            FinancialChartPoint(label = label, income = inc, expense = exp)
+                        }
+                    }
+                    else -> emptyList()
+                }
+
+                val totIncome = payments.filter { it.transactionType != "EXPENSE" }.sumOf { it.amount }
+                val totExpense = payments.filter { it.transactionType == "EXPENSE" }.sumOf { it.amount }
+
+                _uiState.update { state ->
+                    state.copy(
+                        isLoading = false,
+                        chartPoints = points,
+                        filteredTotalIncome = totIncome,
+                        filteredTotalExpense = totExpense,
+                        filteredNetProfit = totIncome - totExpense,
+                        recentTransactions = payments.take(20)
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false, error = e.message) }
+            }
+        }
+    }
+
+    fun recordTransaction(
+        type: String, // "INCOME" or "EXPENSE"
+        category: String,
+        amount: Long,
+        paymentMethod: String,
+        notes: String = "",
+        title: String = "",
+        memberId: String = "",
+        memberName: String = "",
+        proofUrl: String? = null,
+        transactionDate: Date = Date(),
+        branchId: String = "",
+        onSuccess: (() -> Unit)? = null,
+        onError: ((String?) -> Unit)? = null
+    ) {
+        val targetBranchId = branchId.ifBlank { _uiState.value.branchId }
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSubmitting = true, error = null) }
+
+            val pType = if (type == "EXPENSE") "PENGELUARAN" else "PEMASUKAN"
+            val effectivePlanName = if (title.isNotBlank()) title else category
+
+            paymentRepository.createPayment(
+                memberId = memberId,
+                memberName = memberName,
+                membershipId = null,
+                branchId = targetBranchId,
+                amount = amount,
+                paymentMethod = paymentMethod,
+                paymentType = pType,
+                planName = effectivePlanName,
+                proofUrl = proofUrl,
+                transactionType = type,
+                category = category,
+                notes = notes,
+                transactionDate = transactionDate
+            ).onSuccess {
+                _uiState.update { it.copy(isSubmitting = false, successMessage = "Transaksi berhasil dicatat") }
+                loadSummary(targetBranchId)
+                onSuccess?.invoke()
+            }.onFailure { e ->
+                _uiState.update { it.copy(isSubmitting = false, error = e.message) }
+                onError?.invoke(e.message)
             }
         }
     }
@@ -1144,29 +1400,17 @@ class KeuanganViewModel : ViewModel() {
         planName: String,
         proofUrl: String? = null
     ) {
-        val branchId = _uiState.value.branchId
-        if (branchId.isEmpty()) return
-
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
-
-            paymentRepository.createPayment(
-                memberId = memberId,
-                memberName = memberName,
-                membershipId = membershipId,
-                branchId = branchId,
-                amount = amount,
-                paymentMethod = paymentMethod,
-                paymentType = paymentType,
-                planName = planName,
-                proofUrl = proofUrl
-            ).onSuccess {
-                _uiState.update { it.copy(isLoading = false, successMessage = "Pembayaran berhasil dicatat") }
-                loadSummary(branchId)
-            }.onFailure { e ->
-                _uiState.update { it.copy(isLoading = false, error = e.message) }
-            }
-        }
+        recordTransaction(
+            type = "INCOME",
+            category = "Pembayaran Member",
+            amount = amount,
+            paymentMethod = paymentMethod,
+            notes = "",
+            title = planName,
+            memberId = memberId,
+            memberName = memberName,
+            proofUrl = proofUrl
+        )
     }
 
     fun clearMessages() {

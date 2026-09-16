@@ -156,8 +156,12 @@ class PaymentRepositoryImpl : PaymentRepository {
         paymentMethod: String,
         paymentType: String,
         planName: String,
-        proofUrl: String?
-    ): Result<String> = dataSource.createPayment(memberId, memberName, membershipId, branchId, amount, paymentMethod, paymentType, planName, proofUrl)
+        proofUrl: String?,
+        transactionType: String,
+        category: String,
+        notes: String,
+        transactionDate: Date
+    ): Result<String> = dataSource.createPayment(memberId, memberName, membershipId, branchId, amount, paymentMethod, paymentType, planName, proofUrl, transactionType, category, notes, transactionDate)
 
     override suspend fun getPaymentsByBranch(branchId: String, startDate: Date?, endDate: Date?, limit: Int, lastDocumentId: String?): Result<List<FirestorePayment>> =
         dataSource.getPaymentsByBranch(branchId, startDate, endDate, limit, lastDocumentId)
@@ -167,6 +171,9 @@ class PaymentRepositoryImpl : PaymentRepository {
 
     override suspend fun getTodayRevenue(branchId: String): Result<Long> =
         dataSource.getTodayRevenue(branchId)
+
+    override suspend fun getTodayExpense(branchId: String): Result<Long> =
+        dataSource.getTodayExpense(branchId)
 
     override suspend fun getTodayRevenueByMethod(branchId: String): Result<Map<String, Long>> =
         dataSource.getTodayRevenueByMethod(branchId)
