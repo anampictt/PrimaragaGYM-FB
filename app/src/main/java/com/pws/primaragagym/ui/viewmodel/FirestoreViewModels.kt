@@ -258,7 +258,7 @@ class MemberListViewModel : ViewModel() {
 
             val matchesFilter = when (status) {
                 null -> true
-                MemberStatus.ACTIVE -> member.status == MemberStatus.ACTIVE
+                MemberStatus.ACTIVE -> member.status == MemberStatus.ACTIVE || member.status == MemberStatus.EXPIRING_SOON
                 MemberStatus.EXPIRING_SOON -> member.status == MemberStatus.EXPIRING_SOON
                 MemberStatus.EXPIRED -> member.status == MemberStatus.EXPIRED
                 MemberStatus.SUSPENDED -> member.status == MemberStatus.SUSPENDED
@@ -417,6 +417,7 @@ data class CheckinUiState(
     val activities: List<CheckinActivityMock> = emptyList(),
     val todayCheckins: List<FirestoreCheckin> = emptyList(),
     val allCheckins: List<FirestoreCheckin> = emptyList(),
+    val allMembers: List<FirestoreMember> = emptyList(),
     val error: String? = null,
     val successMessage: String? = null,
     val branchId: String = "",
@@ -463,12 +464,14 @@ class CheckinFirestoreViewModel : ViewModel() {
             try {
                 val allCheckins = checkinRepository.getAllCheckins(branchId, 150)
                 val todayCheckins = checkinRepository.getTodayCheckins(branchId)
+                val allMembers = memberRepository.getMembers(branchId = branchId.ifBlank { null }, limit = 200)
 
                 _uiState.update { state ->
                     state.copy(
                         isLoading = false,
                         allCheckins = allCheckins.getOrDefault(emptyList()),
-                        todayCheckins = todayCheckins.getOrDefault(emptyList())
+                        todayCheckins = todayCheckins.getOrDefault(emptyList()),
+                        allMembers = allMembers.getOrDefault(emptyList())
                     )
                 }
             } catch (e: Exception) {
@@ -575,6 +578,10 @@ class CheckinFirestoreViewModel : ViewModel() {
 
     fun performCheckin(branchIdParam: String = "") {
         val member = _uiState.value.memberToProcess ?: return
+        if (member.status.equals("SUSPENDED", ignoreCase = true) || member.status.equals("BANNED", ignoreCase = true)) {
+            _uiState.update { it.copy(isLoading = false, error = "Member sedang di-suspend dan tidak dapat melakukan check-in.") }
+            return
+        }
         val branchId = branchIdParam.ifEmpty { _uiState.value.branchId.ifEmpty { member.branchId } }
         val membershipId = _uiState.value.memberMembership?.membershipId ?: member.activeMembershipId ?: member.planId
 

@@ -10,6 +10,7 @@ interface MemberRepository {
     suspend fun searchMembers(query: String, branchId: String? = null, limit: Int = 25): Result<List<FirestoreMember>>
     suspend fun createMember(member: FirestoreMember): Result<String>
     suspend fun updateMember(member: FirestoreMember): Result<Unit>
+    suspend fun updateMemberStatus(memberId: String, status: String): Result<Unit>
     suspend fun deleteMember(memberId: String): Result<Unit>
     suspend fun getActiveMembersCount(branchId: String): Result<Int>
     suspend fun getNewMembersCount(branchId: String, date: java.util.Date): Result<Int>

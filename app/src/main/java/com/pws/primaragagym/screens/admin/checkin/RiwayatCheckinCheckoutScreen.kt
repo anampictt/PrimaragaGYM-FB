@@ -22,7 +22,14 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Login
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Refresh
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -31,6 +38,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -41,6 +49,11 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pws.primaragagym.domain.model.FirestoreCheckin
+import com.pws.primaragagym.domain.model.FirestoreMember
+import com.pws.primaragagym.screens.admin.member.MemberStatus
+import com.pws.primaragagym.screens.admin.member.resolveMemberStatus
+import com.pws.primaragagym.screens.admin.member.dummyMembers
+import com.pws.primaragagym.screens.admin.member.card.formatCardDate
 import com.pws.primaragagym.ui.viewmodel.AuthViewModel
 import com.pws.primaragagym.ui.viewmodel.CheckinFirestoreViewModel
 import java.text.SimpleDateFormat
@@ -67,6 +80,7 @@ fun RiwayatCheckinCheckoutScreen(
     onBackClick: () -> Unit,
     onMemberClick: (String) -> Unit
 ) {
+    val context = LocalContext.current
     val configuration = LocalConfiguration.current
     val isTablet = configuration.screenWidthDp >= 600
 
@@ -96,6 +110,63 @@ fun RiwayatCheckinCheckoutScreen(
     var selectedFilter by remember { mutableStateOf("Semua") }
 
     val rawCheckins = uiState.allCheckins
+    val rawMembers = uiState.allMembers
+
+    // Data semua member dengan fallback ke dummy jika offline/kosong
+    val allMembers = remember(rawMembers) {
+        if (rawMembers.isNotEmpty()) {
+            rawMembers
+        } else {
+            dummyMembers.map { dummy ->
+                FirestoreMember(
+                    memberId = dummy.id,
+                    memberCode = dummy.memberCode,
+                    fullName = dummy.name,
+                    phoneNumber = dummy.phone,
+                    status = if (dummy.status == MemberStatus.ACTIVE || dummy.status == MemberStatus.EXPIRING_SOON) "ACTIVE" else "EXPIRED",
+                    planName = dummy.planName,
+                    startDate = dummy.startDate,
+                    expiredDate = dummy.expiredDate
+                )
+            }
+        }
+    }
+
+    // Kumpulan ID dan Kode Member yang sudah pernah check-in
+    val checkedInMemberIds = remember(rawCheckins) {
+        rawCheckins.mapNotNull { it.memberId.trim().ifBlank { null } }.toSet()
+    }
+    val checkedInMemberCodes = remember(rawCheckins) {
+        rawCheckins.mapNotNull { it.memberCode.trim().ifBlank { null } }.toSet()
+    }
+
+    // Member aktif yang BELUM PERNAH check-in sama sekali
+    val activeMembersNeverCheckedIn = remember(allMembers, checkedInMemberIds, checkedInMemberCodes) {
+        allMembers.filter { member ->
+            val resolvedStatus = resolveMemberStatus(member.status, member.expiredDate, member.createdAt)
+            val isActive = resolvedStatus == MemberStatus.ACTIVE || resolvedStatus == MemberStatus.EXPIRING_SOON
+            val hasCheckedIn = checkedInMemberIds.contains(member.memberId.trim()) ||
+                    (member.memberCode.isNotBlank() && checkedInMemberCodes.contains(member.memberCode.trim()))
+            isActive && !hasCheckedIn
+        }
+    }
+
+    val isNeverCheckedInFilter = selectedFilter == "Belum Pernah Check-in"
+
+    // Filter pencarian member tanpa check-in
+    val filteredNeverCheckedIn = remember(activeMembersNeverCheckedIn, searchQuery) {
+        val q = searchQuery.trim()
+        if (q.isEmpty()) {
+            activeMembersNeverCheckedIn
+        } else {
+            activeMembersNeverCheckedIn.filter {
+                it.fullName.contains(q, ignoreCase = true) ||
+                it.memberCode.contains(q, ignoreCase = true) ||
+                it.planName.contains(q, ignoreCase = true)
+            }
+        }
+    }
+
     val calendarToday = remember {
         Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, 0)
@@ -105,25 +176,27 @@ fun RiwayatCheckinCheckoutScreen(
         }.time
     }
 
-    // Filter data
-    val filteredCheckins = rawCheckins.filter { checkin ->
-        val date = checkin.checkInAt ?: checkin.createdAt
-        val matchesFilter = when (selectedFilter) {
-            "Hari Ini" -> date != null && !date.before(calendarToday)
-            "Sedang di Gym" -> checkin.status.equals("CHECKED_IN", ignoreCase = true)
-            "Sudah Check-out" -> checkin.status.equals("CHECKED_OUT", ignoreCase = true)
-            else -> true
-        }
+    // Filter data checkin biasa
+    val filteredCheckins = remember(rawCheckins, selectedFilter, searchQuery, calendarToday) {
+        rawCheckins.filter { checkin ->
+            val date = checkin.checkInAt ?: checkin.createdAt
+            val matchesFilter = when (selectedFilter) {
+                "Hari Ini" -> date != null && !date.before(calendarToday)
+                "Sedang di Gym" -> checkin.status.equals("CHECKED_IN", ignoreCase = true)
+                "Sudah Check-out" -> checkin.status.equals("CHECKED_OUT", ignoreCase = true)
+                else -> true
+            }
 
-        val q = searchQuery.trim()
-        val matchesSearch = if (q.isEmpty()) {
-            true
-        } else {
-            checkin.memberName.contains(q, ignoreCase = true) ||
-            checkin.memberCode.contains(q, ignoreCase = true)
-        }
+            val q = searchQuery.trim()
+            val matchesSearch = if (q.isEmpty()) {
+                true
+            } else {
+                checkin.memberName.contains(q, ignoreCase = true) ||
+                checkin.memberCode.contains(q, ignoreCase = true)
+            }
 
-        matchesFilter && matchesSearch
+            matchesFilter && matchesSearch
+        }
     }
 
     // Counters
@@ -189,31 +262,54 @@ fun RiwayatCheckinCheckoutScreen(
                             HeaderSummarySection(
                                 totalToday = totalCheckinToday,
                                 totalActive = totalActiveNow,
-                                totalOut = totalCheckedOut
+                                totalOut = totalCheckedOut,
+                                isTablet = true
                             )
                             Spacer(modifier = Modifier.height(16.dp))
                             SearchAndFilterBar(
                                 searchQuery = searchQuery,
                                 onSearchQueryChange = { searchQuery = it },
                                 selectedFilter = selectedFilter,
-                                onFilterSelected = { selectedFilter = it }
+                                onFilterSelected = { selectedFilter = it },
+                                neverCheckedInCount = activeMembersNeverCheckedIn.size
                             )
                         }
                     }
 
-                    if (filteredCheckins.isEmpty()) {
-                        item(span = { GridItemSpan(2) }) {
-                            EmptyHistoryCard(searchQuery = searchQuery, selectedFilter = selectedFilter)
+                    if (isNeverCheckedInFilter) {
+                        if (filteredNeverCheckedIn.isEmpty()) {
+                            item(span = { GridItemSpan(2) }) {
+                                EmptyHistoryCard(searchQuery = searchQuery, selectedFilter = selectedFilter)
+                            }
+                        } else {
+                            items(filteredNeverCheckedIn, key = { it.memberId }) { member ->
+                                MemberTanpaCheckinCard(
+                                    member = member,
+                                    onClick = {
+                                        val idToOpen = member.memberCode.ifBlank { member.memberId }
+                                        if (idToOpen.isNotBlank()) onMemberClick(idToOpen)
+                                    },
+                                    onFollowUpWa = {
+                                        followUpMemberViaWhatsApp(context, member)
+                                    }
+                                )
+                            }
                         }
                     } else {
-                        items(filteredCheckins, key = { it.checkinId }) { checkin ->
-                            RiwayatVisitCard(
-                                checkin = checkin,
-                                onClick = {
-                                    val idToOpen = checkin.memberCode.ifBlank { checkin.memberId }
-                                    if (idToOpen.isNotBlank()) onMemberClick(idToOpen)
-                                }
-                            )
+                        if (filteredCheckins.isEmpty()) {
+                            item(span = { GridItemSpan(2) }) {
+                                EmptyHistoryCard(searchQuery = searchQuery, selectedFilter = selectedFilter)
+                            }
+                        } else {
+                            items(filteredCheckins, key = { it.checkinId }) { checkin ->
+                                RiwayatVisitCard(
+                                    checkin = checkin,
+                                    onClick = {
+                                        val idToOpen = checkin.memberCode.ifBlank { checkin.memberId }
+                                        if (idToOpen.isNotBlank()) onMemberClick(idToOpen)
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -230,7 +326,8 @@ fun RiwayatCheckinCheckoutScreen(
                         HeaderSummarySection(
                             totalToday = totalCheckinToday,
                             totalActive = totalActiveNow,
-                            totalOut = totalCheckedOut
+                            totalOut = totalCheckedOut,
+                            isTablet = false
                         )
                     }
 
@@ -239,23 +336,45 @@ fun RiwayatCheckinCheckoutScreen(
                             searchQuery = searchQuery,
                             onSearchQueryChange = { searchQuery = it },
                             selectedFilter = selectedFilter,
-                            onFilterSelected = { selectedFilter = it }
+                            onFilterSelected = { selectedFilter = it },
+                            neverCheckedInCount = activeMembersNeverCheckedIn.size
                         )
                     }
 
-                    if (filteredCheckins.isEmpty()) {
-                        item {
-                            EmptyHistoryCard(searchQuery = searchQuery, selectedFilter = selectedFilter)
+                    if (isNeverCheckedInFilter) {
+                        if (filteredNeverCheckedIn.isEmpty()) {
+                            item {
+                                EmptyHistoryCard(searchQuery = searchQuery, selectedFilter = selectedFilter)
+                            }
+                        } else {
+                            items(filteredNeverCheckedIn, key = { it.memberId }) { member ->
+                                MemberTanpaCheckinCard(
+                                    member = member,
+                                    onClick = {
+                                        val idToOpen = member.memberCode.ifBlank { member.memberId }
+                                        if (idToOpen.isNotBlank()) onMemberClick(idToOpen)
+                                    },
+                                    onFollowUpWa = {
+                                        followUpMemberViaWhatsApp(context, member)
+                                    }
+                                )
+                            }
                         }
                     } else {
-                        items(filteredCheckins, key = { it.checkinId }) { checkin ->
-                            RiwayatVisitCard(
-                                checkin = checkin,
-                                onClick = {
-                                    val idToOpen = checkin.memberCode.ifBlank { checkin.memberId }
-                                    if (idToOpen.isNotBlank()) onMemberClick(idToOpen)
-                                }
-                            )
+                        if (filteredCheckins.isEmpty()) {
+                            item {
+                                EmptyHistoryCard(searchQuery = searchQuery, selectedFilter = selectedFilter)
+                            }
+                        } else {
+                            items(filteredCheckins, key = { it.checkinId }) { checkin ->
+                                RiwayatVisitCard(
+                                    checkin = checkin,
+                                    onClick = {
+                                        val idToOpen = checkin.memberCode.ifBlank { checkin.memberId }
+                                        if (idToOpen.isNotBlank()) onMemberClick(idToOpen)
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -271,11 +390,12 @@ fun RiwayatCheckinCheckoutScreen(
 private fun HeaderSummarySection(
     totalToday: Int,
     totalActive: Int,
-    totalOut: Int
+    totalOut: Int,
+    isTablet: Boolean = false
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         SummaryStatCard(
             modifier = Modifier.weight(1f),
@@ -283,7 +403,8 @@ private fun HeaderSummarySection(
             value = totalToday.toString(),
             icon = Icons.Filled.Login,
             iconTint = GreenAccent,
-            bgColor = Color(0xFFE8F5E9)
+            bgColor = Color(0xFFE8F5E9),
+            isTablet = isTablet
         )
         SummaryStatCard(
             modifier = Modifier.weight(1f),
@@ -291,7 +412,8 @@ private fun HeaderSummarySection(
             value = totalActive.toString(),
             icon = Icons.Filled.FitnessCenter,
             iconTint = OrangeAccent,
-            bgColor = Color(0xFFFFF3E0)
+            bgColor = Color(0xFFFFF3E0),
+            isTablet = isTablet
         )
         SummaryStatCard(
             modifier = Modifier.weight(1f),
@@ -299,7 +421,8 @@ private fun HeaderSummarySection(
             value = totalOut.toString(),
             icon = Icons.Filled.Logout,
             iconTint = BlueAccent,
-            bgColor = Color(0xFFE3F2FD)
+            bgColor = Color(0xFFE3F2FD),
+            isTablet = isTablet
         )
     }
 }
@@ -311,7 +434,8 @@ private fun SummaryStatCard(
     value: String,
     icon: ImageVector,
     iconTint: Color,
-    bgColor: Color
+    bgColor: Color,
+    isTablet: Boolean = false
 ) {
     Card(
         modifier = modifier,
@@ -322,11 +446,14 @@ private fun SummaryStatCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp)
+                .padding(
+                    horizontal = if (isTablet) 12.dp else 8.dp,
+                    vertical = if (isTablet) 12.dp else 10.dp
+                )
         ) {
             Box(
                 modifier = Modifier
-                    .size(32.dp)
+                    .size(if (isTablet) 32.dp else 28.dp)
                     .clip(CircleShape)
                     .background(bgColor),
                 contentAlignment = Alignment.Center
@@ -335,21 +462,29 @@ private fun SummaryStatCard(
                     imageVector = icon,
                     contentDescription = null,
                     tint = iconTint,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(if (isTablet) 18.dp else 16.dp)
                 )
             }
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = value,
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = if (isTablet) 22.sp else 18.sp
+                ),
                 color = TextPrimary
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = label,
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontSize = if (isTablet) 12.sp else 10.5.sp,
+                    lineHeight = if (isTablet) 15.sp else 13.sp,
+                    fontWeight = FontWeight.Medium
+                ),
                 color = TextSecondary,
-                maxLines = 1,
+                maxLines = 2,
+                minLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
         }
@@ -364,7 +499,8 @@ private fun SearchAndFilterBar(
     searchQuery: String,
     onSearchQueryChange: (String) -> Unit,
     selectedFilter: String,
-    onFilterSelected: (String) -> Unit
+    onFilterSelected: (String) -> Unit,
+    neverCheckedInCount: Int = 0
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         OutlinedTextField(
@@ -385,31 +521,48 @@ private fun SearchAndFilterBar(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // Filter chips
+        // Filter chips - horizontally scrollable
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            val filterOptions = listOf("Semua", "Hari Ini", "Sedang di Gym", "Sudah Check-out")
+            val filterOptions = listOf(
+                "Semua",
+                "Hari Ini",
+                "Sedang di Gym",
+                "Sudah Check-out",
+                "Belum Pernah Check-in"
+            )
             filterOptions.forEach { filter ->
                 val isSelected = selectedFilter == filter
+                val labelText = if (filter == "Belum Pernah Check-in" && neverCheckedInCount > 0) {
+                    "Belum Check-in ($neverCheckedInCount)"
+                } else {
+                    filter
+                }
                 FilterChip(
                     selected = isSelected,
                     onClick = { onFilterSelected(filter) },
                     label = {
                         Text(
-                            text = filter,
+                            text = labelText,
                             style = MaterialTheme.typography.labelMedium.copy(
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                             )
                         )
                     },
                     colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = GreenAccent.copy(alpha = 0.15f),
-                        selectedLabelColor = GreenAccent
+                        selectedContainerColor = if (filter == "Belum Pernah Check-in") OrangeAccent.copy(alpha = 0.15f) else GreenAccent.copy(alpha = 0.15f),
+                        selectedLabelColor = if (filter == "Belum Pernah Check-in") OrangeAccent else GreenAccent
                     ),
                     border = FilterChipDefaults.filterChipBorder(
-                        borderColor = if (isSelected) GreenAccent else Color.LightGray.copy(alpha = 0.7f),
+                        borderColor = when {
+                            isSelected && filter == "Belum Pernah Check-in" -> OrangeAccent
+                            isSelected -> GreenAccent
+                            else -> Color.LightGray.copy(alpha = 0.7f)
+                        },
                         enabled = true,
                         selected = isSelected
                     )
@@ -692,6 +845,18 @@ private fun EmptyHistoryCard(
     searchQuery: String,
     selectedFilter: String
 ) {
+    val isNeverCheckedIn = selectedFilter == "Belum Pernah Check-in"
+    val title = when {
+        searchQuery.isNotBlank() -> "Member Tidak Ditemukan"
+        isNeverCheckedIn -> "Semua Member Aktif Sudah Check-in! 🎉"
+        else -> "Belum Ada Riwayat Kunjungan"
+    }
+    val description = when {
+        searchQuery.isNotBlank() -> "Tidak ada catatan untuk kata kunci '$searchQuery'."
+        isNeverCheckedIn -> "Luar biasa! Tidak ada member aktif yang belum pernah hadir ke gym. Semuanya aktif berlatih!"
+        else -> "Data check-in dan check-out untuk filter '$selectedFilter' akan tercatat di sini secara otomatis."
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = CardBackground),
@@ -707,34 +872,269 @@ private fun EmptyHistoryCard(
                 modifier = Modifier
                     .size(64.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFFF5F7FA)),
+                    .background(if (isNeverCheckedIn && searchQuery.isBlank()) Color(0xFFE8F5E9) else Color(0xFFF5F7FA)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Filled.History,
+                    imageVector = if (isNeverCheckedIn && searchQuery.isBlank()) Icons.Filled.CheckCircle else Icons.Filled.History,
                     contentDescription = null,
-                    tint = TextMuted,
+                    tint = if (isNeverCheckedIn && searchQuery.isBlank()) GreenAccent else TextMuted,
                     modifier = Modifier.size(32.dp)
                 )
             }
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = if (searchQuery.isNotBlank()) "Member Tidak Ditemukan" else "Belum Ada Riwayat Kunjungan",
+                text = title,
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                 color = TextPrimary,
                 textAlign = TextAlign.Center
             )
             Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = if (searchQuery.isNotBlank()) {
-                    "Tidak ada catatan check-in untuk kata kunci '$searchQuery'."
-                } else {
-                    "Data check-in dan check-out untuk filter '$selectedFilter' akan tercatat di sini secara otomatis."
-                },
+                text = description,
                 style = MaterialTheme.typography.bodyMedium,
                 color = TextSecondary,
                 textAlign = TextAlign.Center
             )
+        }
+    }
+}
+
+// ============================================================================
+// MEMBER TANPA CHECK-IN CARD & WHATSAPP FOLLOW-UP
+// ============================================================================
+@Composable
+private fun MemberTanpaCheckinCard(
+    member: FirestoreMember,
+    onClick: () -> Unit,
+    onFollowUpWa: () -> Unit
+) {
+    val cleanStart = formatCardDate(member.startDate)
+    val cleanExpired = formatCardDate(member.expiredDate)
+    val planName = member.planName.ifBlank { "Member" }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(containerColor = CardBackground),
+        shape = RoundedCornerShape(14.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            // Top Row: Avatar, Name, Code, and "0x Check-in" badge
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(46.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFFFF3E0)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = member.fullName.take(2).uppercase().ifBlank { "MB" },
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = OrangeAccent
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = member.fullName.ifBlank { "Member Gym" },
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = TextPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = member.memberCode.ifBlank { member.memberId },
+                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = GreenAccent
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // Badge: 0x Check-in
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFFFFF3E0))
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = "0x Check-in",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = OrangeAccent
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(color = Color(0xFFEEEEEE), thickness = 1.dp)
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Membership Info Box
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xFFF9FAFB))
+                    .padding(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Paket: $planName",
+                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = TextPrimary
+                    )
+                    Text(
+                        text = "Status: Aktif",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = GreenAccent
+                    )
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Mulai: $cleanStart",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextSecondary
+                    )
+                    Text(
+                        text = "Berakhir: $cleanExpired",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                        color = TextSecondary
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Information note
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Filled.History,
+                    contentDescription = null,
+                    tint = OrangeAccent,
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "Member belum pernah melakukan check-in sejak pendaftaran",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = OrangeAccent,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Follow Up WhatsApp Button
+            Button(
+                onClick = onFollowUpWa,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366)),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Share,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                    tint = Color.White
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Follow Up via WA",
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                    color = Color.White
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Membuka WhatsApp secara langsung untuk follow-up member aktif yang belum pernah check-in
+ * menggunakan template pesan yang ramah dan menyemangati.
+ */
+private fun followUpMemberViaWhatsApp(
+    context: Context,
+    member: FirestoreMember
+) {
+    val phone = member.phoneNumber
+    val digits = phone.filter { it.isDigit() }
+    val formattedPhone = when {
+        digits.startsWith("0") -> "62" + digits.substring(1)
+        digits.startsWith("62") -> digits
+        digits.isNotBlank() -> "62$digits"
+        else -> ""
+    }
+
+    if (formattedPhone.isBlank()) {
+        Toast.makeText(
+            context,
+            "Nomor WhatsApp belum terdaftar untuk ${member.fullName.ifBlank { "member ini" }}",
+            Toast.LENGTH_SHORT
+        ).show()
+        return
+    }
+
+    val name = member.fullName.ifBlank { "Kakak" }
+    val plan = member.planName.ifBlank { "Membership" }
+    val startClean = formatCardDate(member.startDate)
+    val expiredClean = formatCardDate(member.expiredDate)
+
+    val message = """
+Halo Kak $name,
+Semangat pagi dari *PRIMARAGA GYM*! 🏋️‍♂️💪
+
+Kami melihat paket membership Kakak (*$plan*)${if (startClean.isNotBlank() && startClean != "-") " sudah aktif sejak $startClean" else " sudah aktif"}${if (expiredClean.isNotBlank() && expiredClean != "-") " (berlaku s/d $expiredClean)" else ""}, tetapi Kakak belum sempat datang untuk check-in latihan nih.
+
+Yuk luangkan waktu untuk mulai latihan dan raih target kebugaran Kakak bersama kami! Seluruh fasilitas gym dan tim trainer kami siap menyambut kedatangan Kakak. 🔥
+
+Jika ada pertanyaan seputar fasilitas, jam operasional, atau butuh panduan awal, jangan ragu untuk membalas pesan ini ya Kak.
+
+Ditunggu kedatangannya di PRIMARAGA GYM! 🙏✨
+""".trimIndent()
+
+    try {
+        val encodedMsg = Uri.encode(message)
+        val waUrl = Uri.parse("https://wa.me/$formattedPhone?text=$encodedMsg")
+        val browserIntent = Intent(Intent.ACTION_VIEW, waUrl)
+        context.startActivity(browserIntent)
+    } catch (e1: Exception) {
+        try {
+            val waIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, message)
+                putExtra("jid", "$formattedPhone@s.whatsapp.net")
+                setPackage("com.whatsapp")
+            }
+            context.startActivity(waIntent)
+        } catch (e2: Exception) {
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, message)
+            }
+            context.startActivity(Intent.createChooser(shareIntent, "Follow Up via WhatsApp"))
         }
     }
 }

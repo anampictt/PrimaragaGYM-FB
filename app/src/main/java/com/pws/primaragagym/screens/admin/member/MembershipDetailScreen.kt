@@ -1,5 +1,6 @@
 package com.pws.primaragagym.screens.admin.member
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,7 +21,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Badge
+import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -32,7 +36,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -40,6 +47,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,6 +63,7 @@ import com.pws.primaragagym.R
 import com.pws.primaragagym.domain.model.FirestoreMember
 import com.pws.primaragagym.ui.theme.Dimens
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -75,6 +84,11 @@ fun MembershipDetailScreen(
     var member by remember { mutableStateOf<FirestoreMember?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var isUpdatingStatus by remember { mutableStateOf(false) }
+    var showSuspendConfirmDialog by remember { mutableStateOf(false) }
+    var showUnsuspendConfirmDialog by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     val bgColor = MemberColors.BackgroundColor
     val cardBg = MemberColors.CardBackground
@@ -157,6 +171,7 @@ fun MembershipDetailScreen(
 
     Scaffold(
         containerColor = bgColor,
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {
@@ -390,6 +405,80 @@ fun MembershipDetailScreen(
                                 Text("Upgrade", color = greenAccent)
                             }
                         }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Tombol Suspend / Buka Suspend Member
+                        val isMemberSuspended = statusEnum == MemberStatus.SUSPENDED
+
+                        if (isMemberSuspended) {
+                            Button(
+                                onClick = { showUnsuspendConfirmDialog = true },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF2E7D32)
+                                ),
+                                shape = RoundedCornerShape(Dimens.button_corner_radius),
+                                enabled = !isUpdatingStatus
+                            ) {
+                                if (isUpdatingStatus) {
+                                    CircularProgressIndicator(
+                                        color = Color.White,
+                                        modifier = Modifier.size(18.dp),
+                                        strokeWidth = 2.dp
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Memproses...", color = Color.White)
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Filled.CheckCircle,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Buka Suspend / Aktifkan Member",
+                                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                                        color = Color.White
+                                    )
+                                }
+                            }
+                        } else {
+                            OutlinedButton(
+                                onClick = { showSuspendConfirmDialog = true },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = Color(0xFFD32F2F)
+                                ),
+                                border = BorderStroke(1.dp, Color(0xFFE53935)),
+                                shape = RoundedCornerShape(Dimens.button_corner_radius),
+                                enabled = !isUpdatingStatus
+                            ) {
+                                if (isUpdatingStatus) {
+                                    CircularProgressIndicator(
+                                        color = Color(0xFFD32F2F),
+                                        modifier = Modifier.size(18.dp),
+                                        strokeWidth = 2.dp
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Memproses...", color = Color(0xFFD32F2F))
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Filled.Block,
+                                        contentDescription = null,
+                                        tint = Color(0xFFD32F2F),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Suspend Member",
+                                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                                        color = Color(0xFFD32F2F)
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -465,6 +554,136 @@ fun MembershipDetailScreen(
                 Spacer(modifier = Modifier.height(Dimens.spacing_8))
             }
         }
+    }
+
+    // Dialog Konfirmasi Suspend
+    if (showSuspendConfirmDialog && member != null) {
+        val currentMember = member!!
+        val name = currentMember.fullName.ifBlank { "Member" }
+        AlertDialog(
+            onDismissRequest = { if (!isUpdatingStatus) showSuspendConfirmDialog = false },
+            title = {
+                Text(
+                    text = "Suspend Member",
+                    fontWeight = FontWeight.Bold,
+                    color = textPrimary
+                )
+            },
+            text = {
+                Text(
+                    text = "Apakah Anda yakin ingin men-suspend member \"$name\"? Member yang di-suspend tidak akan bisa melakukan check-in gym dan statusnya akan masuk ke filter Suspended.",
+                    color = textSecondary
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showSuspendConfirmDialog = false
+                        isUpdatingStatus = true
+                        scope.launch {
+                            try {
+                                val memberRepo = com.pws.primaragagym.data.repository.MemberRepositoryImpl()
+                                val targetId = currentMember.memberId.ifBlank { currentMember.id }
+                                val res = withContext(Dispatchers.IO) {
+                                    memberRepo.updateMemberStatus(targetId, "SUSPENDED")
+                                }
+                                res.fold(
+                                    onSuccess = {
+                                        member = currentMember.copy(status = "SUSPENDED")
+                                        isUpdatingStatus = false
+                                        snackbarHostState.showSnackbar("Member $name berhasil di-suspend")
+                                    },
+                                    onFailure = { err ->
+                                        isUpdatingStatus = false
+                                        snackbarHostState.showSnackbar("Gagal men-suspend member: ${err.message}")
+                                    }
+                                )
+                            } catch (e: Exception) {
+                                isUpdatingStatus = false
+                                snackbarHostState.showSnackbar("Terjadi kesalahan: ${e.message}")
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)),
+                    enabled = !isUpdatingStatus
+                ) {
+                    Text("Suspend", color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showSuspendConfirmDialog = false },
+                    enabled = !isUpdatingStatus
+                ) {
+                    Text("Batal", color = textSecondary)
+                }
+            }
+        )
+    }
+
+    // Dialog Konfirmasi Buka Suspend
+    if (showUnsuspendConfirmDialog && member != null) {
+        val currentMember = member!!
+        val name = currentMember.fullName.ifBlank { "Member" }
+        AlertDialog(
+            onDismissRequest = { if (!isUpdatingStatus) showUnsuspendConfirmDialog = false },
+            title = {
+                Text(
+                    text = "Buka Suspend Member",
+                    fontWeight = FontWeight.Bold,
+                    color = textPrimary
+                )
+            },
+            text = {
+                Text(
+                    text = "Apakah Anda yakin ingin memulihkan status member \"$name\" menjadi Aktif kembali? Member akan dapat melakukan check-in kembali.",
+                    color = textSecondary
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showUnsuspendConfirmDialog = false
+                        isUpdatingStatus = true
+                        scope.launch {
+                            try {
+                                val memberRepo = com.pws.primaragagym.data.repository.MemberRepositoryImpl()
+                                val targetId = currentMember.memberId.ifBlank { currentMember.id }
+                                val res = withContext(Dispatchers.IO) {
+                                    memberRepo.updateMemberStatus(targetId, "ACTIVE")
+                                }
+                                res.fold(
+                                    onSuccess = {
+                                        member = currentMember.copy(status = "ACTIVE")
+                                        isUpdatingStatus = false
+                                        snackbarHostState.showSnackbar("Status member $name berhasil diaktifkan kembali")
+                                    },
+                                    onFailure = { err ->
+                                        isUpdatingStatus = false
+                                        snackbarHostState.showSnackbar("Gagal mengaktifkan member: ${err.message}")
+                                    }
+                                )
+                            } catch (e: Exception) {
+                                isUpdatingStatus = false
+                                snackbarHostState.showSnackbar("Terjadi kesalahan: ${e.message}")
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = greenAccent),
+                    enabled = !isUpdatingStatus
+                ) {
+                    Text("Aktifkan Kembali", color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showUnsuspendConfirmDialog = false },
+                    enabled = !isUpdatingStatus
+                ) {
+                    Text("Batal", color = textSecondary)
+                }
+            }
+        )
     }
 }
 

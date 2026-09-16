@@ -27,6 +27,9 @@ class MemberRepositoryImpl : MemberRepository {
     override suspend fun updateMember(member: FirestoreMember): Result<Unit> =
         dataSource.updateMember(member)
 
+    override suspend fun updateMemberStatus(memberId: String, status: String): Result<Unit> =
+        dataSource.updateMemberStatus(memberId, status)
+
     override suspend fun deleteMember(memberId: String): Result<Unit> =
         dataSource.deleteMember(memberId)
 
