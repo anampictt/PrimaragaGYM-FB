@@ -38,6 +38,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pws.primaragagym.screens.admin.member.MemberColors
 
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.text.style.TextOverflow
+
 private val CardGreen = Color(0xFF32A060)
 private val CardDarkGreen = Color(0xFF236B47)
 private val CardLightGreen = Color(0xFFE8F5E9)
@@ -46,11 +50,60 @@ private val CardTextPrimary = Color(0xFF1A1A1A)
 private val CardTextSecondary = Color(0xFF6B6B6B)
 private val CardTextMuted = Color(0xFF9E9E9E)
 
+/**
+ * Format string tanggal untuk tampilan ringkas kartu member (contoh: "16 Sep 2026").
+ * Menghapus jam/WIB jika ada dan memendekkan bulan agar muat sempurna di layar HP.
+ */
+fun formatCardDate(dateStr: String?): String {
+    if (dateStr.isNullOrBlank() || dateStr == "-") return "-"
+
+    var clean = dateStr.trim()
+    if (clean.contains(",")) {
+        clean = clean.substringBefore(",").trim()
+    } else if (clean.contains("T")) {
+        clean = clean.substringBefore("T").trim()
+    }
+
+    val patterns = listOf(
+        "yyyy-MM-dd",
+        "dd MMMM yyyy",
+        "d MMMM yyyy",
+        "dd MMM yyyy",
+        "d MMM yyyy",
+        "dd-MM-yyyy",
+        "dd/MM/yyyy",
+        "yyyy/MM/dd"
+    )
+    val outSdf = java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale("id", "ID"))
+
+    for (pattern in patterns) {
+        try {
+            val sdf = java.text.SimpleDateFormat(pattern, java.util.Locale("id", "ID"))
+            sdf.isLenient = false
+            val parsed = sdf.parse(clean)
+            if (parsed != null) {
+                return outSdf.format(parsed)
+            }
+        } catch (_: Exception) {}
+
+        try {
+            val sdfEn = java.text.SimpleDateFormat(pattern, java.util.Locale.ENGLISH)
+            sdfEn.isLenient = false
+            val parsed = sdfEn.parse(clean)
+            if (parsed != null) {
+                return outSdf.format(parsed)
+            }
+        } catch (_: Exception) {}
+    }
+
+    return clean
+}
+
 @Composable
 fun MemberCard(
     data: MemberCardData,
     modifier: Modifier = Modifier,
-    width: Dp = 340.dp,
+    width: Dp? = 340.dp,
     cornerRadius: Dp = 20.dp
 ) {
     var qrBitmap by remember { mutableStateOf<Bitmap?>(null) }
@@ -59,9 +112,16 @@ fun MemberCard(
         qrBitmap = QrCodeGenerator.generateQrBitmap(data.qrContent)
     }
 
+    val cardModifier = if (width != null) {
+        modifier.width(width)
+    } else {
+        modifier
+            .fillMaxWidth()
+            .widthIn(max = 360.dp)
+    }
+
     Card(
-        modifier = modifier
-            .width(width),
+        modifier = cardModifier,
         shape = RoundedCornerShape(cornerRadius),
         colors = CardDefaults.cardColors(containerColor = CardBackground),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
@@ -89,21 +149,41 @@ fun MemberCard(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Avatar
+                // Avatar with visible fallback and border
+                val initialText = if (data.avatarInitial.isNotBlank()) {
+                    data.avatarInitial
+                } else {
+                    data.name.firstOrNull()?.uppercaseChar()?.toString() ?: "M"
+                }
+
                 Box(
                     modifier = Modifier
                         .size(72.dp)
                         .clip(CircleShape)
-                        .background(CardLightGreen),
+                        .background(CardLightGreen)
+                        .border(2.dp, CardGreen.copy(alpha = 0.3f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
+                    // Selalu render inisial sebagai fallback di background
                     Text(
-                        text = data.avatarInitial,
+                        text = initialText,
                         style = MaterialTheme.typography.headlineSmall.copy(
                             fontWeight = FontWeight.Bold
                         ),
                         color = CardGreen
                     )
+
+                    // Jika ada photoUrl, tampilkan AsyncImage di atas inisial
+                    if (!data.photoUrl.isNullOrBlank()) {
+                        coil.compose.AsyncImage(
+                            model = com.pws.primaragagym.ui.components.normalizeImageUrl(data.photoUrl),
+                            contentDescription = "Foto ${data.name}",
+                            modifier = Modifier
+                                .size(72.dp)
+                                .clip(CircleShape),
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.width(16.dp))
@@ -119,7 +199,8 @@ fun MemberCard(
                             fontWeight = FontWeight.Bold
                         ),
                         color = CardTextPrimary,
-                        maxLines = 2
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
@@ -157,66 +238,130 @@ fun MemberCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Dates
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+            // Dates Section - Box rapi dengan 2 kolom terbobot seimbang
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xFFF8F9FA))
+                    .padding(horizontal = 14.dp, vertical = 10.dp)
             ) {
-                Column {
-                    Text(
-                        text = "Aktif",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = CardTextMuted
-                    )
-                    Text(
-                        text = data.startDate,
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontWeight = FontWeight.Medium
-                        ),
-                        color = CardTextPrimary
-                    )
-                }
-                if (data.dateOfBirth.isNotBlank() && data.dateOfBirth != "-") {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = "Tgl Lahir",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = CardTextMuted
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Baris 1: Mulai Aktif & Berakhir
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            horizontalAlignment = Alignment.Start
+                        ) {
+                            Text(
+                                text = "Mulai Aktif",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 10.sp
+                                ),
+                                color = CardTextMuted
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = formatCardDate(data.startDate),
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 12.sp
+                                ),
+                                color = CardTextPrimary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+
+                        // Garis pemisah vertikal
+                        Box(
+                            modifier = Modifier
+                                .padding(horizontal = 8.dp)
+                                .height(24.dp)
+                                .width(1.dp)
+                                .background(Color(0xFFE0E0E0))
                         )
-                        Text(
-                            text = data.dateOfBirth,
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontWeight = FontWeight.Medium
-                            ),
-                            color = CardTextPrimary
-                        )
+
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            horizontalAlignment = Alignment.End
+                        ) {
+                            Text(
+                                text = "Berakhir",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 10.sp
+                                ),
+                                color = CardTextMuted
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = formatCardDate(data.expiredDate),
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 12.sp
+                                ),
+                                color = CardTextPrimary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        text = "Berakhir",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = CardTextMuted
-                    )
-                    Text(
-                        text = data.expiredDate,
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontWeight = FontWeight.Medium
-                        ),
-                        color = CardTextPrimary
-                    )
+
+                    // Baris 2: Tanggal Lahir (jika ada)
+                    if (data.dateOfBirth.isNotBlank() && data.dateOfBirth != "-") {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(1.dp)
+                                .background(Color(0xFFEEEEEE))
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Tgl Lahir",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 10.sp
+                                ),
+                                color = CardTextMuted
+                            )
+                            Text(
+                                text = formatCardDate(data.dateOfBirth),
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 12.sp
+                                ),
+                                color = CardTextPrimary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
                 }
             }
 
             Spacer(modifier = Modifier.height(18.dp))
 
-            // QR Code (Persegi)
+            // QR Code (Persegi dengan border rapi)
             qrBitmap?.let { bitmap ->
                 Box(
                     modifier = Modifier
-                        .size(120.dp)
+                        .size(124.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(Color.White),
+                        .background(Color.White)
+                        .border(1.dp, Color(0xFFE8E8E8), RoundedCornerShape(12.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     Image(

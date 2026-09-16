@@ -151,7 +151,8 @@ fun MemberCardPreviewScreen(
                                     status = statusStr,
                                     avatarInitial = initials,
                                     qrContent = "PRIMARAGA_MEMBER:$code",
-                                    dateOfBirth = member.dateOfBirth.ifBlank { "-" }
+                                    dateOfBirth = member.dateOfBirth.ifBlank { "-" },
+                                    photoUrl = member.photoUrl
                                 )
                                 isLoading = false
                             }
@@ -367,7 +368,7 @@ fun MemberCardPreviewScreen(
                 ) {
                     MemberCard(
                         data = data,
-                        width = if (isTablet) 400.dp else 320.dp,
+                        width = if (isTablet) 400.dp else null,
                         cornerRadius = 20.dp
                     )
                 }

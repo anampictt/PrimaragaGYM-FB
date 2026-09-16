@@ -158,6 +158,9 @@ fun PerpanjangMembershipScreen(
     }
 
     var selectedPayment by remember { mutableStateOf<RenewalPayment?>(null) }
+    var paymentProofUrl by remember { mutableStateOf("") }
+    var paymentProofUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var paymentProofBase64 by remember { mutableStateOf<String?>(null) }
     var paymentError by remember { mutableStateOf<String?>(null) }
     var showSuccessDialog by remember { mutableStateOf(false) }
 
@@ -414,6 +417,23 @@ fun PerpanjangMembershipScreen(
                                 color = Color(0xFFE53935)
                             )
                         }
+                        if (selectedPayment == RenewalPayment.TRANSFER || selectedPayment == RenewalPayment.QRIS) {
+                            Spacer(modifier = Modifier.height(Dimens.spacing_4))
+                            com.pws.primaragagym.ui.components.UploadBuktiPembayaranField(
+                                proofUri = paymentProofUri,
+                                proofUrl = paymentProofUrl,
+                                onImageSelected = { uri, base64 ->
+                                    paymentProofUri = uri
+                                    paymentProofBase64 = base64
+                                    if (!base64.isNullOrBlank()) {
+                                        paymentProofUrl = base64
+                                    }
+                                },
+                                onProofUrlChanged = {
+                                    paymentProofUrl = it
+                                }
+                            )
+                        }
                     }
                 }
 
@@ -462,9 +482,16 @@ fun PerpanjangMembershipScreen(
                                                 val memberRepo = com.pws.primaragagym.data.repository.MemberRepositoryImpl()
                                                 val paymentRepo = com.pws.primaragagym.data.repository.PaymentRepositoryImpl()
 
+                                                val finalProofUrl = if (selectedPayment != RenewalPayment.CASH) {
+                                                    paymentProofUrl.trim().ifBlank { paymentProofBase64 }
+                                                } else {
+                                                    null
+                                                }
+
                                                 memberRepo.updateMember(
                                                     currentMember.copy(
                                                         expiredDate = calculatedNewEndDate,
+                                                        paymentProofUrl = finalProofUrl ?: currentMember.paymentProofUrl,
                                                         status = "ACTIVE"
                                                     )
                                                 )
@@ -477,7 +504,8 @@ fun PerpanjangMembershipScreen(
                                                     amount = amountLong,
                                                     paymentMethod = selectedPayment!!.displayName,
                                                     paymentType = "RENEWAL",
-                                                    planName = "Perpanjang ${currentMember.planName} ($durationStr)"
+                                                    planName = "Perpanjang ${currentMember.planName} ($durationStr)",
+                                                    proofUrl = finalProofUrl
                                                 )
 
                                                 withContext(Dispatchers.Main) {

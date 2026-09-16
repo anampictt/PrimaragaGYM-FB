@@ -145,6 +145,9 @@ fun CatatPembayaranScreen(
     var selectedPaymentType by remember { mutableStateOf<PaymentType?>(null) }
     var nominal by remember { mutableStateOf("") }
     var selectedMethod by remember { mutableStateOf<PaymentMethod?>(null) }
+    var paymentProofUrl by remember { mutableStateOf("") }
+    var paymentProofUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var paymentProofBase64 by remember { mutableStateOf<String?>(null) }
     var catatan by remember { mutableStateOf("") }
     var showMemberSearch by remember { mutableStateOf(false) }
     var showPaymentTypeDropdown by remember { mutableStateOf(false) }
@@ -396,6 +399,24 @@ fun CatatPembayaranScreen(
                 )
             }
 
+            if (selectedMethod == PaymentMethod.TRANSFER || selectedMethod == PaymentMethod.QRIS) {
+                Spacer(modifier = Modifier.height(Dimens.spacing_4))
+                com.pws.primaragagym.ui.components.UploadBuktiPembayaranField(
+                    proofUri = paymentProofUri,
+                    proofUrl = paymentProofUrl,
+                    onImageSelected = { uri, base64 ->
+                        paymentProofUri = uri
+                        paymentProofBase64 = base64
+                        if (!base64.isNullOrBlank()) {
+                            paymentProofUrl = base64
+                        }
+                    },
+                    onProofUrlChanged = {
+                        paymentProofUrl = it
+                    }
+                )
+            }
+
             Spacer(modifier = Modifier.height(Dimens.spacing_5))
 
             // Tanggal
@@ -480,6 +501,11 @@ fun CatatPembayaranScreen(
                     if (!hasError) {
                         val member = selectedMember
                         if (member != null && selectedMethod != null && selectedPaymentType != null) {
+                            val finalProofUrl = if (selectedMethod != PaymentMethod.CASH) {
+                                paymentProofUrl.trim().ifBlank { paymentProofBase64 }
+                            } else {
+                                null
+                            }
                             keuanganViewModel.recordPayment(
                                 memberId = member.id,
                                 memberName = member.name,
@@ -487,7 +513,8 @@ fun CatatPembayaranScreen(
                                 amount = nominal.toLong(),
                                 paymentMethod = selectedMethod!!.name,
                                 paymentType = selectedPaymentType!!.value,
-                                planName = member.planName
+                                planName = member.planName,
+                                proofUrl = finalProofUrl
                             )
                             showSuccessDialog = true
                         }

@@ -99,6 +99,9 @@ fun UpgradeDowngradeScreen(
     var availablePlans by remember { mutableStateOf<List<FirestoreMembershipPlan>>(emptyList()) }
     var selectedPlan by remember { mutableStateOf<FirestoreMembershipPlan?>(null) }
     var selectedPayment by remember { mutableStateOf<UpgradePayment?>(UpgradePayment.CASH) }
+    var paymentProofUrl by remember { mutableStateOf("") }
+    var paymentProofUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var paymentProofBase64 by remember { mutableStateOf<String?>(null) }
     var paymentError by remember { mutableStateOf<String?>(null) }
 
     var isLoading by remember { mutableStateOf(true) }
@@ -542,6 +545,23 @@ fun UpgradeDowngradeScreen(
                                     color = Color(0xFFE53935)
                                 )
                             }
+                            if (selectedPayment == UpgradePayment.TRANSFER || selectedPayment == UpgradePayment.QRIS) {
+                                Spacer(modifier = Modifier.height(Dimens.spacing_4))
+                                com.pws.primaragagym.ui.components.UploadBuktiPembayaranField(
+                                    proofUri = paymentProofUri,
+                                    proofUrl = paymentProofUrl,
+                                    onImageSelected = { uri, base64 ->
+                                        paymentProofUri = uri
+                                        paymentProofBase64 = base64
+                                        if (!base64.isNullOrBlank()) {
+                                            paymentProofUrl = base64
+                                        }
+                                    },
+                                    onProofUrlChanged = {
+                                        paymentProofUrl = it
+                                    }
+                                )
+                            }
                         }
                     }
 
@@ -602,6 +622,12 @@ fun UpgradeDowngradeScreen(
                                                     val memberRepo = com.pws.primaragagym.data.repository.MemberRepositoryImpl()
                                                     val paymentRepo = com.pws.primaragagym.data.repository.PaymentRepositoryImpl()
 
+                                                    val finalProofUrl = if (selectedPayment != UpgradePayment.CASH) {
+                                                        paymentProofUrl.trim().ifBlank { paymentProofBase64 }
+                                                    } else {
+                                                        null
+                                                    }
+
                                                     // Update member di Firestore
                                                     memberRepo.updateMember(
                                                         currentMember.copy(
@@ -612,6 +638,7 @@ fun UpgradeDowngradeScreen(
                                                             duration = durationFormatted,
                                                             startDate = todayStr,
                                                             expiredDate = calculatedNewEndDate,
+                                                            paymentProofUrl = finalProofUrl ?: currentMember.paymentProofUrl,
                                                             status = "ACTIVE"
                                                         )
                                                     )
@@ -625,7 +652,8 @@ fun UpgradeDowngradeScreen(
                                                         amount = amountToPay,
                                                         paymentMethod = selectedPayment!!.displayName,
                                                         paymentType = paymentType,
-                                                        planName = "$actionPlanPrefix ${selected.name} ($durationFormatted)"
+                                                        planName = "$actionPlanPrefix ${selected.name} ($durationFormatted)",
+                                                        proofUrl = finalProofUrl
                                                     )
 
                                                     withContext(Dispatchers.Main) {

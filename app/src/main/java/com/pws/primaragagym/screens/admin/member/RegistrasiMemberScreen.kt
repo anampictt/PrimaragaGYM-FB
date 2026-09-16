@@ -25,6 +25,12 @@ import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Print
+import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.sp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -106,6 +112,7 @@ fun RegistrasiMemberScreen(
     onPreviewCardClick: (String) -> Unit = {}
 ) {
     val configuration = LocalConfiguration.current
+    val context = LocalContext.current
     val screenWidthDp = configuration.screenWidthDp
     val isTablet = screenWidthDp >= 600
 
@@ -126,6 +133,10 @@ fun RegistrasiMemberScreen(
     var dateOfBirth by remember { mutableStateOf("") }
     var selectedPlan by remember { mutableStateOf<MembershipPlanUiModel?>(null) }
     var paymentMethod by remember { mutableStateOf<PaymentMethod?>(null) }
+    var photoUrl by remember { mutableStateOf("") }
+    var paymentProofUrl by remember { mutableStateOf("") }
+    var paymentProofUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var paymentProofBase64 by remember { mutableStateOf<String?>(null) }
     val jakartaTz = remember { TimeZone.getTimeZone("Asia/Jakarta") }
     fun getJakartaDateTimeFormatted(date: Date = Calendar.getInstance(jakartaTz).time): String {
         val sdf = SimpleDateFormat("dd MMMM yyyy, HH:mm 'WIB'", Locale("id", "ID")).apply {
@@ -150,6 +161,7 @@ fun RegistrasiMemberScreen(
     // Dialog state
     var showSuccessDialog by remember { mutableStateOf(false) }
     var showPlanPicker by remember { mutableStateOf(false) }
+    var currentInvoiceData by remember { mutableStateOf<InvoiceReceiptData?>(null) }
 
     LaunchedEffect(memberId, availablePlans) {
         if (isEditMode && memberId != null) {
@@ -177,6 +189,12 @@ fun RegistrasiMemberScreen(
                 }
                 if (matchingPlan != null) {
                     selectedPlan = matchingPlan
+                }
+                if (!fresh.photoUrl.isNullOrBlank()) {
+                    photoUrl = fresh.photoUrl
+                }
+                if (!fresh.paymentProofUrl.isNullOrBlank()) {
+                    paymentProofUrl = fresh.paymentProofUrl
                 }
             }
         } else if (!isEditMode) {
@@ -233,31 +251,11 @@ fun RegistrasiMemberScreen(
                 .padding(vertical = Dimens.spacing_5)
         ) {
             // Photo Upload
-            Box(
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .size(100.dp)
-                    .clip(CircleShape)
-                    .border(2.dp, GreenAccent.copy(alpha = 0.5f), CircleShape)
-                    .background(GreenLight)
-                    .clickable { },
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        imageVector = Icons.Filled.AddAPhoto,
-                        contentDescription = "Upload Foto",
-                        tint = GreenAccent,
-                        modifier = Modifier.size(32.dp)
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Upload Foto",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = GreenAccent
-                    )
-                }
-            }
+            com.pws.primaragagym.ui.components.MemberPhotoUploadSection(
+                photoUrl = photoUrl,
+                onPhotoUrlChanged = { photoUrl = it },
+                modifier = Modifier.padding(horizontal = horizontalPadding)
+            )
 
             Spacer(modifier = Modifier.height(Dimens.spacing_5))
 
@@ -469,6 +467,24 @@ fun RegistrasiMemberScreen(
                     )
                 }
 
+                if (paymentMethod == PaymentMethod.TRANSFER || paymentMethod == PaymentMethod.QRIS) {
+                    Spacer(modifier = Modifier.height(Dimens.spacing_4))
+                    com.pws.primaragagym.ui.components.UploadBuktiPembayaranField(
+                        proofUri = paymentProofUri,
+                        proofUrl = paymentProofUrl,
+                        onImageSelected = { uri, base64 ->
+                            paymentProofUri = uri
+                            paymentProofBase64 = base64
+                            if (!base64.isNullOrBlank()) {
+                                paymentProofUrl = base64
+                            }
+                        },
+                        onProofUrlChanged = {
+                            paymentProofUrl = it
+                        }
+                    )
+                }
+
                 if (generalError != null) {
                     Spacer(modifier = Modifier.height(Dimens.spacing_4))
                     Text(
@@ -519,6 +535,13 @@ fun RegistrasiMemberScreen(
                         val branchId = existingMember?.branchId?.ifBlank { null } ?: authState.currentUser?.branchId ?: ""
                         val targetId = memberId ?: existingMember?.memberId ?: ""
 
+                        val finalPhotoUrl = photoUrl.trim().ifBlank { null }
+                        val finalPaymentProofUrl = if (paymentMethod != PaymentMethod.CASH) {
+                            paymentProofUrl.trim().ifBlank { paymentProofBase64 }
+                        } else {
+                            null
+                        }
+
                         val memberObj = (existingMember ?: FirestoreMember(memberId = targetId)).copy(
                             memberId = targetId,
                             memberCode = finalMemberCode,
@@ -535,6 +558,8 @@ fun RegistrasiMemberScreen(
                             startDate = finalStartDate,
                             expiredDate = endDate.trim(),
                             paymentMethod = paymentMethod?.displayName ?: "Cash",
+                            photoUrl = finalPhotoUrl,
+                            paymentProofUrl = finalPaymentProofUrl,
                             branchId = branchId,
                             status = "ACTIVE"
                         )
@@ -543,6 +568,26 @@ fun RegistrasiMemberScreen(
                             memberViewModel.updateMember(memberObj) { success, errMsg ->
                                 isSubmitting = false
                                 if (success) {
+                                    val finalCode = memberObj.memberCode.ifBlank { "PRMG-" + (memberObj.memberId.takeLast(4).uppercase()) }
+                                    val now = Date()
+                                    val dateStrToday = getJakartaDateTimeFormatted(now)
+                                    val invNum = "INV-" + SimpleDateFormat("yyyyMMdd-HHmmss", Locale.getDefault()).format(now)
+
+                                    currentInvoiceData = InvoiceReceiptData(
+                                        invoiceNumber = invNum,
+                                        memberId = memberObj.memberId,
+                                        memberName = memberObj.fullName,
+                                        memberCode = finalCode,
+                                        phoneNumber = memberObj.phoneNumber,
+                                        planName = memberObj.planName,
+                                        duration = memberObj.duration,
+                                        startDate = memberObj.startDate,
+                                        expiredDate = memberObj.expiredDate,
+                                        amount = memberObj.planPrice,
+                                        paymentMethod = memberObj.paymentMethod,
+                                        adminName = authState.currentUser?.name ?: "Admin Kasir",
+                                        dateStr = dateStrToday
+                                    )
                                     savedMemberId = memberObj.memberId
                                     showSuccessDialog = true
                                 } else {
@@ -554,6 +599,26 @@ fun RegistrasiMemberScreen(
                                 isSubmitting = false
                                 if (success) {
                                     val finalId = if (!createdIdOrError.isNullOrBlank()) createdIdOrError else memberObj.memberId
+                                    val finalCode = memberObj.memberCode.ifBlank { "PRMG-" + (finalId.takeLast(4).uppercase()) }
+                                    val now = Date()
+                                    val dateStrToday = getJakartaDateTimeFormatted(now)
+                                    val invNum = "INV-" + SimpleDateFormat("yyyyMMdd-HHmmss", Locale.getDefault()).format(now)
+
+                                    currentInvoiceData = InvoiceReceiptData(
+                                        invoiceNumber = invNum,
+                                        memberId = finalId,
+                                        memberName = memberObj.fullName,
+                                        memberCode = finalCode,
+                                        phoneNumber = memberObj.phoneNumber,
+                                        planName = memberObj.planName,
+                                        duration = memberObj.duration,
+                                        startDate = memberObj.startDate,
+                                        expiredDate = memberObj.expiredDate,
+                                        amount = memberObj.planPrice,
+                                        paymentMethod = memberObj.paymentMethod,
+                                        adminName = authState.currentUser?.name ?: "Admin Kasir",
+                                        dateStr = dateStrToday
+                                    )
                                     savedMemberId = finalId
                                     showSuccessDialog = true
 
@@ -569,7 +634,8 @@ fun RegistrasiMemberScreen(
                                                 amount = memberObj.planPrice,
                                                 paymentMethod = memberObj.paymentMethod,
                                                 paymentType = "REGISTRASI",
-                                                planName = "Registrasi ${memberObj.planName} (${memberObj.duration})"
+                                                planName = "Registrasi ${memberObj.planName} (${memberObj.duration})",
+                                                proofUrl = finalPaymentProofUrl
                                             )
                                         } catch (_: Exception) {}
                                     }
@@ -620,22 +686,30 @@ fun RegistrasiMemberScreen(
         )
     }
 
-    // Success Dialog
+    // Success Dialog with Invoice, Print Nota, and WhatsApp PDF Redirect
     if (showSuccessDialog) {
+        val invData = currentInvoiceData
         AlertDialog(
             onDismissRequest = { },
+            containerColor = CardBackground,
+            shape = RoundedCornerShape(16.dp),
             confirmButton = {
-                TextButton(onClick = {
-                    showSuccessDialog = false
-                    onSubmitSuccess()
-                }) {
-                    Text("Tutup", color = GreenAccent)
+                Button(
+                    onClick = {
+                        showSuccessDialog = false
+                        onSubmitSuccess()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = GreenAccent),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Selesai", style = MaterialTheme.typography.labelLarge)
                 }
             },
             icon = {
                 Box(
                     modifier = Modifier
-                        .size(56.dp)
+                        .size(52.dp)
                         .clip(CircleShape)
                         .background(GreenLight),
                     contentAlignment = Alignment.Center
@@ -644,22 +718,174 @@ fun RegistrasiMemberScreen(
                         imageVector = Icons.Filled.Check,
                         contentDescription = null,
                         tint = GreenAccent,
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier.size(28.dp)
                     )
                 }
             },
             title = {
                 Text(
-                    text = if (isEditMode) "Member berhasil diperbarui" else "Member berhasil didaftarkan",
+                    text = if (isEditMode) "Member Berhasil Diperbarui" else "Registrasi Berhasil!",
                     style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.SemiBold
-                    )
+                        fontWeight = FontWeight.Bold
+                    ),
+                    textAlign = TextAlign.Center
                 )
             },
             text = {
-                Column {
-                    Text(if (isEditMode) "Perubahan data member $name telah disimpan ke Firestore." else "Data member $name telah berhasil disimpan ke Firestore.")
-                    Spacer(modifier = Modifier.height(Dimens.spacing_4))
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = if (isEditMode) {
+                            "Perubahan data member $name telah disimpan ke Firestore."
+                        } else {
+                            "Data member $name telah berhasil disimpan ke database Primaraga Gym."
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextSecondary,
+                        textAlign = TextAlign.Center
+                    )
+
+                    if (invData != null) {
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Mini Ringkasan Transaksi
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FA))
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = "No. Invoice",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = TextMuted
+                                    )
+                                    Text(
+                                        text = invData.invoiceNumber,
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                                        color = TextPrimary
+                                    )
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = "Paket",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = TextMuted
+                                    )
+                                    Text(
+                                        text = "${invData.planName} (${invData.duration})",
+                                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                                        color = TextPrimary
+                                    )
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = "Total Bayar",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = TextMuted
+                                    )
+                                    Text(
+                                        text = "${InvoiceReceiptHelper.formatRupiah(invData.amount)} (${invData.paymentMethod})",
+                                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                                        color = GreenAccent
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Text(
+                            text = "Opsi Nota & Invoice (Opsional):",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = TextSecondary,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Tombol 1: Kirim Invoice ke WA (PDF)
+                        Button(
+                            onClick = {
+                                InvoiceReceiptHelper.sendInvoiceToWhatsApp(context, invData)
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366)),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Share,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = Color.White
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Kirim Invoice ke WA (PDF)", color = Color.White)
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Baris Tombol: Cetak Invoice & Print Nota
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = {
+                                    InvoiceReceiptHelper.printInvoice(context, invData)
+                                },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Receipt,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = TextPrimary
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Cetak Invoice", fontSize = 11.sp, color = TextPrimary)
+                            }
+
+                            OutlinedButton(
+                                onClick = {
+                                    InvoiceReceiptHelper.printReceipt(context, invData)
+                                },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Print,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = TextPrimary
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Print Nota", fontSize = 11.sp, color = TextPrimary)
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Tombol Lihat Kartu Member
                     OutlinedButton(
                         onClick = {
                             showSuccessDialog = false
@@ -672,7 +898,7 @@ fun RegistrasiMemberScreen(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(8.dp)
                     ) {
-                        Text("Lihat Kartu Member")
+                        Text("Lihat Kartu Member", color = GreenAccent)
                     }
                 }
             }

@@ -158,13 +158,24 @@ fun DetailMemberScreen(
                             .background(GreenLight),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = member.avatarInitial,
-                            style = MaterialTheme.typography.headlineMedium.copy(
-                                fontWeight = FontWeight.Bold
-                            ),
-                            color = GreenAccent
-                        )
+                        if (!member.photoUrl.isNullOrBlank()) {
+                            coil.compose.AsyncImage(
+                                model = com.pws.primaragagym.ui.components.normalizeImageUrl(member.photoUrl),
+                                contentDescription = "Foto ${member.name}",
+                                modifier = Modifier
+                                    .size(80.dp)
+                                    .clip(CircleShape),
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                            )
+                        } else {
+                            Text(
+                                text = member.avatarInitial,
+                                style = MaterialTheme.typography.headlineMedium.copy(
+                                    fontWeight = FontWeight.Bold
+                                ),
+                                color = GreenAccent
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(Dimens.spacing_4))
@@ -350,6 +361,66 @@ fun DetailMemberScreen(
 
                     InfoRow(label = "Email", value = member.email)
                     InfoRow(label = "Alamat", value = member.address)
+                }
+            }
+
+            if (!member.paymentProofUrl.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(Dimens.spacing_5))
+
+                // Bukti Pembayaran Section
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = horizontalPadding),
+                    shape = RoundedCornerShape(Dimens.card_corner_radius),
+                    colors = CardDefaults.cardColors(containerColor = CardBackground),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(Dimens.spacing_5)
+                    ) {
+                        Text(
+                            text = "Bukti Pembayaran",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.SemiBold
+                            ),
+                            color = TextPrimary
+                        )
+
+                        Spacer(modifier = Modifier.height(Dimens.spacing_3))
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            coil.compose.AsyncImage(
+                                model = com.pws.primaragagym.ui.components.normalizeImageUrl(member.paymentProofUrl),
+                                contentDescription = "Bukti Pembayaran",
+                                modifier = Modifier
+                                    .size(72.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color.LightGray),
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Bukti Pembayaran Terlampir",
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                    color = TextPrimary
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = member.paymentProofUrl,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = TextSecondary,
+                                    maxLines = 2,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
                 }
             }
 

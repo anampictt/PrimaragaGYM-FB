@@ -373,13 +373,24 @@ private fun MemberHubCard(
                         .background(avatarBgColor),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = member.avatarInitial,
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontWeight = FontWeight.SemiBold
-                        ),
-                        color = avatarTextColor
-                    )
+                    if (!member.photoUrl.isNullOrBlank()) {
+                        coil.compose.AsyncImage(
+                            model = com.pws.primaragagym.ui.components.normalizeImageUrl(member.photoUrl),
+                            contentDescription = "Foto ${member.name}",
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape),
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                        )
+                    } else {
+                        Text(
+                            text = member.avatarInitial,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontWeight = FontWeight.SemiBold
+                            ),
+                            color = avatarTextColor
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.width(Dimens.spacing_3))

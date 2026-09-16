@@ -4,13 +4,11 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
-import android.util.Base64
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,19 +18,19 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Image
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -59,39 +57,65 @@ import com.pws.primaragagym.screens.admin.member.MemberColors.TextSecondary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.FileOutputStream
 
-fun uriToBase64(context: Context, uri: Uri): String? {
+fun normalizeImageUrl(url: String?): String? {
+    if (url.isNullOrBlank()) return null
+    return url.trim()
+}
+
+/**
+ * Menyimpan file gambar ke internal storage aplikasi dan mengembalikan URI string:
+ * Contoh: file:///data/user/0/com.pws.primaragagym/files/member_images/img_1789109488706.jpg
+ */
+fun saveImageToInternalStorage(context: Context, uri: Uri, subDir: String, prefix: String = "img_"): String? {
     return try {
+        val dir = File(context.filesDir, subDir)
+        if (!dir.exists()) {
+            dir.mkdirs()
+        }
+        val filename = "${prefix}${System.currentTimeMillis()}.jpg"
+        val destFile = File(dir, filename)
+
         val inputStream = context.contentResolver.openInputStream(uri) ?: return null
         val originalBitmap = BitmapFactory.decodeStream(inputStream)
         inputStream.close()
-        if (originalBitmap == null) return null
-
-        val maxDim = 800
-        val width = originalBitmap.width
-        val height = originalBitmap.height
-        val scaledBitmap = if (width > maxDim || height > maxDim) {
-            val scale = maxDim.toFloat() / maxOf(width, height)
-            Bitmap.createScaledBitmap(originalBitmap, (width * scale).toInt(), (height * scale).toInt(), true)
+        if (originalBitmap != null) {
+            val maxDim = 1200
+            val width = originalBitmap.width
+            val height = originalBitmap.height
+            val scaledBitmap = if (width > maxDim || height > maxDim) {
+                val scale = maxDim.toFloat() / maxOf(width, height)
+                Bitmap.createScaledBitmap(originalBitmap, (width * scale).toInt(), (height * scale).toInt(), true)
+            } else {
+                originalBitmap
+            }
+            val fos = FileOutputStream(destFile)
+            scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 85, fos)
+            fos.flush()
+            fos.close()
         } else {
-            originalBitmap
+            val is2 = context.contentResolver.openInputStream(uri) ?: return null
+            val fos = FileOutputStream(destFile)
+            is2.copyTo(fos)
+            is2.close()
+            fos.close()
         }
-
-        val outputStream = ByteArrayOutputStream()
-        scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 70, outputStream)
-        val byteArray = outputStream.toByteArray()
-        "data:image/jpeg;base64," + Base64.encodeToString(byteArray, Base64.NO_WRAP)
+        "file://" + destFile.absolutePath
     } catch (e: Exception) {
+        e.printStackTrace()
         null
     }
 }
 
 @Composable
 fun UploadBuktiPembayaranField(
-    proofUri: Uri?,
-    onImageSelected: (Uri?, String?) -> Unit,
-    modifier: Modifier = Modifier
+    proofUri: Uri? = null,
+    onImageSelected: ((Uri?, String?) -> Unit)? = null,
+    modifier: Modifier = Modifier,
+    proofUrl: String? = null,
+    onProofUrlChanged: ((String) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -103,14 +127,18 @@ fun UploadBuktiPembayaranField(
         if (uri != null) {
             isProcessing = true
             scope.launch {
-                val base64Str = withContext(Dispatchers.IO) {
-                    uriToBase64(context, uri)
+                val savedFilePath = withContext(Dispatchers.IO) {
+                    saveImageToInternalStorage(context, uri, "payment_proofs", "proof_")
                 }
                 isProcessing = false
-                onImageSelected(uri, base64Str)
+                val finalPath = savedFilePath ?: uri.toString()
+                onImageSelected?.invoke(uri, finalPath)
+                onProofUrlChanged?.invoke(finalPath)
             }
         }
     }
+
+    val hasProof = proofUri != null || !proofUrl.isNullOrBlank()
 
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
@@ -122,8 +150,8 @@ fun UploadBuktiPembayaranField(
         )
         Spacer(modifier = Modifier.height(6.dp))
 
-        if (proofUri == null) {
-            // Unselected state - Clickable card
+        if (!hasProof) {
+            // Tampilan upload biasa (Klik card untuk pilih gambar dari galeri)
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -183,7 +211,7 @@ fun UploadBuktiPembayaranField(
                 }
             }
         } else {
-            // Selected state - Thumbnail preview card
+            // Tampilan thumbnail setelah foto dipilih
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -201,8 +229,9 @@ fun UploadBuktiPembayaranField(
                         .padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    val previewModel: Any? = proofUri ?: proofUrl
                     AsyncImage(
-                        model = proofUri,
+                        model = previewModel,
                         contentDescription = "Bukti Pembayaran",
                         modifier = Modifier
                             .size(60.dp)
@@ -232,23 +261,131 @@ fun UploadBuktiPembayaranField(
                         Text(
                             text = "Foto berhasil dipilih",
                             style = MaterialTheme.typography.bodySmall,
-                            color = TextMuted
+                            color = TextMuted,
+                            maxLines = 1
                         )
                     }
                     TextButton(onClick = { imagePickerLauncher.launch("image/*") }) {
                         Text("Ganti", color = GreenAccent)
                     }
                     IconButton(
-                        onClick = { onImageSelected(null, null) },
+                        onClick = {
+                            onProofUrlChanged?.invoke("")
+                            onImageSelected?.invoke(null, null)
+                        },
                         modifier = Modifier.size(32.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Delete,
-                            contentDescription = "Hapus Foto",
+                            contentDescription = "Hapus Bukti",
                             tint = Color(0xFFE53935),
                             modifier = Modifier.size(20.dp)
                         )
                     }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Upload Foto Member: Cukup lingkaran avatar biasa.
+ * Saat diklik, membuka galeri, menyimpan foto ke internal storage sebagai file:///...,
+ * lalu menampilkan fotonya di avatar dan mengembalikan path stringnya.
+ */
+@Composable
+fun MemberPhotoUploadSection(
+    photoUrl: String,
+    onPhotoUrlChanged: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var isProcessing by remember { mutableStateOf(false) }
+
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            isProcessing = true
+            scope.launch {
+                val savedFilePath = withContext(Dispatchers.IO) {
+                    saveImageToInternalStorage(context, uri, "member_images", "img_")
+                }
+                isProcessing = false
+                val finalPath = savedFilePath ?: uri.toString()
+                onPhotoUrlChanged(finalPath)
+            }
+        }
+    }
+
+    Box(
+        modifier = modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(100.dp)
+                .clip(CircleShape)
+                .border(2.dp, GreenAccent.copy(alpha = 0.6f), CircleShape)
+                .background(GreenLight)
+                .clickable { imagePickerLauncher.launch("image/*") },
+            contentAlignment = Alignment.Center
+        ) {
+            if (isProcessing) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(32.dp),
+                    color = GreenAccent,
+                    strokeWidth = 3.dp
+                )
+            } else if (photoUrl.isNotBlank()) {
+                AsyncImage(
+                    model = photoUrl,
+                    contentDescription = "Foto Profil Member",
+                    modifier = Modifier
+                        .size(100.dp)
+                        .clip(CircleShape),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        imageVector = Icons.Filled.AddAPhoto,
+                        contentDescription = "Upload Foto",
+                        tint = GreenAccent,
+                        modifier = Modifier.size(32.dp)
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Upload Foto",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = GreenAccent
+                    )
+                }
+            }
+        }
+
+        // Jika foto sudah terpasang, sediakan tombol hapus kecil di sudut atas
+        if (photoUrl.isNotBlank()) {
+            Box(
+                modifier = Modifier.size(100.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .size(26.dp)
+                        .clip(CircleShape)
+                        .background(Color.White)
+                        .border(1.dp, Color(0xFFE0E0E0), CircleShape)
+                        .clickable { onPhotoUrlChanged("") },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Clear,
+                        contentDescription = "Hapus Foto",
+                        tint = Color(0xFFE53935),
+                        modifier = Modifier.size(16.dp)
+                    )
                 }
             }
         }

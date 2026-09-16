@@ -57,7 +57,9 @@ object FirestoreMapper {
             avatarInitial = initials,
             planPrice = priceStr,
             createdAt = createdAt ?: joinedAt,
-            dateOfBirth = dateOfBirth
+            dateOfBirth = dateOfBirth,
+            photoUrl = photoUrl,
+            paymentProofUrl = paymentProofUrl
         )
     }
 

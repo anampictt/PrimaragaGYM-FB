@@ -977,23 +977,25 @@ private fun FirestoreMember.toUiModel(): MemberUiModel {
         "Rp 0"
     }
 
-    return MemberUiModel(
-        id = memberId,
-        memberCode = memberCode,
-        name = fullName,
-        phone = phoneNumber,
-        email = email,
-        address = address,
-        planName = planName,
-        status = status,
-        startDate = startDate.ifEmpty { joinedAt?.formatDate() ?: "" },
-        expiredDate = expiredDate,
-        avatarInitial = initials,
-        planPrice = priceStr,
-        createdAt = createdAt ?: joinedAt,
-        dateOfBirth = dateOfBirth
-    )
-}
+        return MemberUiModel(
+            id = memberId,
+            memberCode = memberCode,
+            name = fullName,
+            phone = phoneNumber,
+            email = email,
+            address = address,
+            planName = planName,
+            status = status,
+            startDate = startDate.ifEmpty { joinedAt?.formatDate() ?: "" },
+            expiredDate = expiredDate,
+            avatarInitial = initials,
+            planPrice = priceStr,
+            createdAt = createdAt ?: joinedAt,
+            dateOfBirth = dateOfBirth,
+            photoUrl = photoUrl,
+            paymentProofUrl = paymentProofUrl
+        )
+    }
 
 private fun FirestoreMembershipPlan.toUiModel(): MembershipPlanUiModel {
     val planType = when {
@@ -1132,7 +1134,8 @@ class KeuanganViewModel : ViewModel() {
         amount: Long,
         paymentMethod: String,
         paymentType: String,
-        planName: String
+        planName: String,
+        proofUrl: String? = null
     ) {
         val branchId = _uiState.value.branchId
         if (branchId.isEmpty()) return
@@ -1148,7 +1151,8 @@ class KeuanganViewModel : ViewModel() {
                 amount = amount,
                 paymentMethod = paymentMethod,
                 paymentType = paymentType,
-                planName = planName
+                planName = planName,
+                proofUrl = proofUrl
             ).onSuccess {
                 _uiState.update { it.copy(isLoading = false, successMessage = "Pembayaran berhasil dicatat") }
                 loadSummary(branchId)

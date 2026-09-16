@@ -215,8 +215,12 @@ object MemberCardPdfGenerator {
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
         }
 
-        canvas.drawText("Aktif", padding, y + 12f * scale, labelPaint)
-        canvas.drawText(data.startDate, padding, y + 26f * scale, valuePaint)
+        val cleanStart = formatCardDate(data.startDate)
+        val cleanExpired = formatCardDate(data.expiredDate)
+        val cleanDob = formatCardDate(data.dateOfBirth)
+
+        canvas.drawText("Mulai Aktif", padding, y + 12f * scale, labelPaint)
+        canvas.drawText(cleanStart, padding, y + 26f * scale, valuePaint)
 
         if (data.dateOfBirth.isNotBlank() && data.dateOfBirth != "-") {
             val dobLabelPaint = Paint().apply {
@@ -233,7 +237,7 @@ object MemberCardPdfGenerator {
                 textAlign = Paint.Align.CENTER
             }
             canvas.drawText("Tgl Lahir", width / 2, y + 12f * scale, dobLabelPaint)
-            canvas.drawText(data.dateOfBirth, width / 2, y + 26f * scale, dobValuePaint)
+            canvas.drawText(cleanDob, width / 2, y + 26f * scale, dobValuePaint)
         }
 
         val endLabelPaint = Paint().apply {
@@ -250,7 +254,7 @@ object MemberCardPdfGenerator {
             textAlign = Paint.Align.RIGHT
         }
         canvas.drawText("Berakhir", width - padding, y + 12f * scale, endLabelPaint)
-        canvas.drawText(data.expiredDate, width - padding, y + 26f * scale, endValuePaint)
+        canvas.drawText(cleanExpired, width - padding, y + 26f * scale, endValuePaint)
         y += 44f * scale
 
         // QR Code (Persegi)

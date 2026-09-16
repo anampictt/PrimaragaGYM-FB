@@ -22,7 +22,8 @@ class FirebasePaymentDataSource {
         amount: Long,
         paymentMethod: String,
         paymentType: String,
-        planName: String = ""
+        planName: String = "",
+        proofUrl: String? = null
     ): Result<String> {
         return try {
             val invoiceNumber = generateInvoiceNumber()
@@ -40,6 +41,9 @@ class FirebasePaymentDataSource {
                 "createdAt" to Date(),
                 "updatedAt" to Date()
             )
+            if (!proofUrl.isNullOrBlank()) {
+                paymentData["proofUrl"] = proofUrl
+            }
             if (!branchId.isNullOrBlank()) {
                 paymentData["branchId"] = branchId.trim()
             }

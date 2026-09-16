@@ -88,6 +88,10 @@ class FirebaseMemberDataSource {
         }
 
         val paymentMethod = (data["paymentMethod"] as? String) ?: (data["metodePembayaran"] as? String) ?: ""
+        val paymentProofUrl = (data["paymentProofUrl"] as? String)
+            ?: (data["proofUrl"] as? String)
+            ?: (data["paymentProof"] as? String)
+            ?: (data["buktiPembayaran"] as? String)
         val dateOfBirth = when (val d = data["dateOfBirth"] ?: data["date_of_birth"] ?: data["tanggalLahir"] ?: data["tanggal_lahir"]) {
             is String -> d
             is com.google.firebase.Timestamp -> dateFormat.format(d.toDate())
@@ -118,6 +122,7 @@ class FirebaseMemberDataSource {
             startDate = startDate,
             expiredDate = expiredDate,
             paymentMethod = paymentMethod,
+            paymentProofUrl = paymentProofUrl,
             createdAt = createdAt,
             updatedAt = updatedAt
         )
@@ -321,6 +326,8 @@ class FirebaseMemberDataSource {
                 "branchId" to member.branchId,
                 "status" to member.status.ifEmpty { "ACTIVE" },
                 "photoUrl" to member.photoUrl,
+                "paymentProofUrl" to member.paymentProofUrl,
+                "proofUrl" to member.paymentProofUrl,
                 "createdAt" to FieldValue.serverTimestamp(),
                 "updatedAt" to FieldValue.serverTimestamp()
             )
@@ -360,6 +367,9 @@ class FirebaseMemberDataSource {
                 "paymentMethod" to member.paymentMethod,
                 "branchId" to member.branchId,
                 "status" to member.status,
+                "photoUrl" to member.photoUrl,
+                "paymentProofUrl" to member.paymentProofUrl,
+                "proofUrl" to member.paymentProofUrl,
                 "updatedAt" to FieldValue.serverTimestamp()
             )
             val cleanUpdates = updates.filterValues { value ->

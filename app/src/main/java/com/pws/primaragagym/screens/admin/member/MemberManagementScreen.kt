@@ -1012,13 +1012,24 @@ private fun MemberManagementCard(
                         .background(avatarBgColor),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = member.avatarInitial,
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = FontWeight.SemiBold
-                        ),
-                        color = avatarTextColor
-                    )
+                    if (!member.photoUrl.isNullOrBlank()) {
+                        coil.compose.AsyncImage(
+                            model = com.pws.primaragagym.ui.components.normalizeImageUrl(member.photoUrl),
+                            contentDescription = "Foto ${member.name}",
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape),
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                        )
+                    } else {
+                        Text(
+                            text = member.avatarInitial,
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontWeight = FontWeight.SemiBold
+                            ),
+                            color = avatarTextColor
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.width(12.dp))

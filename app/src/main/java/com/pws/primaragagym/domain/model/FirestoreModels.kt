@@ -91,6 +91,7 @@ data class FirestoreMember(
     val startDate: String = "",
     val expiredDate: String = "",
     val paymentMethod: String = "",
+    val paymentProofUrl: String? = null,
     @ServerTimestamp
     val joinedAt: Date? = null,
     @ServerTimestamp
@@ -101,6 +102,7 @@ data class FirestoreMember(
     val id: String get() = memberId
     val name: String get() = fullName
     val phone: String get() = phoneNumber
+    val proofUrl: String? get() = paymentProofUrl
 }
 
 data class FirestoreMembershipPlan(
@@ -172,6 +174,7 @@ data class FirestorePayment(
     val paymentMethod: String = "CASH", // CASH, TRANSFER, QRIS
     val paymentType: String = "NEW_MEMBERSHIP", // NEW_MEMBERSHIP, RENEWAL, UPGRADE, DOWNGRADE, OTHER
     val planName: String = "",
+    val proofUrl: String? = null,
     val status: String = "PAID", // PAID, PENDING, CANCELLED
     @ServerTimestamp
     val paidAt: Date? = null,
