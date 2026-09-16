@@ -27,15 +27,22 @@ class FirebasePaymentDataSource {
         transactionType: String = "INCOME",
         category: String = "",
         notes: String = "",
-        transactionDate: Date = Date()
+        transactionDate: Date = Date(),
+        customInvoiceNumber: String? = null,
+        memberCode: String = ""
     ): Result<String> {
         return try {
-            val invoiceNumber = generateInvoiceNumber()
+            val invoiceNumber = if (!customInvoiceNumber.isNullOrBlank()) {
+                customInvoiceNumber.trim()
+            } else {
+                generateInvoiceNumber()
+            }
 
             val paymentData = mutableMapOf<String, Any>(
                 "invoiceNumber" to invoiceNumber,
                 "memberId" to memberId,
                 "memberName" to memberName,
+                "memberCode" to memberCode,
                 "planName" to planName,
                 "amount" to amount,
                 "paymentMethod" to paymentMethod,
@@ -270,15 +277,36 @@ class FirebasePaymentDataSource {
             if (doc.exists()) {
                 val payment = doc.toObject(com.pws.primaragagym.domain.model.FirestorePayment::class.java)
                 if (payment != null) {
-                    Result.success(payment)
-                } else {
-                    Result.failure(Exception("Pembayaran tidak ditemukan."))
+                    return Result.success(payment)
                 }
-            } else {
-                Result.failure(Exception("Pembayaran tidak ditemukan."))
             }
+
+            // Fallback 1: cari by invoiceNumber
+            val querySnap = paymentsCollection.whereEqualTo("invoiceNumber", paymentId).limit(1).get().await()
+            if (!querySnap.isEmpty) {
+                val payment = querySnap.documents[0].toObject(com.pws.primaragagym.domain.model.FirestorePayment::class.java)
+                if (payment != null) {
+                    return Result.success(payment)
+                }
+            }
+
+            // Fallback 2: cari by memberId atau paymentId parsial
+            val recentSnap = paymentsCollection.orderBy("createdAt", Query.Direction.DESCENDING).limit(60).get().await()
+            val matched = recentSnap.documents.mapNotNull {
+                it.toObject(com.pws.primaragagym.domain.model.FirestorePayment::class.java)
+            }.firstOrNull { p ->
+                p.invoiceNumber.equals(paymentId, ignoreCase = true) ||
+                p.paymentId.equals(paymentId, ignoreCase = true) ||
+                (p.invoiceNumber.isNotBlank() && paymentId.contains(p.invoiceNumber, ignoreCase = true)) ||
+                (p.memberId.isNotBlank() && paymentId.contains(p.memberId, ignoreCase = true))
+            }
+            if (matched != null) {
+                return Result.success(matched)
+            }
+
+            Result.failure(Exception("Invoice tidak ditemukan."))
         } catch (e: Exception) {
-            Result.failure(Exception("Gagal memuat detail pembayaran. ${e.message}"))
+            Result.failure(Exception("Gagal memuat detail invoice. ${e.message}"))
         }
     }
 

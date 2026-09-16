@@ -168,6 +168,7 @@ data class FirestorePayment(
     val invoiceNumber: String = "",
     val memberId: String = "",
     val memberName: String = "", // Snapshot
+    val memberCode: String = "", // Snapshot (misal: PRMG-003)
     val membershipId: String? = null,
     val branchId: String = "",
     val amount: Long = 0,

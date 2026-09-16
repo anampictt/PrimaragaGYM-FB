@@ -590,6 +590,31 @@ fun RegistrasiMemberScreen(
                                     )
                                     savedMemberId = memberObj.memberId
                                     showSuccessDialog = true
+
+                                    // Catat transaksi perpanjangan/update ke Firestore jika ada nominal
+                                    if (memberObj.planPrice > 0) {
+                                        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                                            try {
+                                                val paymentRepo = com.pws.primaragagym.data.repository.PaymentRepositoryImpl()
+                                                paymentRepo.createPayment(
+                                                    memberId = memberObj.memberId,
+                                                    memberName = memberObj.fullName,
+                                                    membershipId = null,
+                                                    branchId = memberObj.branchId.ifBlank { authState.currentUser?.branchId ?: "" },
+                                                    amount = memberObj.planPrice,
+                                                    paymentMethod = memberObj.paymentMethod,
+                                                    paymentType = "RENEWAL",
+                                                    planName = "Membership ${memberObj.planName} (${memberObj.duration})",
+                                                    proofUrl = finalPaymentProofUrl,
+                                                    transactionType = "INCOME",
+                                                    category = "Pembayaran Membership",
+                                                    notes = "Perpanjangan/update membership",
+                                                    customInvoiceNumber = invNum,
+                                                    memberCode = finalCode
+                                                )
+                                            } catch (_: Exception) {}
+                                        }
+                                    }
                                 } else {
                                     generalError = errMsg ?: "Gagal memperbarui data member"
                                 }
@@ -622,7 +647,7 @@ fun RegistrasiMemberScreen(
                                     savedMemberId = finalId
                                     showSuccessDialog = true
 
-                                    // Catat transaksi registrasi ke Firestore
+                                    // Catat transaksi registrasi ke Firestore dengan nomor invoice yang sama persis
                                     kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
                                         try {
                                             val paymentRepo = com.pws.primaragagym.data.repository.PaymentRepositoryImpl()
@@ -630,7 +655,7 @@ fun RegistrasiMemberScreen(
                                                 memberId = finalId,
                                                 memberName = memberObj.fullName,
                                                 membershipId = null,
-                                                branchId = memberObj.branchId,
+                                                branchId = memberObj.branchId.ifBlank { authState.currentUser?.branchId ?: "" },
                                                 amount = memberObj.planPrice,
                                                 paymentMethod = memberObj.paymentMethod,
                                                 paymentType = "REGISTRASI",
@@ -638,7 +663,9 @@ fun RegistrasiMemberScreen(
                                                 proofUrl = finalPaymentProofUrl,
                                                 transactionType = "INCOME",
                                                 category = "Pembayaran Membership",
-                                                notes = "Registrasi member baru"
+                                                notes = "Registrasi member baru",
+                                                customInvoiceNumber = invNum,
+                                                memberCode = finalCode
                                             )
                                         } catch (_: Exception) {}
                                     }

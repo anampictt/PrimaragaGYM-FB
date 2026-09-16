@@ -83,7 +83,9 @@ interface PaymentRepository {
         transactionType: String = "INCOME",
         category: String = "",
         notes: String = "",
-        transactionDate: java.util.Date = java.util.Date()
+        transactionDate: java.util.Date = java.util.Date(),
+        customInvoiceNumber: String? = null,
+        memberCode: String = ""
     ): Result<String>
     suspend fun getPaymentsByBranch(branchId: String, startDate: java.util.Date? = null, endDate: java.util.Date? = null, limit: Int = 50, lastDocumentId: String? = null): Result<List<FirestorePayment>>
     suspend fun getPaymentsByMember(memberId: String): Result<List<FirestorePayment>>

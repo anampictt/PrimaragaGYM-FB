@@ -160,8 +160,10 @@ class PaymentRepositoryImpl : PaymentRepository {
         transactionType: String,
         category: String,
         notes: String,
-        transactionDate: Date
-    ): Result<String> = dataSource.createPayment(memberId, memberName, membershipId, branchId, amount, paymentMethod, paymentType, planName, proofUrl, transactionType, category, notes, transactionDate)
+        transactionDate: Date,
+        customInvoiceNumber: String?,
+        memberCode: String
+    ): Result<String> = dataSource.createPayment(memberId, memberName, membershipId, branchId, amount, paymentMethod, paymentType, planName, proofUrl, transactionType, category, notes, transactionDate, customInvoiceNumber, memberCode)
 
     override suspend fun getPaymentsByBranch(branchId: String, startDate: Date?, endDate: Date?, limit: Int, lastDocumentId: String?): Result<List<FirestorePayment>> =
         dataSource.getPaymentsByBranch(branchId, startDate, endDate, limit, lastDocumentId)

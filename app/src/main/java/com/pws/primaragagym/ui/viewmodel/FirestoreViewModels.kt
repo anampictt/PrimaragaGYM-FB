@@ -1422,7 +1422,7 @@ class KeuanganViewModel : ViewModel() {
 // INVOICE LIST VIEWMODEL (FIRESTORE)
 // ============================================================================
 data class InvoiceListUiState(
-    val isLoading: Boolean = true,
+    val isLoading: Boolean = false,
     val invoices: List<FirestorePayment> = emptyList(),
     val error: String? = null,
     val branchId: String = ""
@@ -1441,7 +1441,7 @@ class InvoiceListViewModel : ViewModel() {
 
             try {
                 // Fetch recent payments for the branch
-                val paymentsResult = paymentRepository.getPaymentsByBranch(branchId, limit = 50)
+                val paymentsResult = paymentRepository.getPaymentsByBranch(branchId, limit = 150)
                 
                 _uiState.update { state ->
                     state.copy(
@@ -1452,6 +1452,48 @@ class InvoiceListViewModel : ViewModel() {
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.message) }
             }
+        }
+    }
+}
+
+// ============================================================================
+// INVOICE DETAIL VIEWMODEL (FIRESTORE)
+// ============================================================================
+data class InvoiceDetailUiState(
+    val isLoading: Boolean = false,
+    val invoice: FirestorePayment? = null,
+    val memberCode: String = "",
+    val error: String? = null
+)
+
+class InvoiceDetailViewModel : ViewModel() {
+    private val paymentRepository: PaymentRepository = PaymentRepositoryImpl()
+    private val memberRepository: MemberRepository = MemberRepositoryImpl()
+
+    private val _uiState = MutableStateFlow(InvoiceDetailUiState())
+    val uiState: StateFlow<InvoiceDetailUiState> = _uiState.asStateFlow()
+
+    fun loadDetail(invoiceId: String) {
+        if (invoiceId.isBlank()) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            paymentRepository.getPaymentById(invoiceId)
+                .onSuccess { payment ->
+                    val resolvedCode = if (payment.memberCode.isNotBlank()) {
+                        payment.memberCode
+                    } else if (payment.memberId.isNotBlank()) {
+                        try {
+                            val member = memberRepository.getMemberById(payment.memberId).getOrNull()
+                            member?.memberCode?.ifBlank { null } ?: ""
+                        } catch (_: Exception) { "" }
+                    } else {
+                        ""
+                    }
+                    _uiState.update { it.copy(isLoading = false, invoice = payment, memberCode = resolvedCode) }
+                }
+                .onFailure { e ->
+                    _uiState.update { it.copy(isLoading = false, error = e.message) }
+                }
         }
     }
 }

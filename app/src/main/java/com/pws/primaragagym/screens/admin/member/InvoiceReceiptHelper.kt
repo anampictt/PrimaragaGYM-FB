@@ -2,6 +2,7 @@ package com.pws.primaragagym.screens.admin.member
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -18,6 +19,7 @@ import android.print.PrintDocumentInfo
 import android.print.PrintManager
 import android.widget.Toast
 import androidx.core.content.FileProvider
+import com.pws.primaragagym.screens.admin.member.card.QrCodeGenerator
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -399,8 +401,8 @@ object InvoiceReceiptHelper {
             color = TableBg
             style = Paint.Style.FILL
         }
-        canvas.drawRoundRect(margin, y, pageWidth - margin, y + 60f, 6f, 6f, noteBgPaint)
-        canvas.drawRoundRect(margin, y, pageWidth - margin, y + 60f, 6f, 6f, linePaint)
+        canvas.drawRoundRect(margin, y, pageWidth - margin, y + 54f, 6f, 6f, noteBgPaint)
+        canvas.drawRoundRect(margin, y, pageWidth - margin, y + 54f, 6f, 6f, linePaint)
 
         val noteTitlePaint = Paint().apply {
             color = TextPrimary
@@ -408,15 +410,101 @@ object InvoiceReceiptHelper {
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             isAntiAlias = true
         }
-        canvas.drawText("CATATAN:", margin + 12f, y + 18f, noteTitlePaint)
+        canvas.drawText("CATATAN:", margin + 12f, y + 16f, noteTitlePaint)
 
         val noteBodyPaint = Paint().apply {
             color = TextSecondary
             textSize = 8.5f
             isAntiAlias = true
         }
-        canvas.drawText("• Bukti pembayaran ini sah dan diterbitkan secara digital oleh sistem Primaraga Gym.", margin + 12f, y + 32f, noteBodyPaint)
-        canvas.drawText("• Harap tunjukkan kartu member digital atau cetak saat berkunjung untuk akses masuk gym.", margin + 12f, y + 46f, noteBodyPaint)
+        canvas.drawText("• Bukti pembayaran ini sah dan diterbitkan secara digital oleh sistem Primaraga Gym.", margin + 12f, y + 30f, noteBodyPaint)
+        canvas.drawText("• Harap tunjukkan kartu member digital atau cetak saat berkunjung untuk akses masuk gym.", margin + 12f, y + 43f, noteBodyPaint)
+
+        y += 70f
+
+        // Section Verifikasi QR & Tanda Tangan Resmi
+        val verifyCardWidth = 320f
+        val verifyCardHeight = 98f
+
+        // 1. Box Verifikasi QR Code (Kiri)
+        canvas.drawRoundRect(margin, y, margin + verifyCardWidth, y + verifyCardHeight, 6f, 6f, noteBgPaint)
+        canvas.drawRoundRect(margin, y, margin + verifyCardWidth, y + verifyCardHeight, 6f, 6f, linePaint)
+
+        val verifyHeaderPaint = Paint().apply {
+            color = DarkGreen
+            textSize = 9f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            isAntiAlias = true
+        }
+        canvas.drawText("VERIFIKASI KEASLIAN DOKUMEN", margin + 12f, y + 16f, verifyHeaderPaint)
+
+        // Gambar QR Code jika berhasil digenerate
+        val qrBoxSize = 70f
+        val qrTop = y + 22f
+        try {
+            val qrBitmap = QrCodeGenerator.generateQrBitmap(data.invoiceNumber, size = 240)
+            val scaledQr = Bitmap.createScaledBitmap(qrBitmap, qrBoxSize.toInt(), qrBoxSize.toInt(), true)
+            canvas.drawBitmap(scaledQr, margin + 12f, qrTop, null)
+        } catch (_: Exception) {}
+
+        val verifyTextX = margin + 12f + qrBoxSize + 12f
+        val verifySubPaint = Paint().apply {
+            color = TextSecondary
+            textSize = 7.5f
+            isAntiAlias = true
+        }
+        val verifyInvPaint = Paint().apply {
+            color = TextPrimary
+            textSize = 8.5f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            isAntiAlias = true
+        }
+        val verifyStatusPaint = Paint().apply {
+            color = GreenBrand
+            textSize = 8f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            isAntiAlias = true
+        }
+
+        canvas.drawText("Scan QR ini di aplikasi Primaraga Gym", verifyTextX, qrTop + 14f, verifySubPaint)
+        canvas.drawText("untuk memverifikasi status nota.", verifyTextX, qrTop + 25f, verifySubPaint)
+        canvas.drawText("No: ${data.invoiceNumber}", verifyTextX, qrTop + 42f, verifyInvPaint)
+        canvas.drawText("STATUS: LUNAS (TERVERIFIKASI)", verifyTextX, qrTop + 56f, verifyStatusPaint)
+
+        // 2. Blok Tanda Tangan / Stempel Kasir (Kanan)
+        val sigX = pageWidth - margin
+        val sigHeaderPaint = Paint().apply {
+            color = TextSecondary
+            textSize = 8.5f
+            textAlign = Paint.Align.RIGHT
+            isAntiAlias = true
+        }
+        val sigTitlePaint = Paint().apply {
+            color = TextPrimary
+            textSize = 9.5f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            textAlign = Paint.Align.RIGHT
+            isAntiAlias = true
+        }
+        val sigNamePaint = Paint().apply {
+            color = TextPrimary
+            textSize = 9.5f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            textAlign = Paint.Align.RIGHT
+            isAntiAlias = true
+        }
+        val sigGymPaint = Paint().apply {
+            color = TextMuted
+            textSize = 8f
+            textAlign = Paint.Align.RIGHT
+            isAntiAlias = true
+        }
+
+        val dateOnlyClean = cleanDate(data.dateStr).ifBlank { "Hari ini" }
+        canvas.drawText("Tanggal: $dateOnlyClean", sigX, y + 14f, sigHeaderPaint)
+        canvas.drawText("Petugas Kasir / Admin", sigX, y + 28f, sigTitlePaint)
+        canvas.drawText("( ${data.adminName} )", sigX, y + 80f, sigNamePaint)
+        canvas.drawText("PRIMARAGA GYM MANAGEMENT", sigX, y + 92f, sigGymPaint)
 
         // Footer
         val footerY = pageHeight - 40f
@@ -438,12 +526,12 @@ object InvoiceReceiptHelper {
     }
 
     /**
-     * Membuat Nota Kasir format Struk Thermal (384 x 560 pt)
+     * Membuat Nota Kasir format Struk Thermal (384 x 600 pt)
      */
     fun generateReceiptPdf(context: Context, data: InvoiceReceiptData): ByteArray {
         val pdfDocument = PdfDocument()
         val pageWidth = 384
-        val pageHeight = 560
+        val pageHeight = 600
         val pageInfo = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, 1).create()
         val page = pdfDocument.startPage(pageInfo)
         val canvas: Canvas = page.canvas
@@ -576,9 +664,42 @@ object InvoiceReceiptHelper {
         }
         canvas.drawText("$startClean s/d $expiredClean", margin, y, periodPaint)
 
-        y += 24f
+        y += 18f
         canvas.drawLine(margin, y, pageWidth - margin, y, dividerPaint)
-        y += 20f
+        y += 16f
+
+        // QR Code Nota Kasir (Thermal)
+        try {
+            val qrBitmap = QrCodeGenerator.generateQrBitmap(data.invoiceNumber, size = 260)
+            val qrSize = 92f
+            val qrLeft = (pageWidth - qrSize) / 2f
+            val scaledBitmap = Bitmap.createScaledBitmap(qrBitmap, qrSize.toInt(), qrSize.toInt(), true)
+            canvas.drawBitmap(scaledBitmap, qrLeft, y, null)
+            y += qrSize + 10f
+
+            val qrInvPaint = Paint().apply {
+                color = TextPrimary
+                textSize = 9.5f
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                textAlign = Paint.Align.CENTER
+                isAntiAlias = true
+            }
+            canvas.drawText(data.invoiceNumber, pageWidth / 2f, y, qrInvPaint)
+            y += 12f
+
+            val qrSubPaint = Paint().apply {
+                color = TextMuted
+                textSize = 8f
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+                textAlign = Paint.Align.CENTER
+                isAntiAlias = true
+            }
+            canvas.drawText("Scan QR untuk verifikasi di aplikasi", pageWidth / 2f, y, qrSubPaint)
+            y += 16f
+        } catch (_: Exception) {}
+
+        canvas.drawLine(margin, y, pageWidth - margin, y, dividerPaint)
+        y += 16f
 
         // Footer Struk
         val footerPaint = Paint().apply {
