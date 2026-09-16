@@ -694,6 +694,7 @@ Selamat berlatih dan raih kebugaran maksimal! 🔥
                 Toast.makeText(context, "Nomor WhatsApp belum terisi, membuka opsi bagikan...", Toast.LENGTH_SHORT).show()
                 val shareIntent = Intent(Intent.ACTION_SEND).apply {
                     type = "application/pdf"
+                    clipData = android.content.ClipData.newRawUri("", fileUri)
                     putExtra(Intent.EXTRA_STREAM, fileUri)
                     putExtra(Intent.EXTRA_TEXT, message)
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
@@ -706,6 +707,7 @@ Selamat berlatih dan raih kebugaran maksimal! 🔥
             try {
                 val waIntent = Intent(Intent.ACTION_SEND).apply {
                     type = "application/pdf"
+                    clipData = android.content.ClipData.newRawUri("", fileUri)
                     putExtra(Intent.EXTRA_STREAM, fileUri)
                     putExtra(Intent.EXTRA_TEXT, message)
                     putExtra("jid", "$formattedPhone@s.whatsapp.net")
@@ -718,6 +720,7 @@ Selamat berlatih dan raih kebugaran maksimal! 🔥
                 try {
                     val waBusinessIntent = Intent(Intent.ACTION_SEND).apply {
                         type = "application/pdf"
+                        clipData = android.content.ClipData.newRawUri("", fileUri)
                         putExtra(Intent.EXTRA_STREAM, fileUri)
                         putExtra(Intent.EXTRA_TEXT, message)
                         putExtra("jid", "$formattedPhone@s.whatsapp.net")
@@ -736,6 +739,7 @@ Selamat berlatih dan raih kebugaran maksimal! 🔥
                         // Fallback chooser
                         val shareIntent = Intent(Intent.ACTION_SEND).apply {
                             type = "application/pdf"
+                            clipData = android.content.ClipData.newRawUri("", fileUri)
                             putExtra(Intent.EXTRA_STREAM, fileUri)
                             putExtra(Intent.EXTRA_TEXT, message)
                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)

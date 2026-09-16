@@ -210,7 +210,9 @@ fun MemberManagementScreen(
                     status = member.status.displayName,
                     avatarInitial = member.avatarInitial,
                     qrContent = "PRIMARAGA_MEMBER:${member.memberCode}",
-                    dateOfBirth = member.dateOfBirth.ifEmpty { "-" }
+                    dateOfBirth = member.dateOfBirth.ifEmpty { "-" },
+                    photoUrl = member.photoUrl,
+                    phoneNumber = member.phone
                 )
                 val bitmap = withContext(Dispatchers.Default) {
                     MemberCardImageGenerator.generateCardBitmap(context, cardData)
@@ -240,7 +242,9 @@ fun MemberManagementScreen(
                     status = member.status.displayName,
                     avatarInitial = member.avatarInitial,
                     qrContent = "PRIMARAGA_MEMBER:${member.memberCode}",
-                    dateOfBirth = member.dateOfBirth.ifEmpty { "-" }
+                    dateOfBirth = member.dateOfBirth.ifEmpty { "-" },
+                    photoUrl = member.photoUrl,
+                    phoneNumber = member.phone
                 )
                 val bitmap = withContext(Dispatchers.Default) {
                     MemberCardImageGenerator.generateCardBitmap(context, cardData)

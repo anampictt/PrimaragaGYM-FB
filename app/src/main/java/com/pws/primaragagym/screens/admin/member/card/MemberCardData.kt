@@ -10,5 +10,6 @@ data class MemberCardData(
     val avatarInitial: String,
     val qrContent: String,
     val dateOfBirth: String = "",
-    val photoUrl: String? = null
+    val photoUrl: String? = null,
+    val phoneNumber: String = ""
 )

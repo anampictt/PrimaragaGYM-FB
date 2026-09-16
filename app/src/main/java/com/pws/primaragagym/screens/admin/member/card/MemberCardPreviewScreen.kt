@@ -1,6 +1,8 @@
 package com.pws.primaragagym.screens.admin.member.card
 
+import android.content.Intent
 import android.graphics.Bitmap
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,7 +20,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
@@ -28,7 +29,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -37,7 +37,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,6 +47,7 @@ import com.pws.primaragagym.screens.admin.member.formatExpiredDateDisplay
 import com.pws.primaragagym.screens.admin.member.resolveMemberStatus
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -78,8 +78,8 @@ fun MemberCardPreviewScreen(
     var isLoading by remember { mutableStateOf(currentCardData == null && memberId.isNotBlank()) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    var isSavingImage by remember { mutableStateOf(false) }
-    var isSavingPdf by remember { mutableStateOf(false) }
+    var isSharingWaImage by remember { mutableStateOf(false) }
+    var isSharingWaPdf by remember { mutableStateOf(false) }
     var cardBitmap by remember { mutableStateOf<Bitmap?>(null) }
 
     val greenAccent = com.pws.primaragagym.screens.admin.member.MemberColors.GreenAccent
@@ -95,6 +95,22 @@ fun MemberCardPreviewScreen(
         if (cardData != null) {
             currentCardData = cardData
             isLoading = false
+            // Jika cardData belum membawa phoneNumber tapi memberId ada, muat phoneNumber dari Firestore
+            if (cardData.phoneNumber.isBlank() && memberId.isNotBlank()) {
+                withContext(Dispatchers.IO) {
+                    try {
+                        val memberRepo = com.pws.primaragagym.data.repository.MemberRepositoryImpl()
+                        val res = memberRepo.getMemberById(memberId)
+                        res.getOrNull()?.phoneNumber?.let { phone ->
+                            if (phone.isNotBlank()) {
+                                withContext(Dispatchers.Main) {
+                                    currentCardData = currentCardData?.copy(phoneNumber = phone)
+                                }
+                            }
+                        }
+                    } catch (_: Exception) {}
+                }
+            }
         } else if (memberId.isNotBlank()) {
             isLoading = true
             errorMessage = null
@@ -152,7 +168,8 @@ fun MemberCardPreviewScreen(
                                     avatarInitial = initials,
                                     qrContent = "PRIMARAGA_MEMBER:$code",
                                     dateOfBirth = member.dateOfBirth.ifBlank { "-" },
-                                    photoUrl = member.photoUrl
+                                    photoUrl = member.photoUrl,
+                                    phoneNumber = member.phoneNumber
                                 )
                                 isLoading = false
                             }
@@ -170,7 +187,8 @@ fun MemberCardPreviewScreen(
                                         status = dummy.status.displayName,
                                         avatarInitial = dummy.avatarInitial,
                                         qrContent = "PRIMARAGA_MEMBER:${dummy.memberCode}",
-                                        dateOfBirth = dummy.dateOfBirth.ifBlank { "-" }
+                                        dateOfBirth = dummy.dateOfBirth.ifBlank { "-" },
+                                        phoneNumber = dummy.phone
                                     )
                                 } else {
                                     errorMessage = err.message ?: "Data member tidak ditemukan"
@@ -210,88 +228,122 @@ fun MemberCardPreviewScreen(
         }
     }
 
-    fun saveImage() {
+    fun shareCardToWhatsApp(isPdf: Boolean) {
         val data = currentCardData ?: return
-        if (isSavingImage) return
-        isSavingImage = true
-        scope.launch {
-            val bitmap = cardBitmap ?: withContext(Dispatchers.Default) {
-                MemberCardImageGenerator.generateCardBitmap(context, data)
-            }
-            val fileName = "PrimaragaGYM_${data.memberCode}.png"
-            val result = withContext(Dispatchers.IO) {
-                MemberCardImageGenerator.saveBitmapToFile(context, bitmap, fileName)
-            }
-            isSavingImage = false
-            snackbarHostState.showSnackbar(
-                if (result.isSuccess) successMessage else errorSaveMessage
-            )
-        }
-    }
+        if (isSharingWaImage || isSharingWaPdf) return
 
-    fun savePdf() {
-        val data = currentCardData ?: return
-        if (isSavingPdf) return
-        isSavingPdf = true
+        if (isPdf) isSharingWaPdf = true else isSharingWaImage = true
+
         scope.launch {
-            val pdfResult = withContext(Dispatchers.Default) {
-                MemberCardPdfGenerator.generatePdf(context, data)
-            }
-            pdfResult.fold(
-                onSuccess = { bytes ->
-                    val fileName = "PrimaragaGYM_${data.memberCode}.pdf"
-                    val saveResult = withContext(Dispatchers.IO) {
-                        MemberCardPdfGenerator.savePdfToFile(context, bytes, fileName)
+            try {
+                val uri: Uri?
+                val mimeType: String
+                val cleanStart = formatCardDate(data.startDate)
+                val cleanExpired = formatCardDate(data.expiredDate)
+                val message = """
+Halo Kak ${data.name},
+Berikut adalah *Kartu Member Digital* Anda dari *PRIMARAGA GYM*! 🏋️‍♂️💳
+
+👤 *Nama:* ${data.name}
+🆔 *ID Member:* ${data.memberCode}
+🏋️ *Paket:* ${data.planName}
+📅 *Masa Aktif:* $cleanStart s/d $cleanExpired
+
+Harap simpan kartu ini dan tunjukkan QR Code pada kartu kepada petugas saat berkunjung ke gym.
+Selamat berlatih dan raih tubuh sehat bersama kami! 🔥💪
+""".trimIndent()
+
+                if (isPdf) {
+                    mimeType = "application/pdf"
+                    val pdfResult = withContext(Dispatchers.Default) {
+                        MemberCardPdfGenerator.generatePdf(context, data)
                     }
-                    isSavingPdf = false
-                    snackbarHostState.showSnackbar(
-                        if (saveResult.isSuccess) "PDF berhasil disimpan" else errorSaveMessage
-                    )
-                },
-                onFailure = {
-                    isSavingPdf = false
-                    snackbarHostState.showSnackbar(errorSaveMessage)
-                }
-            )
-        }
-    }
-
-    fun shareImage() {
-        val data = currentCardData ?: return
-        scope.launch {
-            val bitmap = cardBitmap ?: withContext(Dispatchers.Default) {
-                MemberCardImageGenerator.generateCardBitmap(context, data)
-            }
-            val fileName = "PrimaragaGYM_${data.memberCode}.png"
-            val uri = MemberCardImageGenerator.getShareUri(context, bitmap, fileName)
-            if (uri != null) {
-                ShareHelper.shareImage(context, uri, data.name)
-            } else {
-                snackbarHostState.showSnackbar(errorShareMessage)
-            }
-        }
-    }
-
-    fun sharePdf() {
-        val data = currentCardData ?: return
-        scope.launch {
-            val pdfResult = withContext(Dispatchers.Default) {
-                MemberCardPdfGenerator.generatePdf(context, data)
-            }
-            pdfResult.fold(
-                onSuccess = { bytes ->
-                    val fileName = "PrimaragaGYM_${data.memberCode}.pdf"
-                    val uri = MemberCardPdfGenerator.getShareUri(context, bytes, fileName)
-                    if (uri != null) {
-                        ShareHelper.sharePdf(context, uri, data.name)
-                    } else {
-                        snackbarHostState.showSnackbar(errorShareMessage)
+                    uri = pdfResult.getOrNull()?.let { bytes ->
+                        val fileName = "PrimaragaGYM_${data.memberCode}.pdf"
+                        MemberCardPdfGenerator.getShareUri(context, bytes, fileName)
                     }
-                },
-                onFailure = {
-                    snackbarHostState.showSnackbar(errorShareMessage)
+                } else {
+                    mimeType = "image/png"
+                    val bitmap = cardBitmap ?: withContext(Dispatchers.Default) {
+                        MemberCardImageGenerator.generateCardBitmap(context, data)
+                    }
+                    val fileName = "PrimaragaGYM_${data.memberCode}.png"
+                    uri = MemberCardImageGenerator.getShareUri(context, bitmap, fileName)
                 }
-            )
+
+                if (isPdf) isSharingWaPdf = false else isSharingWaImage = false
+
+                if (uri == null) {
+                    snackbarHostState.showSnackbar("Gagal menyiapkan kartu member")
+                    return@launch
+                }
+
+                val digits = data.phoneNumber.filter { it.isDigit() }
+                val formattedPhone = when {
+                    digits.startsWith("0") -> "62" + digits.substring(1)
+                    digits.startsWith("62") -> digits
+                    digits.isNotBlank() -> "62$digits"
+                    else -> ""
+                }
+
+                if (formattedPhone.isBlank()) {
+                    snackbarHostState.showSnackbar("Nomor WhatsApp belum tersedia, membuka menu bagikan...")
+                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = mimeType
+                        clipData = android.content.ClipData.newRawUri("", uri)
+                        putExtra(Intent.EXTRA_STREAM, uri)
+                        putExtra(Intent.EXTRA_TEXT, message)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    context.startActivity(Intent.createChooser(shareIntent, "Bagikan Kartu Member"))
+                    return@launch
+                }
+
+                // Coba buka WhatsApp
+                try {
+                    val waIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = mimeType
+                        clipData = android.content.ClipData.newRawUri("", uri)
+                        putExtra(Intent.EXTRA_STREAM, uri)
+                        putExtra(Intent.EXTRA_TEXT, message)
+                        putExtra("jid", "$formattedPhone@s.whatsapp.net")
+                        setPackage("com.whatsapp")
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    context.startActivity(waIntent)
+                } catch (e1: Exception) {
+                    try {
+                        val waBusinessIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = mimeType
+                            clipData = android.content.ClipData.newRawUri("", uri)
+                            putExtra(Intent.EXTRA_STREAM, uri)
+                            putExtra(Intent.EXTRA_TEXT, message)
+                            putExtra("jid", "$formattedPhone@s.whatsapp.net")
+                            setPackage("com.whatsapp.w4b")
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        context.startActivity(waBusinessIntent)
+                    } catch (e2: Exception) {
+                        try {
+                            val encodedMsg = java.net.URLEncoder.encode(message, "UTF-8")
+                            val waUrl = Uri.parse("https://wa.me/$formattedPhone?text=$encodedMsg")
+                            context.startActivity(Intent(Intent.ACTION_VIEW, waUrl))
+                        } catch (e3: Exception) {
+                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                type = mimeType
+                                clipData = android.content.ClipData.newRawUri("", uri)
+                                putExtra(Intent.EXTRA_STREAM, uri)
+                                putExtra(Intent.EXTRA_TEXT, message)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            context.startActivity(Intent.createChooser(shareIntent, "Kirim Kartu ke $formattedPhone"))
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                if (isPdf) isSharingWaPdf = false else isSharingWaImage = false
+                snackbarHostState.showSnackbar("Gagal membagikan kartu: ${e.message}")
+            }
         }
     }
 
@@ -389,160 +441,103 @@ fun MemberCardPreviewScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Button(
-                            onClick = { saveImage() },
+                            onClick = { shareCardToWhatsApp(isPdf = false) },
                             modifier = Modifier.weight(1f),
-                            enabled = !isSavingImage,
-                            colors = ButtonDefaults.buttonColors(containerColor = greenAccent),
+                            enabled = !isSharingWaImage,
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366)),
                             shape = RoundedCornerShape(Dimens.button_corner_radius)
                         ) {
-                            if (isSavingImage) {
+                            if (isSharingWaImage) {
                                 CircularProgressIndicator(
                                     modifier = Modifier.size(20.dp),
-                                    color = cardBg,
+                                    color = Color.White,
                                     strokeWidth = 2.dp
                                 )
                             } else {
                                 Icon(
-                                    imageVector = Icons.Default.Download,
+                                    imageVector = Icons.Default.Share,
                                     contentDescription = null,
-                                    modifier = Modifier.size(20.dp)
+                                    modifier = Modifier.size(20.dp),
+                                    tint = Color.White
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                             }
-                            Text("Simpan Gambar")
+                            Text("Bagikan Gambar ke WA", color = Color.White)
                         }
                         Button(
-                            onClick = { savePdf() },
+                            onClick = { shareCardToWhatsApp(isPdf = true) },
                             modifier = Modifier.weight(1f),
-                            enabled = !isSavingPdf,
-                            colors = ButtonDefaults.buttonColors(containerColor = greenAccent),
+                            enabled = !isSharingWaPdf,
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366)),
                             shape = RoundedCornerShape(Dimens.button_corner_radius)
                         ) {
-                            if (isSavingPdf) {
+                            if (isSharingWaPdf) {
                                 CircularProgressIndicator(
                                     modifier = Modifier.size(20.dp),
-                                    color = cardBg,
+                                    color = Color.White,
                                     strokeWidth = 2.dp
                                 )
                             } else {
                                 Icon(
                                     imageVector = Icons.Default.PictureAsPdf,
                                     contentDescription = null,
-                                    modifier = Modifier.size(20.dp)
+                                    modifier = Modifier.size(20.dp),
+                                    tint = Color.White
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                             }
-                            Text("Simpan PDF")
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    // Share buttons
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = { shareImage() },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(Dimens.button_corner_radius)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Share,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Bagikan PNG", color = greenAccent)
-                        }
-                        OutlinedButton(
-                            onClick = { sharePdf() },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(Dimens.button_corner_radius)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Share,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Bagikan PDF", color = greenAccent)
+                            Text("Bagikan PDF ke WA", color = Color.White)
                         }
                     }
                 } else {
-                    // Phone layout - stacked
+                    // Phone layout - exactly 2 WhatsApp buttons
                     Button(
-                        onClick = { saveImage() },
+                        onClick = { shareCardToWhatsApp(isPdf = false) },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = !isSavingImage,
-                        colors = ButtonDefaults.buttonColors(containerColor = greenAccent),
+                        enabled = !isSharingWaImage,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366)),
                         shape = RoundedCornerShape(Dimens.button_corner_radius)
                     ) {
-                        if (isSavingImage) {
+                        if (isSharingWaImage) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(20.dp),
-                                color = cardBg,
+                                color = Color.White,
                                 strokeWidth = 2.dp
                             )
                         } else {
                             Icon(
-                                imageVector = Icons.Default.Download,
+                                imageVector = Icons.Default.Share,
                                 contentDescription = null,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(20.dp),
+                                tint = Color.White
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                         }
-                        Text("Simpan Gambar")
+                        Text("Bagikan Gambar ke WA Member", color = Color.White)
                     }
                     Button(
-                        onClick = { savePdf() },
+                        onClick = { shareCardToWhatsApp(isPdf = true) },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = !isSavingPdf,
-                        colors = ButtonDefaults.buttonColors(containerColor = greenAccent),
+                        enabled = !isSharingWaPdf,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366)),
                         shape = RoundedCornerShape(Dimens.button_corner_radius)
                     ) {
-                        if (isSavingPdf) {
+                        if (isSharingWaPdf) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(20.dp),
-                                color = cardBg,
+                                color = Color.White,
                                 strokeWidth = 2.dp
                             )
                         } else {
                             Icon(
                                 imageVector = Icons.Default.PictureAsPdf,
                                 contentDescription = null,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(20.dp),
+                                tint = Color.White
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                         }
-                        Text("Simpan PDF")
-                    }
-                    OutlinedButton(
-                        onClick = { shareImage() },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(Dimens.button_corner_radius)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Share,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Bagikan PNG", color = greenAccent)
-                    }
-                    OutlinedButton(
-                        onClick = { sharePdf() },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(Dimens.button_corner_radius)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Share,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Bagikan PDF", color = greenAccent)
+                        Text("Bagikan PDF ke WA Member", color = Color.White)
                     }
                 }
             }
