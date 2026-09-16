@@ -134,6 +134,7 @@ fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(
     // ==================== MEMBER HUB ====================
     composable(AppScreen.Member.route) {
         MemberScreen(
+            authViewModel = authViewModel,
             onBackClick = {
                 if (navController.previousBackStackEntry != null) {
                     navController.popBackStack()
@@ -147,6 +148,9 @@ fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(
             },
             onMembershipPlanClick = {
                 navController.navigate(AppScreen.MembershipPlan.route)
+            },
+            onChatTemplateClick = {
+                navController.navigate(AppScreen.ChatTemplate.route)
             },
             onMemberClick = { memberId ->
                 navController.navigate(AppScreen.MembershipDetail.createRoute(memberId))
@@ -384,6 +388,17 @@ fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(
                 }
             },
             onSubmitSuccess = {
+                if (navController.previousBackStackEntry != null) {
+                    navController.popBackStack()
+                }
+            }
+        )
+    }
+
+    // ==================== CHAT TEMPLATE ====================
+    composable(AppScreen.ChatTemplate.route) {
+        com.pws.primaragagym.screens.admin.template.ChatTemplateScreen(
+            onBackClick = {
                 if (navController.previousBackStackEntry != null) {
                     navController.popBackStack()
                 }

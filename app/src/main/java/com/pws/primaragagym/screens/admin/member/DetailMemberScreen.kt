@@ -58,6 +58,21 @@ import com.pws.primaragagym.ui.theme.Dimens
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import com.pws.primaragagym.domain.model.ChatTemplateCategory
+import com.pws.primaragagym.domain.model.formatChatTemplateMessage
+import com.pws.primaragagym.ui.viewmodel.ChatTemplateViewModel
 import com.pws.primaragagym.R
 
 // ============================================================================
@@ -94,6 +109,14 @@ fun DetailMemberScreen(
     }
 
     val horizontalPadding = if (isTablet) 32.dp else Dimens.screen_padding_horizontal
+    var showWhatsAppTemplateDialog by remember { mutableStateOf(false) }
+
+    if (showWhatsAppTemplateDialog) {
+        PilihTemplateWhatsAppMemberDialog(
+            member = member,
+            onDismiss = { showWhatsAppTemplateDialog = false }
+        )
+    }
 
     Scaffold(
         containerColor = BackgroundColor,
@@ -125,35 +148,35 @@ fun DetailMemberScreen(
                 )
             )
         }
-    ) { paddingValues ->
+    ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
-                .padding(vertical = Dimens.spacing_5)
+                .padding(bottom = Dimens.spacing_6)
         ) {
-            // Profile Card
+            // Profile Section
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = horizontalPadding),
+                    .padding(horizontal = horizontalPadding, vertical = Dimens.spacing_4),
                 shape = RoundedCornerShape(Dimens.card_corner_radius),
                 colors = CardDefaults.cardColors(
                     containerColor = CardBackground
                 ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(Dimens.spacing_6),
+                        .padding(Dimens.spacing_5),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     // Avatar
                     Box(
                         modifier = Modifier
-                            .size(80.dp)
+                            .size(if (isTablet) 90.dp else 72.dp)
                             .clip(CircleShape)
                             .background(GreenLight),
                         contentAlignment = Alignment.Center
@@ -163,7 +186,7 @@ fun DetailMemberScreen(
                                 model = com.pws.primaragagym.ui.components.normalizeImageUrl(member.photoUrl),
                                 contentDescription = "Foto ${member.name}",
                                 modifier = Modifier
-                                    .size(80.dp)
+                                    .fillMaxSize()
                                     .clip(CircleShape),
                                 contentScale = androidx.compose.ui.layout.ContentScale.Crop
                             )
@@ -178,11 +201,12 @@ fun DetailMemberScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(Dimens.spacing_4))
+                    Spacer(modifier = Modifier.height(Dimens.spacing_3))
 
+                    // Name
                     Text(
                         text = member.name,
-                        style = MaterialTheme.typography.headlineSmall.copy(
+                        style = MaterialTheme.typography.titleLarge.copy(
                             fontWeight = FontWeight.Bold
                         ),
                         color = TextPrimary
@@ -190,6 +214,7 @@ fun DetailMemberScreen(
 
                     Spacer(modifier = Modifier.height(4.dp))
 
+                    // Member ID / Code
                     Text(
                         text = member.memberCode,
                         style = MaterialTheme.typography.bodyMedium,
@@ -198,23 +223,44 @@ fun DetailMemberScreen(
 
                     Spacer(modifier = Modifier.height(Dimens.spacing_3))
 
+                    // Status Badge
                     MemberStatusBadge(status = member.status)
 
-                    if (member.phone.isNotBlank()) {
-                        Spacer(modifier = Modifier.height(Dimens.spacing_3))
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Phone,
-                                contentDescription = null,
-                                tint = TextSecondary,
-                                modifier = Modifier.size(16.dp)
-                            )
+                    Spacer(modifier = Modifier.height(Dimens.spacing_4))
+
+                    // Member Details Grid
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
-                                text = member.phone,
-                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                                text = "Bergabung",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = TextMuted
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = member.startDate.ifEmpty { "-" },
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = FontWeight.SemiBold
+                                ),
+                                color = TextPrimary
+                            )
+                        }
+
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "Telepon",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = TextMuted
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = member.phone.ifEmpty { "-" },
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = FontWeight.SemiBold
+                                ),
                                 color = TextPrimary
                             )
                         }
@@ -225,7 +271,7 @@ fun DetailMemberScreen(
                     // WhatsApp Action Button
                     Button(
                         onClick = {
-                            openWhatsApp(context, member.phone, member.name)
+                            showWhatsAppTemplateDialog = true
                         },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF25D366)
@@ -513,4 +559,187 @@ private fun RiwayatMenuItem(
     }
 }
 
-// Dummy for import reference
+// ============================================================================
+// PILIH TEMPLATE WHATSAPP MEMBER DIALOG
+// ============================================================================
+@Composable
+private fun PilihTemplateWhatsAppMemberDialog(
+    member: MemberUiModel,
+    onDismiss: () -> Unit,
+    templateViewModel: ChatTemplateViewModel = viewModel()
+) {
+    val context = LocalContext.current
+    val configuration = LocalConfiguration.current
+    val isTablet = configuration.screenWidthDp >= 600
+
+    val templateState by templateViewModel.uiState.collectAsState()
+    val templates = templateState.templates
+
+    var selectedTemplate by remember(templates) {
+        mutableStateOf(
+            templates.find { it.categoryEnum == ChatTemplateCategory.GENERAL && it.isDefault }
+                ?: templates.find { it.categoryEnum == ChatTemplateCategory.GENERAL }
+                ?: templates.firstOrNull()
+        )
+    }
+
+    var messageText by remember(selectedTemplate, member) {
+        val rawMessage = selectedTemplate?.message
+            ?: "Halo Kak {nama}, kami dari {gym} ingin menyapa Kakak!"
+        mutableStateOf(
+            formatChatTemplateMessage(
+                template = rawMessage,
+                memberName = member.name,
+                memberCode = member.memberCode,
+                planName = member.planName,
+                expiredDate = member.expiredDate
+            )
+        )
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            modifier = Modifier
+                .widthIn(min = 320.dp, max = if (isTablet) 580.dp else 420.dp)
+                .fillMaxWidth(if (isTablet) 0.85f else 0.94f)
+                .padding(vertical = 20.dp),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(20.dp)
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Kirim WhatsApp ke Member",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = TextPrimary
+                        )
+                        Text(
+                            text = "${member.name} • ${member.phone.ifBlank { "No HP -" }}",
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+                            color = GreenAccent
+                        )
+                    }
+                    IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
+                        Icon(imageVector = Icons.Filled.Close, contentDescription = "Tutup", tint = TextSecondary)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Pilih Template
+                Text(
+                    text = "Pilih Template Chat:",
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = TextPrimary
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+
+                if (templates.isEmpty()) {
+                    Text("Memuat template...", fontSize = 12.sp, color = TextMuted)
+                } else {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(templates, key = { it.id }) { tmpl ->
+                            val isSelected = selectedTemplate?.id == tmpl.id
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(if (isSelected) GreenAccent else Color(0xFFF3F4F6))
+                                    .clickable {
+                                        selectedTemplate = tmpl
+                                        messageText = formatChatTemplateMessage(
+                                            template = tmpl.message,
+                                            memberName = member.name,
+                                            memberCode = member.memberCode,
+                                            planName = member.planName,
+                                            expiredDate = member.expiredDate
+                                        )
+                                    }
+                                    .padding(horizontal = 12.dp, vertical = 7.dp)
+                            ) {
+                                Text(
+                                    text = tmpl.title,
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        fontSize = 11.5.sp
+                                    ),
+                                    color = if (isSelected) Color.White else TextPrimary
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Editable Message Field
+                Text(
+                    text = "Isi Pesan WhatsApp:",
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = TextPrimary
+                )
+                Text(
+                    text = "Data member sudah terisi otomatis. Anda dapat mengedit teks sebelum dikirim.",
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                    color = TextMuted
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+
+                OutlinedTextField(
+                    value = messageText,
+                    onValueChange = { messageText = it },
+                    minLines = 4,
+                    maxLines = 8,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = GreenAccent,
+                        unfocusedBorderColor = Color(0xFFE5E7EB)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                // WhatsApp Send Button
+                Button(
+                    onClick = {
+                        openWhatsApp(context, member.phone, member.name, customMessage = messageText)
+                        onDismiss()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366)),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_whatsapp),
+                        contentDescription = "WhatsApp",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Kirim ke WhatsApp Member",
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                        color = Color.White
+                    )
+                }
+            }
+        }
+    }
+}

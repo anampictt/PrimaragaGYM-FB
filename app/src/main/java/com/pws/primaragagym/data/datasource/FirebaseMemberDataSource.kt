@@ -26,6 +26,7 @@ class FirestoreCollections {
         const val PAYMENTS = "payments"
         const val NOTIFICATIONS = "notifications"
         const val REPORTS = "reports"
+        const val CHAT_TEMPLATES = "chat_templates"
     }
 }
 

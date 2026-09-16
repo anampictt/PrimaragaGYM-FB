@@ -28,6 +28,7 @@ import com.pws.primaragagym.ui.components.shimmerEffect
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Style
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -48,6 +49,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
@@ -59,6 +61,11 @@ import com.pws.primaragagym.screens.admin.member.MemberColors.GreenLight
 import com.pws.primaragagym.screens.admin.member.MemberColors.TextPrimary
 import com.pws.primaragagym.screens.admin.member.MemberColors.TextSecondary
 import com.pws.primaragagym.ui.theme.Dimens
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.remember
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
@@ -75,6 +82,7 @@ fun MemberScreen(
     onMemberManagementClick: () -> Unit = {},
     onMembershipManagementClick: () -> Unit = {},
     onMembershipPlanClick: () -> Unit = {},
+    onChatTemplateClick: () -> Unit = {},
     onMemberClick: (String) -> Unit = {}
 ) {
     val configuration = LocalConfiguration.current
@@ -84,11 +92,27 @@ fun MemberScreen(
     val authState by authViewModel.uiState.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
 
-    LaunchedEffect(authState.currentUser) {
-        val branchId = authState.currentUser?.branchId
-        if (branchId != null) {
-            viewModel.loadMembers(branchId, reset = true)
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                val branchId = authState.currentUser?.branchId ?: ""
+                viewModel.loadMembers(branchId, reset = true)
+            }
         }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    LaunchedEffect(authState.currentUser) {
+        val branchId = authState.currentUser?.branchId ?: ""
+        viewModel.loadMembers(branchId, reset = true)
+    }
+
+    val recentMembers = remember(uiState.members) {
+        uiState.members.sortedByDescending { it.createdAt?.time ?: 0L }.take(5)
     }
 
     Scaffold(
@@ -124,21 +148,47 @@ fun MemberScreen(
                 onClick = onMembershipPlanClick
             )
 
+            Spacer(modifier = Modifier.height(Dimens.spacing_3))
+
+            MemberMenuCard(
+                title = "Template Pesan WhatsApp",
+                description = "Kelola template chat ucapan & follow-up member",
+                icon = Icons.Filled.Chat,
+                onClick = onChatTemplateClick
+            )
+
             Spacer(modifier = Modifier.height(Dimens.spacing_6))
 
             // Member Terbaru Section
-            Text(
-                text = "Member Terbaru",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.SemiBold
-                ),
-                color = TextPrimary,
-                modifier = Modifier.padding(bottom = Dimens.spacing_4)
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = Dimens.spacing_4),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Member Terbaru",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.SemiBold
+                    ),
+                    color = TextPrimary
+                )
+
+                Text(
+                    text = "Lihat Semua >",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        color = GreenAccent
+                    ),
+                    modifier = Modifier.clickable { onMemberManagementClick() }
+                )
+            }
 
             if (isTablet) {
+                val cols = if (configuration.screenWidthDp >= 900) 3 else 2
                 if (uiState.isLoading && uiState.members.isEmpty()) {
-                    val rows = (1..6).chunked(3)
+                    val rows = (1..5).chunked(cols)
                     rows.forEach { rowItems ->
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -147,12 +197,16 @@ fun MemberScreen(
                             rowItems.forEach {
                                 MemberHubCardShimmer(modifier = Modifier.weight(1f))
                             }
+                            repeat(cols - rowItems.size) {
+                                Spacer(modifier = Modifier.weight(1f))
+                            }
                         }
                         Spacer(modifier = Modifier.height(Dimens.spacing_3))
                     }
+                } else if (recentMembers.isEmpty()) {
+                    EmptyMemberHubState()
                 } else {
-                    val recentMembers = uiState.members.take(6)
-                    val rows = recentMembers.chunked(3)
+                    val rows = recentMembers.chunked(cols)
                     rows.forEach { rowMembers ->
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -165,7 +219,7 @@ fun MemberScreen(
                                     modifier = Modifier.weight(1f)
                                 )
                             }
-                            repeat(3 - rowMembers.size) {
+                            repeat(cols - rowMembers.size) {
                                 Spacer(modifier = Modifier.weight(1f))
                             }
                         }
@@ -173,20 +227,28 @@ fun MemberScreen(
                     }
                 }
             } else {
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(Dimens.spacing_3),
-                    contentPadding = PaddingValues(end = Dimens.spacing_4)
-                ) {
-                    if (uiState.isLoading && uiState.members.isEmpty()) {
-                        items(4) {
-                            MemberHubCardShimmer(modifier = Modifier.width(200.dp))
+                // Phone layout: responsive full-width cards in vertical stack
+                if (uiState.isLoading && uiState.members.isEmpty()) {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        repeat(3) {
+                            MemberHubCardShimmer(modifier = Modifier.fillMaxWidth())
                         }
-                    } else {
-                        items(uiState.members.take(6)) { member ->
+                    }
+                } else if (recentMembers.isEmpty()) {
+                    EmptyMemberHubState()
+                } else {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        recentMembers.forEach { member ->
                             MemberHubCard(
                                 member = member,
                                 onClick = { onMemberClick(member.id) },
-                                modifier = Modifier.width(200.dp)
+                                modifier = Modifier.fillMaxWidth()
                             )
                         }
                     }
@@ -348,7 +410,7 @@ private fun MemberHubCard(
 
     Card(
         modifier = modifier.clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(
             containerColor = cardBgColor
         ),
@@ -360,81 +422,104 @@ private fun MemberHubCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(Dimens.spacing_3)
+                .padding(14.dp)
         ) {
+            // Row 1: Avatar + Name & Code (left) + Status Badge (right)
             Row(
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Avatar
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(avatarBgColor),
-                    contentAlignment = Alignment.Center
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.weight(1f, fill = false)
                 ) {
-                    if (!member.photoUrl.isNullOrBlank()) {
-                        coil.compose.AsyncImage(
-                            model = com.pws.primaragagym.ui.components.normalizeImageUrl(member.photoUrl),
-                            contentDescription = "Foto ${member.name}",
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape),
-                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                        )
-                    } else {
+                    // Avatar
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .clip(CircleShape)
+                            .background(avatarBgColor),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (!member.photoUrl.isNullOrBlank()) {
+                            coil.compose.AsyncImage(
+                                model = com.pws.primaragagym.ui.components.normalizeImageUrl(member.photoUrl),
+                                contentDescription = "Foto ${member.name}",
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(CircleShape),
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                            )
+                        } else {
+                            Text(
+                                text = member.avatarInitial,
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold
+                                ),
+                                color = avatarTextColor
+                            )
+                        }
+                    }
+
+                    Column {
                         Text(
-                            text = member.avatarInitial,
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontWeight = FontWeight.SemiBold
+                            text = member.name,
+                            style = MaterialTheme.typography.titleSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp
                             ),
-                            color = avatarTextColor
+                            color = TextPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = member.memberCode,
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+                            color = TextSecondary
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.width(Dimens.spacing_3))
+                MemberStatusBadge(status = member.status)
+            }
 
-                Column(modifier = Modifier.weight(1f)) {
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Row 2: Plan Name (left) + Exp Date (right)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = member.planName.ifBlank { "Member" },
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 12.5.sp
+                    ),
+                    color = GreenAccent,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+
+                if (member.expiredDate.isNotBlank()) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    val formattedExpired = formatExpiredDateDisplay(member.expiredDate, member.createdAt)
                     Text(
-                        text = member.name,
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = FontWeight.SemiBold
+                        text = "Exp: $formattedExpired",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontSize = 11.5.sp,
+                            fontWeight = if (member.status == MemberStatus.EXPIRED || member.status == MemberStatus.EXPIRING_SOON) FontWeight.SemiBold else FontWeight.Normal
                         ),
-                        color = TextPrimary,
+                        color = expiredTextColor,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Text(
-                        text = member.memberCode,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextSecondary
-                    )
                 }
-            }
-
-            Spacer(modifier = Modifier.height(Dimens.spacing_3))
-
-            Text(
-                text = member.planName,
-                style = MaterialTheme.typography.bodySmall,
-                color = TextSecondary
-            )
-
-            Spacer(modifier = Modifier.height(Dimens.spacing_2))
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                MemberStatusBadge(status = member.status)
-                val formattedExpired = formatExpiredDateDisplay(member.expiredDate, member.createdAt)
-                Text(
-                    text = "Exp: $formattedExpired",
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        fontWeight = if (member.status == MemberStatus.EXPIRED || member.status == MemberStatus.EXPIRING_SOON) FontWeight.SemiBold else FontWeight.Normal
-                    ),
-                    color = expiredTextColor
-                )
             }
 
             val createdText = when {
@@ -448,10 +533,10 @@ private fun MemberHubCard(
                 else -> null
             }
             if (createdText != null) {
-                Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "Dibuat: $createdText",
-                    style = MaterialTheme.typography.labelSmall,
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
                     color = MemberColors.TextMuted
                 )
             }
@@ -465,7 +550,7 @@ private fun MemberHubCardShimmer(
 ) {
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(
             containerColor = MemberColors.CardBackground
         ),
@@ -476,58 +561,73 @@ private fun MemberHubCardShimmer(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(Dimens.spacing_3)
+                .padding(14.dp)
         ) {
             Row(
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .clip(CircleShape)
+                            .shimmerEffect()
+                    )
+
+                    Column {
+                        Box(
+                            modifier = Modifier
+                                .width(110.dp)
+                                .height(14.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                                .shimmerEffect()
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Box(
+                            modifier = Modifier
+                                .width(70.dp)
+                                .height(12.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                                .shimmerEffect()
+                        )
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .width(60.dp)
+                        .height(20.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .shimmerEffect()
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
+                        .width(80.dp)
+                        .height(12.dp)
+                        .clip(RoundedCornerShape(4.dp))
                         .shimmerEffect()
                 )
-
-                Spacer(modifier = Modifier.width(Dimens.spacing_3))
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(0.75f)
-                            .height(14.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .shimmerEffect()
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(0.45f)
-                            .height(12.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .shimmerEffect()
-                    )
-                }
+                Box(
+                    modifier = Modifier
+                        .width(110.dp)
+                        .height(12.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .shimmerEffect()
+                )
             }
-
-            Spacer(modifier = Modifier.height(Dimens.spacing_3))
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(0.6f)
-                    .height(12.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .shimmerEffect()
-            )
-
-            Spacer(modifier = Modifier.height(Dimens.spacing_2))
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(0.35f)
-                    .height(18.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .shimmerEffect()
-            )
         }
     }
 }
@@ -550,22 +650,74 @@ fun MemberStatusBadge(status: MemberStatus) {
         MemberStatus.SUSPENDED -> TextSecondary
     }
 
-    Row(
-        verticalAlignment = Alignment.CenterVertically
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(bgColor)
+            .padding(horizontal = 8.dp, vertical = 3.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .size(6.dp)
-                .clip(CircleShape)
-                .background(textColor)
-        )
-        Spacer(modifier = Modifier.width(4.dp))
-        Text(
-            text = status.displayName,
-            style = MaterialTheme.typography.labelSmall.copy(
-                fontWeight = FontWeight.Medium
-            ),
-            color = textColor
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(5.dp)
+                    .clip(CircleShape)
+                    .background(textColor)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = status.displayName,
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 11.sp
+                ),
+                color = textColor
+            )
+        }
     }
 }
+
+// ============================================================================
+// EMPTY STATE
+// ============================================================================
+@Composable
+private fun EmptyMemberHubState(modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MemberColors.CardBackground
+        ),
+        border = BorderStroke(1.dp, Color(0xFFEEEEEE)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(Dimens.spacing_6),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Groups,
+                contentDescription = null,
+                tint = MemberColors.TextMuted,
+                modifier = Modifier.size(36.dp)
+            )
+            Spacer(modifier = Modifier.height(Dimens.spacing_2))
+            Text(
+                text = "Belum Ada Member Terbaru",
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                color = TextPrimary
+            )
+            Spacer(modifier = Modifier.height(Dimens.spacing_1))
+            Text(
+                text = "Member yang baru terdaftar akan muncul di sini (maks. 5 member).",
+                style = MaterialTheme.typography.bodySmall,
+                color = TextSecondary,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+        }
+    }
+}
+

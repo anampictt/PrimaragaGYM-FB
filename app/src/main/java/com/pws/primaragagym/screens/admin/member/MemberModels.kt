@@ -475,7 +475,7 @@ val dummyTransactions = listOf(
 // ============================================================================
 // WHATSAPP HELPER
 // ============================================================================
-fun openWhatsApp(context: Context, rawPhone: String, memberName: String = "") {
+fun openWhatsApp(context: Context, rawPhone: String, memberName: String = "", customMessage: String? = null) {
     val digits = rawPhone.filter { it.isDigit() }
     if (digits.isBlank()) {
         Toast.makeText(context, "Nomor telepon member belum tersedia", Toast.LENGTH_SHORT).show()
@@ -489,8 +489,14 @@ fun openWhatsApp(context: Context, rawPhone: String, memberName: String = "") {
     }
 
     try {
-        val greeting = if (memberName.isNotBlank()) "Halo Kak $memberName, kami dari Primaraga Gym" else "Halo, kami dari Primaraga Gym"
-        val encodedMessage = URLEncoder.encode(greeting, "UTF-8")
+        val messageToSend = if (!customMessage.isNullOrBlank()) {
+            customMessage
+        } else if (memberName.isNotBlank()) {
+            "Halo Kak $memberName, kami dari Primaraga Gym"
+        } else {
+            "Halo, kami dari Primaraga Gym"
+        }
+        val encodedMessage = URLEncoder.encode(messageToSend, "UTF-8")
         val uri = Uri.parse("https://wa.me/$formattedPhone?text=$encodedMessage")
         val intent = Intent(Intent.ACTION_VIEW, uri)
         context.startActivity(intent)

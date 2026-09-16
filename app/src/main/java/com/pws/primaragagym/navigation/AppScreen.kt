@@ -190,6 +190,13 @@ sealed class AppScreen(
         fun createRoute(planId: String) = "admin/membership-plan/edit/$planId"
     }
 
+    // Chat Template
+    data object ChatTemplate : AppScreen(
+        title = R.string.app_name,
+        icon = R.drawable.ic_launcher_background,
+        route = "admin/template-chat"
+    )
+
     data object CheckInCheckout : AppScreen(
         title = R.string.check_in_checkout,
         icon = R.drawable.ic_launcher_background,

@@ -76,6 +76,9 @@ import com.pws.primaragagym.domain.model.ActiveNeverCheckinMemberItem
 import com.pws.primaragagym.domain.model.InactiveMemberItem
 import com.pws.primaragagym.domain.model.MemberInsightType
 import com.pws.primaragagym.domain.model.formatBirthdayCountdown
+import com.pws.primaragagym.domain.model.ChatTemplateCategory
+import com.pws.primaragagym.domain.model.formatChatTemplateMessage
+import com.pws.primaragagym.ui.viewmodel.ChatTemplateViewModel
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -973,6 +976,21 @@ private fun MemberInsightDetailDialog(
     val isTablet = configuration.screenWidthDp >= 600
     var searchQuery by remember { mutableStateOf("") }
 
+    val templateViewModel: ChatTemplateViewModel = viewModel()
+    val templateState by templateViewModel.uiState.collectAsState()
+
+    val birthdayTemplateMsg = templateState.templates.find { it.categoryEnum == ChatTemplateCategory.BIRTHDAY && it.isDefault }?.message
+        ?: templateState.templates.find { it.categoryEnum == ChatTemplateCategory.BIRTHDAY }?.message
+        ?: "Halo Kak {nama}, segenap keluarga {gym} mengucapkan Selamat Ulang Tahun! 🎂🎉 Semoga sehat selalu, panjang umur, dan semakin bersemangat berolahraga bersama {gym}! 💪"
+
+    val neverCheckinTemplateMsg = templateState.templates.find { it.categoryEnum == ChatTemplateCategory.NEVER_CHECKIN && it.isDefault }?.message
+        ?: templateState.templates.find { it.categoryEnum == ChatTemplateCategory.NEVER_CHECKIN }?.message
+        ?: "Halo Kak {nama}, kami dari tim {gym} melihat Kakak sudah aktif terdaftar tapi belum sempat datang latihan nih. Ada yang bisa kami bantu atau jadwalkan pengenalan alat gym? Kami tunggu kedatangannya ya Kak! 💪🔥"
+
+    val inactiveTemplateMsg = templateState.templates.find { it.categoryEnum == ChatTemplateCategory.INACTIVE && it.isDefault }?.message
+        ?: templateState.templates.find { it.categoryEnum == ChatTemplateCategory.INACTIVE }?.message
+        ?: "Halo Kak {nama}, kami kangen latihan bareng Kakak di {gym}! Yuk aktifkan kembali membership Kakak dan dapatkan promo perpanjangan menarik hari ini. Ditunggu kedatangannya ya Kak! 🏋️‍♂️"
+
     val config = when (type) {
         MemberInsightType.BIRTHDAY -> InsightThemeConfig(
             title = "Member Akan Ulang Tahun",
@@ -1130,7 +1148,13 @@ private fun MemberInsightDetailDialog(
                                 items(filtered, key = { it.member.memberId.ifBlank { it.member.memberCode } }) { item ->
                                     val bdayCountdown = formatBirthdayCountdown(item.daysRemaining)
                                     val isToday = item.daysRemaining == 0
-                                    val bdayMsg = "Halo Kak ${item.member.fullName}, segenap keluarga Primaraga Gym mengucapkan Selamat Ulang Tahun! 🎂🎉 Semoga sehat selalu, panjang umur, dan semakin bersemangat berolahraga bersama Primaraga Gym! 💪"
+                                    val bdayMsg = formatChatTemplateMessage(
+                                        template = birthdayTemplateMsg,
+                                        memberName = item.member.fullName,
+                                        memberCode = item.member.memberCode,
+                                        age = item.ageThisYear,
+                                        daysRemaining = item.daysRemaining
+                                    )
 
                                     InsightMemberCardItem(
                                         name = item.member.fullName,
@@ -1170,7 +1194,12 @@ private fun MemberInsightDetailDialog(
                                 verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
                                 items(filtered, key = { it.member.memberId.ifBlank { it.member.memberCode } }) { item ->
-                                    val checkinMsg = "Halo Kak ${item.member.fullName}, kami dari tim Primaraga Gym melihat Kakak sudah aktif terdaftar tapi belum sempat datang latihan nih. Ada yang bisa kami bantu atau jadwalkan pengenalan alat gym? Kami tunggu kedatangannya ya Kak! 💪🔥"
+                                    val checkinMsg = formatChatTemplateMessage(
+                                        template = neverCheckinTemplateMsg,
+                                        memberName = item.member.fullName,
+                                        memberCode = item.member.memberCode,
+                                        daysRemaining = item.daysSinceJoined.toInt()
+                                    )
 
                                     InsightMemberCardItem(
                                         name = item.member.fullName,
@@ -1210,7 +1239,13 @@ private fun MemberInsightDetailDialog(
                                 verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
                                 items(filtered, key = { it.member.memberId.ifBlank { it.member.memberCode } }) { item ->
-                                    val winbackMsg = "Halo Kak ${item.member.fullName}, kami kangen latihan bareng Kakak di Primaraga Gym! Yuk aktifkan kembali membership Kakak dan dapatkan promo perpanjangan menarik hari ini. Ditunggu kedatangannya ya Kak! 🏋️‍♂️"
+                                    val winbackMsg = formatChatTemplateMessage(
+                                        template = inactiveTemplateMsg,
+                                        memberName = item.member.fullName,
+                                        memberCode = item.member.memberCode,
+                                        planName = item.member.planName,
+                                        expiredDate = item.formattedExpiredDisplay
+                                    )
 
                                     InsightMemberCardItem(
                                         name = item.member.fullName,
