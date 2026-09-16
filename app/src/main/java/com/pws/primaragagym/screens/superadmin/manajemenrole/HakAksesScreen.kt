@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -91,8 +92,8 @@ private fun getInitialRoleAccessMenus(): List<RoleAccessMenuItem> = listOf(
     RoleAccessMenuItem("manajemen_role", "Manajemen Role", Icons.Filled.Security, false),
     RoleAccessMenuItem("manajemen_member", "Member", Icons.Filled.Groups, false),
     RoleAccessMenuItem("check_in_out", "Check In & Check Out", Icons.Filled.QrCodeScanner, false),
-    RoleAccessMenuItem("notifikasi", "Notifikasi", Icons.Filled.Notifications, false),
-    RoleAccessMenuItem("laporan", "Laporan Keuangan", Icons.Filled.Description, false)
+    RoleAccessMenuItem("keuangan", "Keuangan", Icons.Filled.TrendingUp, false),
+    RoleAccessMenuItem("notifikasi", "Notifikasi", Icons.Filled.Notifications, false)
 )
 
 // ============================================================================

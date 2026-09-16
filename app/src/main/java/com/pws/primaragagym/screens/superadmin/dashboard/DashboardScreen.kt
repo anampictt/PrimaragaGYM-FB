@@ -170,12 +170,6 @@ val allMenuItems = listOf(
         title = "Notifikasi",
         description = "Lihat informasi dan\npemberitahuan terbaru.",
         icon = Icons.Filled.Notifications
-    ),
-    MenuItem(
-        id = "laporan",
-        title = "Laporan Keuangan",
-        description = "Lihat laporan pemasukan dan\nkeuangan gym.",
-        icon = Icons.Filled.Assessment
     )
 )
 

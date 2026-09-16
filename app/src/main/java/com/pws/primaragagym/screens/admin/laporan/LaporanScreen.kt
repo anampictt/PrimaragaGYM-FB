@@ -74,12 +74,6 @@ private val laporanMenuItems = listOf(
         iconBackground = StatActiveBg
     ),
     LaporanMenuItem(
-        title = "Laporan Keuangan",
-        description = "Lihat ringkasan pemasukan dan transaksi bulanan.",
-        icon = Icons.Filled.Assessment,
-        iconBackground = StatRevenueBg
-    ),
-    LaporanMenuItem(
         title = "Export Laporan",
         description = "Export laporan ke format PDF atau Excel.",
         icon = Icons.Filled.PictureAsPdf,
@@ -155,7 +149,7 @@ fun LaporanScreen(
                 modifier = Modifier.padding(bottom = Dimens.spacing_4)
             )
 
-            val onClicks = listOf(onLaporanMemberClick, onLaporanKeuanganClick, onExportClick)
+            val onClicks = listOf(onLaporanMemberClick, onExportClick)
 
             laporanMenuItems.forEachIndexed { index, menuItem ->
                 LaporanMenuCard(

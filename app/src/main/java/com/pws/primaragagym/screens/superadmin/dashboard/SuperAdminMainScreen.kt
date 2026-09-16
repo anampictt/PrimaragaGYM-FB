@@ -71,8 +71,7 @@ fun SuperAdminMainScreen(
 
     // Map current route to BottomNavItem
     val selectedBottomNav = when {
-        currentRoute.startsWith(AppScreen.LaporanKeuangan.route) || currentRoute.startsWith(AppScreen.LaporanPemasukan.route) -> if (!isTablet && canAccessKeuangan) BottomNavItem.DASHBOARD else null
-        currentRoute.startsWith(AppScreen.Keuangan.route) || currentRoute.startsWith("admin/keuangan") -> if (canAccessKeuangan) BottomNavItem.KEUANGAN else null
+        currentRoute.startsWith(AppScreen.Keuangan.route) || currentRoute.startsWith(AppScreen.LaporanPemasukan.route) || currentRoute.startsWith("admin/keuangan") -> if (canAccessKeuangan) BottomNavItem.KEUANGAN else null
         currentRoute == AppScreen.Profil.route -> BottomNavItem.PENGATURAN_AKUN
         currentRoute == AppScreen.SuperAdminDashboard.route -> BottomNavItem.DASHBOARD
         else -> if (!isTablet) BottomNavItem.DASHBOARD else null
@@ -84,9 +83,7 @@ fun SuperAdminMainScreen(
         currentRoute.startsWith("superadmin/manajemen-role") -> "manajemen_role"
         currentRoute.startsWith(AppScreen.Member.route) -> "manajemen_member"
         currentRoute.startsWith(AppScreen.CheckInCheckout.route) -> "check_in_out"
-        currentRoute.startsWith(AppScreen.Keuangan.route) && !currentRoute.startsWith(AppScreen.LaporanPemasukan.route) -> "keuangan"
         currentRoute.startsWith(AppScreen.Notifikasi.route) -> "notifikasi"
-        currentRoute.startsWith(AppScreen.LaporanKeuangan.route) || currentRoute.startsWith(AppScreen.LaporanPemasukan.route) -> "laporan"
         else -> null
     }
 
@@ -95,9 +92,7 @@ fun SuperAdminMainScreen(
         "manajemen_role" -> 1
         "manajemen_member" -> 2
         "check_in_out" -> 3
-        "keuangan" -> 4
-        "notifikasi" -> 5
-        "laporan" -> 6
+        "notifikasi" -> 4
         else -> null
     }
 

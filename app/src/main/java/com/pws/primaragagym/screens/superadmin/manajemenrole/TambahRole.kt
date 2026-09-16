@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -118,8 +119,8 @@ private fun getDefaultAccessMenus(): List<AccessMenuUiModel> = listOf(
     AccessMenuUiModel("manajemen_role", "Manajemen Role", Icons.Filled.Security, false),
     AccessMenuUiModel("manajemen_member", "Member", Icons.Filled.Groups, false),
     AccessMenuUiModel("check_in_out", "Check In & Check Out", Icons.Filled.QrCodeScanner, false),
-    AccessMenuUiModel("notifikasi", "Notifikasi", Icons.Filled.Notifications, false),
-    AccessMenuUiModel("laporan", "Laporan Keuangan", Icons.Filled.Description, false)
+    AccessMenuUiModel("keuangan", "Keuangan", Icons.Filled.TrendingUp, false),
+    AccessMenuUiModel("notifikasi", "Notifikasi", Icons.Filled.Notifications, false)
 )
 
 // ============================================================================
