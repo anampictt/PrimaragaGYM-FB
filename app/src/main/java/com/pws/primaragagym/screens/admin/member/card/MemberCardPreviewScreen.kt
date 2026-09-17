@@ -210,9 +210,7 @@ fun MemberCardPreviewScreen(
     fun generateBitmap() {
         val data = currentCardData ?: return
         scope.launch {
-            cardBitmap = withContext(Dispatchers.Default) {
-                MemberCardImageGenerator.generateCardBitmap(context, data)
-            }
+            cardBitmap = MemberCardImageGenerator.generateCardBitmap(context, data)
         }
     }
 
@@ -264,9 +262,7 @@ Selamat berlatih dan raih tubuh sehat bersama kami! 🔥💪
                     }
                 } else {
                     mimeType = "image/png"
-                    val bitmap = cardBitmap ?: withContext(Dispatchers.Default) {
-                        MemberCardImageGenerator.generateCardBitmap(context, data)
-                    }
+                    val bitmap = cardBitmap ?: MemberCardImageGenerator.generateCardBitmap(context, data)
                     val fileName = "PrimaragaGYM_${data.memberCode}.png"
                     uri = MemberCardImageGenerator.getShareUri(context, bitmap, fileName)
                 }

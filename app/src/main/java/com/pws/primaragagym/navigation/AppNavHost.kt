@@ -614,7 +614,26 @@ fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(
     // ==================== PROFILE ====================
     composable(AppScreen.Profil.route) {
         val context = LocalContext.current
-        val profileViewModel = ProfileViewModel()
+        val authState by authViewModel.uiState.collectAsState()
+        val currentUser = authState.currentUser
+        val profileViewModel: ProfileViewModel = viewModel(
+            factory = ProfileViewModel.provideFactory(currentUser)
+        )
+
+        LaunchedEffect(currentUser) {
+            if (currentUser != null) {
+                profileViewModel.setInitialUser(currentUser)
+            }
+        }
+
+        val profileState by profileViewModel.uiState.collectAsState()
+        LaunchedEffect(profileState.profile) {
+            val updated = profileState.profile
+            if (updated != null && updated != currentUser) {
+                authViewModel.setUser(updated)
+            }
+        }
+
         ProfileScreen(
             viewModel = profileViewModel,
             onBackClick = {

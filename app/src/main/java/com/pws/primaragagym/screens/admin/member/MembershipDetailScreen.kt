@@ -59,8 +59,10 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
 import com.pws.primaragagym.R
 import com.pws.primaragagym.domain.model.FirestoreMember
+import com.pws.primaragagym.ui.components.normalizeImageUrl
 import com.pws.primaragagym.ui.theme.Dimens
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -268,11 +270,17 @@ fun MembershipDetailScreen(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(64.dp)
+                                .size(80.dp)
                                 .clip(CircleShape)
-                                .background(greenLight),
+                                .background(greenLight)
+                                .then(
+                                    if (currentMember.photoUrl.isNullOrBlank())
+                                        Modifier
+                                    else Modifier
+                                ),
                             contentAlignment = Alignment.Center
                         ) {
+                            // Inisial sebagai fallback
                             Text(
                                 text = initials,
                                 style = MaterialTheme.typography.titleLarge.copy(
@@ -280,6 +288,17 @@ fun MembershipDetailScreen(
                                 ),
                                 color = greenAccent
                             )
+                            // Foto member jika tersedia
+                            if (!currentMember.photoUrl.isNullOrBlank()) {
+                                AsyncImage(
+                                    model = normalizeImageUrl(currentMember.photoUrl),
+                                    contentDescription = "Foto $name",
+                                    modifier = Modifier
+                                        .size(80.dp)
+                                        .clip(CircleShape),
+                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                )
+                            }
                         }
                         Spacer(modifier = Modifier.height(Dimens.spacing_3))
                         Text(

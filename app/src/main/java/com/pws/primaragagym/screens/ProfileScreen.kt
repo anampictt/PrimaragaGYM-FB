@@ -181,7 +181,7 @@ fun ProfileScreen(
                 )
             }
         ) { paddingValues ->
-            if (uiState.isLoading) {
+            if (uiState.isLoading && uiState.profile == null) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -192,6 +192,16 @@ fun ProfileScreen(
                 }
             } else {
                 val profile = uiState.profile
+                val roleName = when {
+                    profile?.role == com.pws.primaragagym.domain.model.UserRole.SUPER_ADMIN ||
+                    profile?.roleTitle?.replace("_", " ")?.equals("Super Admin", ignoreCase = true) == true -> "Super Admin"
+                    profile?.role == com.pws.primaragagym.domain.model.UserRole.ADMIN ||
+                    profile?.roleTitle?.equals("Admin", ignoreCase = true) == true -> "Admin"
+                    profile?.role == com.pws.primaragagym.domain.model.UserRole.MEMBER ||
+                    profile?.roleTitle?.equals("Member", ignoreCase = true) == true -> "Member"
+                    else -> profile?.roleTitle?.ifBlank { null } ?: profile?.role?.displayName ?: ""
+                }
+
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -205,8 +215,8 @@ fun ProfileScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     ProfileHeader(
-                        name = profile?.name ?: "User",
-                        role = profile?.role?.displayName ?: "Admin",
+                        name = profile?.name.orEmpty().ifBlank { "User" },
+                        role = roleName,
                         photoUrl = profile?.photoUrl,
                         isUploading = isUploadingPhoto,
                         errorMessage = photoErrorMessage,
@@ -369,20 +379,22 @@ private fun ProfileHeader(
             textAlign = TextAlign.Center
         )
 
-        Spacer(modifier = Modifier.height(4.dp))
+        if (role.isNotBlank()) {
+            Spacer(modifier = Modifier.height(4.dp))
 
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(20.dp))
-                .background(GreenLight)
-                .padding(horizontal = 16.dp, vertical = 6.dp)
-        ) {
-            Text(
-                text = role,
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Medium,
-                color = GreenAccent
-            )
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(GreenLight)
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
+            ) {
+                Text(
+                    text = role,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = GreenAccent
+                )
+            }
         }
     }
 }

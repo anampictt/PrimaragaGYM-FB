@@ -29,10 +29,16 @@ sealed class ProfileEvent {
 
 class ProfileViewModel(
     private val getCurrentUserUseCase: GetCurrentUserUseCase = ServiceLocator.getCurrentUserUseCase,
-    private val logoutUseCase: LogoutUseCase = ServiceLocator.logoutUseCase
+    private val logoutUseCase: LogoutUseCase = ServiceLocator.logoutUseCase,
+    initialUser: User? = null
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(ProfileUiState())
+    private val _uiState = MutableStateFlow(
+        ProfileUiState(
+            profile = initialUser,
+            isLoading = initialUser == null
+        )
+    )
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
 
     private val _events = MutableSharedFlow<ProfileEvent>()
@@ -48,14 +54,32 @@ class ProfileViewModel(
         loadProfile()
     }
 
+    fun setInitialUser(user: User?) {
+        if (_uiState.value.profile == null && user != null) {
+            _uiState.value = _uiState.value.copy(
+                profile = user,
+                isLoading = false
+            )
+        }
+    }
+
     fun loadProfile() {
         viewModelScope.launch {
+            if (_uiState.value.profile == null) {
+                _uiState.value = _uiState.value.copy(isLoading = true)
+            }
             try {
                 val user = getCurrentUserUseCase()
-                _uiState.value = _uiState.value.copy(
-                    profile = user,
-                    isLoading = false
-                )
+                if (user != null) {
+                    _uiState.value = _uiState.value.copy(
+                        profile = user,
+                        isLoading = false
+                    )
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false
+                    )
+                }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
@@ -118,6 +142,19 @@ class ProfileViewModel(
                 onSuccess?.invoke()
             } catch (e: Exception) {
                 _events.emit(ProfileEvent.LogoutError(e.message ?: "Logout gagal."))
+            }
+        }
+    }
+
+    companion object {
+        fun provideFactory(
+            initialUser: User? = null
+        ): androidx.lifecycle.ViewModelProvider.Factory = object : androidx.lifecycle.ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                return ProfileViewModel(
+                    initialUser = initialUser
+                ) as T
             }
         }
     }
