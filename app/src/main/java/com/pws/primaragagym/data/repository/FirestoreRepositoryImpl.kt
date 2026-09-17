@@ -274,6 +274,9 @@ class UserAdminRepositoryImpl : UserAdminRepository {
 class NotificationRepositoryImpl : NotificationRepository {
     private val dataSource = FirebaseNotificationDataSource()
 
+    override fun observeNotifications(userId: String?, branchId: String?, limit: Int) =
+        dataSource.observeNotifications(userId, branchId, limit)
+
     override suspend fun getNotifications(userId: String?, branchId: String?, isRead: Boolean?, limit: Int): Result<List<FirestoreNotification>> =
         dataSource.getNotifications(userId, branchId, isRead, limit)
 

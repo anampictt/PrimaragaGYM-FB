@@ -130,6 +130,7 @@ interface UserAdminRepository {
 }
 
 interface NotificationRepository {
+    fun observeNotifications(userId: String? = null, branchId: String? = null, limit: Int = 50): Flow<List<FirestoreNotification>>
     suspend fun getNotifications(userId: String? = null, branchId: String? = null, isRead: Boolean? = null, limit: Int = 50): Result<List<FirestoreNotification>>
     suspend fun getUnreadCount(userId: String? = null, branchId: String? = null): Result<Int>
     suspend fun createNotification(userId: String? = null, memberId: String? = null, branchId: String? = null, type: String, title: String, message: String): Result<String>

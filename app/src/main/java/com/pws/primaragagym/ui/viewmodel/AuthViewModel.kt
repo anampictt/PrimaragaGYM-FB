@@ -2,6 +2,7 @@ package com.pws.primaragagym.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pws.primaragagym.commond.FcmTokenManager
 import com.pws.primaragagym.di.ServiceLocator
 import com.pws.primaragagym.domain.model.User
 import com.pws.primaragagym.domain.usecase.GetCurrentUserUseCase
@@ -76,6 +77,7 @@ class AuthViewModel(
                 isAuthenticated = true,
                 isLoading = false
             )
+            FcmTokenManager.registerToken(user.id)
         } else {
             // Load permissions from Firestore roles collection
             val roleResult = ServiceLocator.roleRepository.getRoleByName(roleIdentifier)
@@ -95,6 +97,7 @@ class AuthViewModel(
                 isAuthenticated = true,
                 isLoading = false
             )
+            FcmTokenManager.registerToken(user.id)
         }
     }
 
@@ -124,11 +127,17 @@ class AuthViewModel(
     }
 
     fun clearUser() {
+        val uid = _uiState.value.currentUser?.id
         _uiState.value = _uiState.value.copy(
             currentUser = null,
             permissions = emptyMap(),
             isAuthenticated = false,
             isLoading = false
         )
+        if (uid != null) {
+            viewModelScope.launch {
+                FcmTokenManager.deleteToken(uid)
+            }
+        }
     }
 }

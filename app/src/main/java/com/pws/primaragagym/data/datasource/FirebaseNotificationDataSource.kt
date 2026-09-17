@@ -3,6 +3,9 @@ package com.pws.primaragagym.data.datasource
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 import java.util.Date
 
@@ -10,6 +13,34 @@ class FirebaseNotificationDataSource {
 
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
     private val notificationsCollection = firestore.collection(FirestoreCollections.NOTIFICATIONS)
+
+    /**
+     * Real-time Flow notifikasi menggunakan Firestore snapshot listener.
+     */
+    fun observeNotifications(
+        userId: String? = null,
+        branchId: String? = null,
+        limit: Int = 50
+    ): Flow<List<com.pws.primaragagym.domain.model.FirestoreNotification>> = callbackFlow {
+        var query: Query = notificationsCollection
+            .orderBy("createdAt", Query.Direction.DESCENDING)
+            .limit(limit.toLong())
+
+        if (userId != null) query = query.whereEqualTo("userId", userId)
+        if (branchId != null) query = query.whereEqualTo("branchId", branchId)
+
+        val listener = query.addSnapshotListener { snapshot, error ->
+            if (error != null || snapshot == null) {
+                trySend(emptyList())
+                return@addSnapshotListener
+            }
+            val items = snapshot.documents.mapNotNull { doc ->
+                doc.toObject(com.pws.primaragagym.domain.model.FirestoreNotification::class.java)
+            }
+            trySend(items)
+        }
+        awaitClose { listener.remove() }
+    }
 
     suspend fun getNotifications(
         userId: String? = null,

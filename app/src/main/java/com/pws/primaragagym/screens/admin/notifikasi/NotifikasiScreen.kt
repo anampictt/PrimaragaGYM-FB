@@ -19,18 +19,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Cake
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.PersonOff
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Badge
-import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -43,8 +38,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -52,28 +48,24 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.pws.primaragagym.domain.model.FirestoreNotification
 import com.pws.primaragagym.screens.admin.notifikasi.NotifikasiColors.BackgroundColor
 import com.pws.primaragagym.screens.admin.notifikasi.NotifikasiColors.CardBackground
-import com.pws.primaragagym.screens.admin.notifikasi.NotifikasiColors.ChipMemberBg
-import com.pws.primaragagym.screens.admin.notifikasi.NotifikasiColors.ChipMembershipBg
-import com.pws.primaragagym.screens.admin.notifikasi.NotifikasiColors.ChipSistemBg
 import com.pws.primaragagym.screens.admin.notifikasi.NotifikasiColors.GreenAccent
 import com.pws.primaragagym.screens.admin.notifikasi.NotifikasiColors.GreenLight
-import com.pws.primaragagym.screens.admin.notifikasi.NotifikasiColors.StatusError
-import com.pws.primaragagym.screens.admin.notifikasi.NotifikasiColors.StatusInfo
-import com.pws.primaragagym.screens.admin.notifikasi.NotifikasiColors.StatusSuccess
-import com.pws.primaragagym.screens.admin.notifikasi.NotifikasiColors.StatusWarning
 import com.pws.primaragagym.screens.admin.notifikasi.NotifikasiColors.TextMuted
 import com.pws.primaragagym.screens.admin.notifikasi.NotifikasiColors.TextPrimary
 import com.pws.primaragagym.screens.admin.notifikasi.NotifikasiColors.TextSecondary
 import com.pws.primaragagym.screens.admin.notifikasi.NotifikasiColors.UnreadBackground
 import com.pws.primaragagym.ui.theme.Dimens
+import com.pws.primaragagym.ui.viewmodel.NotificationDisplayMapper
+import com.pws.primaragagym.ui.viewmodel.NotifikasiViewModel
 
 // ============================================================================
 // FILTER TYPES
@@ -86,98 +78,6 @@ private enum class NotifikasiFilter(val label: String) {
 }
 
 // ============================================================================
-// NOTIFICATION TYPES
-// ============================================================================
-private enum class NotificationCategory {
-    MEMBERSHIP, MEMBER, SISTEM, BIRTHDAY
-}
-
-private data class NotificationItem(
-    val id: String,
-    val category: NotificationCategory,
-    val title: String,
-    val memberName: String,
-    val body: String,
-    val time: String,
-    val isUnread: Boolean,
-    val icon: ImageVector,
-    val iconBackground: Color,
-    val iconColor: Color,
-    val extraInfo: String? = null
-)
-
-// ============================================================================
-// MOCK DATA
-// ============================================================================
-private fun buildMockNotifications(): List<NotificationItem> = listOf(
-    NotificationItem(
-        id = "NOTIF-001",
-        category = NotificationCategory.MEMBERSHIP,
-        title = "Membership Hampir Expired",
-        memberName = "John Smith",
-        body = "Membership Premium Monthly akan berakhir dalam 3 hari.",
-        time = "2 jam lalu",
-        isUnread = true,
-        icon = Icons.Filled.Warning,
-        iconBackground = ChipMembershipBg,
-        iconColor = StatusWarning,
-        extraInfo = "30 September 2026"
-    ),
-    NotificationItem(
-        id = "NOTIF-002",
-        category = NotificationCategory.MEMBER,
-        title = "Member Tidak Aktif",
-        memberName = "Sarah Connor",
-        body = "Member tidak melakukan check-in selama 14 hari.",
-        time = "5 jam lalu",
-        isUnread = true,
-        icon = Icons.Filled.PersonOff,
-        iconBackground = ChipMemberBg,
-        iconColor = StatusError,
-        extraInfo = "Terakhir check-in: 23 August 2026"
-    ),
-    NotificationItem(
-        id = "NOTIF-003",
-        category = NotificationCategory.BIRTHDAY,
-        title = "Ulang Tahun Member",
-        memberName = "Michael Brown",
-        body = "Michael Brown berulang tahun hari ini. Kirim ucapan kepada member.",
-        time = "Hari ini",
-        isUnread = true,
-        icon = Icons.Filled.Cake,
-        iconBackground = ChipSistemBg,
-        iconColor = StatusError,
-        extraInfo = null
-    ),
-    NotificationItem(
-        id = "NOTIF-004",
-        category = NotificationCategory.MEMBERSHIP,
-        title = "Membership Hampir Expired",
-        memberName = "Emma Wilson",
-        body = "Membership Premium Monthly akan berakhir dalam 7 hari.",
-        time = "1 hari lalu",
-        isUnread = false,
-        icon = Icons.Filled.Warning,
-        iconBackground = ChipMembershipBg,
-        iconColor = StatusWarning,
-        extraInfo = "13 September 2026"
-    ),
-    NotificationItem(
-        id = "NOTIF-005",
-        category = NotificationCategory.MEMBER,
-        title = "Member Tidak Aktif",
-        memberName = "David Miller",
-        body = "Member tidak melakukan check-in selama 21 hari.",
-        time = "2 hari lalu",
-        isUnread = false,
-        icon = Icons.Filled.PersonOff,
-        iconBackground = ChipMemberBg,
-        iconColor = StatusError,
-        extraInfo = "Terakhir check-in: 16 August 2026"
-    )
-)
-
-// ============================================================================
 // MAIN SCREEN
 // ============================================================================
 @OptIn(ExperimentalMaterial3Api::class)
@@ -185,24 +85,31 @@ private fun buildMockNotifications(): List<NotificationItem> = listOf(
 fun NotifikasiScreen(
     onBackClick: () -> Unit = {},
     onNotificationClick: (String) -> Unit = {},
-    onSettingsClick: () -> Unit = {}
+    onSettingsClick: () -> Unit = {},
+    branchId: String? = null,
+    viewModel: NotifikasiViewModel = viewModel()
 ) {
     val configuration = LocalConfiguration.current
     val isTablet = configuration.screenWidthDp >= 600
 
+    val uiState by viewModel.uiState.collectAsState()
     var selectedFilter by remember { mutableStateOf(NotifikasiFilter.ALL) }
-    val notifications = remember { mutableStateListOf<NotificationItem>().apply { addAll(buildMockNotifications()) } }
     var showWhatsAppDialog by remember { mutableStateOf(false) }
     var whatsAppMemberName by remember { mutableStateOf("") }
 
-    val filteredNotifications = when (selectedFilter) {
-        NotifikasiFilter.ALL -> notifications
-        NotifikasiFilter.MEMBERSHIP -> notifications.filter { it.category == NotificationCategory.MEMBERSHIP }
-        NotifikasiFilter.MEMBER -> notifications.filter { it.category == NotificationCategory.MEMBER || it.category == NotificationCategory.BIRTHDAY }
-        NotifikasiFilter.SISTEM -> notifications.filter { it.category == NotificationCategory.BIRTHDAY }
+    // Mulai observasi notifikasi dari Firestore
+    LaunchedEffect(branchId) {
+        viewModel.observeNotifications(branchId = branchId)
     }
 
-    val unreadCount = notifications.count { it.isUnread }
+    val filteredNotifications = uiState.notifications.filter { notif ->
+        when (selectedFilter) {
+            NotifikasiFilter.ALL -> true
+            NotifikasiFilter.MEMBERSHIP -> notif.type == "MEMBERSHIP_EXPIRING"
+            NotifikasiFilter.MEMBER -> notif.type == "MEMBER_INACTIVE" || notif.type == "MEMBER_BIRTHDAY"
+            NotifikasiFilter.SISTEM -> notif.type == "SYSTEM" || notif.type.isBlank()
+        }
+    }
 
     Scaffold(
         containerColor = BackgroundColor,
@@ -232,13 +139,9 @@ fun NotifikasiScreen(
                     }
                 },
                 actions = {
-                    if (unreadCount > 0) {
+                    if (uiState.unreadCount > 0) {
                         TextButton(
-                            onClick = {
-                                notifications.forEachIndexed { index, _ ->
-                                    notifications[index] = notifications[index].copy(isUnread = false)
-                                }
-                            }
+                            onClick = { viewModel.markAllAsRead(branchId) }
                         ) {
                             Text(
                                 text = "Tandai semua dibaca",
@@ -299,28 +202,39 @@ fun NotifikasiScreen(
                 }
             }
 
-            // Notifications
-            if (filteredNotifications.isEmpty()) {
+            // Loading state
+            if (uiState.isLoading) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(Dimens.spacing_8),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = GreenAccent)
+                    }
+                }
+            } else if (filteredNotifications.isEmpty()) {
                 item {
                     EmptyNotificationState()
                 }
             } else {
-                items(filteredNotifications, key = { it.id }) { notification ->
-                    NotificationCard(
+                items(filteredNotifications, key = { it.notificationId }) { notification ->
+                    RealNotificationCard(
                         notification = notification,
                         onClick = {
                             // Mark as read
-                            val index = notifications.indexOfFirst { it.id == notification.id }
-                            if (index >= 0) {
-                                notifications[index] = notification.copy(isUnread = false)
+                            if (!notification.isRead) {
+                                viewModel.markAsRead(notification.notificationId)
                             }
-
-                            // Handle birthday WhatsApp
-                            if (notification.category == NotificationCategory.BIRTHDAY) {
-                                whatsAppMemberName = notification.memberName
+                            // Birthday → tampilkan dialog
+                            if (notification.type == "MEMBER_BIRTHDAY") {
+                                whatsAppMemberName = notification.message
+                                    .substringBefore(" berulang")
+                                    .ifBlank { "Member" }
                                 showWhatsAppDialog = true
                             } else {
-                                onNotificationClick(notification.id)
+                                onNotificationClick(notification.notificationId)
                             }
                         }
                     )
@@ -333,7 +247,7 @@ fun NotifikasiScreen(
         }
     }
 
-    // WhatsApp Dialog
+    // Birthday Dialog
     if (showWhatsAppDialog) {
         AlertDialog(
             onDismissRequest = { showWhatsAppDialog = false },
@@ -354,7 +268,7 @@ fun NotifikasiScreen(
             },
             text = {
                 Text(
-                    text = "Fitur pengiriman WhatsApp akan tersedia pada tahap berikutnya.",
+                    text = "Fitur pengiriman ucapan WhatsApp akan segera tersedia.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextSecondary
                 )
@@ -364,23 +278,27 @@ fun NotifikasiScreen(
 }
 
 // ============================================================================
-// NOTIFICATION CARD
+// REAL NOTIFICATION CARD (dari Firestore)
 // ============================================================================
 @Composable
-private fun NotificationCard(
-    notification: NotificationItem,
+private fun RealNotificationCard(
+    notification: FirestoreNotification,
     onClick: () -> Unit
 ) {
+    val (icon, iconBg, iconColor) = NotificationDisplayMapper.getIconAndColors(notification.type)
+    val timeLabel = NotificationDisplayMapper.formatTime(notification.createdAt)
+    val isUnread = !notification.isRead
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(Dimens.card_corner_radius),
         colors = CardDefaults.cardColors(
-            containerColor = if (notification.isUnread) UnreadBackground else CardBackground
+            containerColor = if (isUnread) UnreadBackground else CardBackground
         ),
         elevation = CardDefaults.cardElevation(
-            defaultElevation = if (notification.isUnread) 2.dp else 1.dp
+            defaultElevation = if (isUnread) 2.dp else 1.dp
         )
     ) {
         Row(
@@ -389,8 +307,8 @@ private fun NotificationCard(
                 .padding(Dimens.spacing_4),
             verticalAlignment = Alignment.Top
         ) {
-            // Unread indicator
-            if (notification.isUnread) {
+            // Unread indicator dot
+            if (isUnread) {
                 Box(
                     modifier = Modifier
                         .size(8.dp)
@@ -401,18 +319,18 @@ private fun NotificationCard(
                 Spacer(modifier = Modifier.width(Dimens.spacing_2))
             }
 
-            // Icon
+            // Icon circle
             Box(
                 modifier = Modifier
                     .size(44.dp)
                     .clip(CircleShape)
-                    .background(notification.iconBackground),
+                    .background(iconBg),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = notification.icon,
+                    imageVector = icon,
                     contentDescription = null,
-                    tint = notification.iconColor,
+                    tint = iconColor,
                     modifier = Modifier.size(22.dp)
                 )
             }
@@ -428,13 +346,13 @@ private fun NotificationCard(
                     Text(
                         text = notification.title,
                         style = MaterialTheme.typography.titleSmall,
-                        fontWeight = if (notification.isUnread) FontWeight.Bold else FontWeight.SemiBold,
+                        fontWeight = if (isUnread) FontWeight.Bold else FontWeight.SemiBold,
                         color = TextPrimary,
                         modifier = Modifier.weight(1f)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = notification.time,
+                        text = timeLabel,
                         style = MaterialTheme.typography.labelSmall,
                         color = TextMuted
                     )
@@ -443,33 +361,16 @@ private fun NotificationCard(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = notification.memberName,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = GreenAccent
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Text(
-                    text = notification.body,
+                    text = notification.message,
                     style = MaterialTheme.typography.bodySmall,
                     color = TextSecondary,
                     lineHeight = 18.sp,
-                    maxLines = 2,
+                    maxLines = 3,
                     overflow = TextOverflow.Ellipsis
                 )
 
-                if (notification.extraInfo != null) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = notification.extraInfo,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = TextMuted
-                    )
-                }
-
-                if (notification.category == NotificationCategory.BIRTHDAY) {
+                // Birthday action button
+                if (notification.type == "MEMBER_BIRTHDAY") {
                     Spacer(modifier = Modifier.height(Dimens.spacing_3))
                     Card(
                         shape = RoundedCornerShape(Dimens.button_corner_radius),
