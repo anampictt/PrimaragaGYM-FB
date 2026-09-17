@@ -156,15 +156,6 @@ fun LaporanPemasukanScreen(
                         )
                     }
                 },
-                actions = {
-                    IconButton(onClick = { viewModel.refresh() }) {
-                        Icon(
-                            imageVector = Icons.Filled.Refresh,
-                            contentDescription = "Muat Ulang",
-                            tint = GreenAccent
-                        )
-                    }
-                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.White,
                     titleContentColor = TextPrimary

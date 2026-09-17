@@ -49,6 +49,17 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.border
+import androidx.compose.material.icons.filled.AddAPhoto
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
+import com.pws.primaragagym.di.ServiceLocator
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -98,6 +109,35 @@ fun ProfileScreen(
     val isTablet = screenWidthDp >= 600
 
     val showLogoutSuccess by viewModel.logoutSuccessVisible.collectAsState()
+
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var isUploadingPhoto by remember { mutableStateOf(false) }
+    var photoErrorMessage by remember { mutableStateOf<String?>(null) }
+    val storageDataSource = remember { ServiceLocator.firebaseStorageDataSource }
+
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: android.net.Uri? ->
+        if (uri != null) {
+            isUploadingPhoto = true
+            photoErrorMessage = null
+            scope.launch {
+                val uploadResult = storageDataSource.uploadUserPhoto(context, uri)
+                uploadResult.onSuccess { downloadUrl ->
+                    viewModel.updateProfilePhoto(downloadUrl) { success, err ->
+                        isUploadingPhoto = false
+                        if (!success) {
+                            photoErrorMessage = err ?: "Gagal memperbarui profil pengguna"
+                        }
+                    }
+                }.onFailure { error ->
+                    isUploadingPhoto = false
+                    photoErrorMessage = error.localizedMessage ?: "Gagal mengunggah foto profil"
+                }
+            }
+        }
+    }
 
     LaunchedEffect(Unit) {
         viewModel.events.collectLatest { event ->
@@ -167,7 +207,10 @@ fun ProfileScreen(
                     ProfileHeader(
                         name = profile?.name ?: "User",
                         role = profile?.role?.displayName ?: "Admin",
-                        photoUrl = profile?.photoUrl
+                        photoUrl = profile?.photoUrl,
+                        isUploading = isUploadingPhoto,
+                        errorMessage = photoErrorMessage,
+                        onEditPhotoClick = { imagePickerLauncher.launch("image/*") }
                     )
 
                     Spacer(modifier = Modifier.height(24.dp))
@@ -240,33 +283,79 @@ private fun SectionTitle(text: String) {
 private fun ProfileHeader(
     name: String,
     role: String,
-    photoUrl: String?
+    photoUrl: String?,
+    isUploading: Boolean = false,
+    errorMessage: String? = null,
+    onEditPhotoClick: () -> Unit = {}
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             modifier = Modifier
-                .size(100.dp)
-                .clip(CircleShape)
-                .background(GreenLight),
+                .size(108.dp)
+                .clickable { if (!isUploading) onEditPhotoClick() },
             contentAlignment = Alignment.Center
         ) {
-            if (photoUrl != null) {
-                AsyncImage(
-                    model = photoUrl,
-                    contentDescription = "Foto profil",
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .clip(CircleShape),
-                    contentScale = ContentScale.Crop
-                )
-            } else {
+            Box(
+                modifier = Modifier
+                    .size(100.dp)
+                    .clip(CircleShape)
+                    .background(GreenLight)
+                    .border(2.dp, GreenAccent.copy(alpha = 0.5f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isUploading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(36.dp),
+                        color = GreenAccent,
+                        strokeWidth = 3.dp
+                    )
+                } else if (!photoUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = photoUrl,
+                        contentDescription = "Foto profil",
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(CircleShape),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Filled.Person,
+                        contentDescription = "Foto profil",
+                        tint = GreenAccent,
+                        modifier = Modifier.size(48.dp)
+                    )
+                }
+            }
+
+            // Camera edit badge at bottom right
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(GreenAccent)
+                    .border(2.dp, Color.White, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
                 Icon(
-                    imageVector = Icons.Filled.Person,
-                    contentDescription = "Foto profil",
-                    tint = GreenAccent,
-                    modifier = Modifier.size(48.dp)
+                    imageVector = Icons.Filled.AddAPhoto,
+                    contentDescription = "Ganti Foto Profil",
+                    tint = Color.White,
+                    modifier = Modifier.size(16.dp)
                 )
             }
+        }
+
+        if (errorMessage != null) {
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = errorMessage,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color(0xFFE53935),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
         }
 
         Spacer(modifier = Modifier.height(16.dp))

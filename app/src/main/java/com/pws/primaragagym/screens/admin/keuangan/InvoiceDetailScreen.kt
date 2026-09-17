@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
+import coil.compose.AsyncImage
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -443,6 +444,39 @@ fun InvoiceDetailScreen(
                                 text = formatCurrency(payment.amount),
                                 style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.ExtraBold),
                                 color = GreenAccent
+                            )
+                        }
+                    }
+                }
+
+                if (!payment.proofUrl.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(Dimens.spacing_5))
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(Dimens.card_corner_radius),
+                        colors = CardDefaults.cardColors(containerColor = CardBackground),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(Dimens.spacing_5)
+                        ) {
+                            Text(
+                                text = "Bukti Pembayaran (${payment.paymentMethod})",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = TextPrimary
+                            )
+                            Spacer(modifier = Modifier.height(Dimens.spacing_3))
+                            AsyncImage(
+                                model = com.pws.primaragagym.ui.components.normalizeImageUrl(payment.proofUrl),
+                                contentDescription = "Bukti Transfer / QRIS",
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = 280.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color(0xFFF5F5F5)),
+                                contentScale = androidx.compose.ui.layout.ContentScale.Fit
                             )
                         }
                     }

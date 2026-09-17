@@ -25,6 +25,7 @@ object ServiceLocator {
     private val firebaseUserAdminDataSource: FirebaseUserAdminDataSource by lazy { FirebaseUserAdminDataSource() }
     private val firebaseNotificationDataSource: FirebaseNotificationDataSource by lazy { FirebaseNotificationDataSource() }
     private val firebaseReportDataSource: FirebaseReportDataSource by lazy { FirebaseReportDataSource() }
+    val firebaseStorageDataSource: FirebaseStorageDataSource by lazy { FirebaseStorageDataSource() }
 
     // ==================== REPOSITORIES ====================
     val authRepository: AuthRepository by lazy { AuthRepositoryImpl() }

@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 data class ProfileUiState(
     val profile: User? = null,
@@ -70,6 +71,41 @@ class ProfileViewModel(
 
     fun hideLogoutDialog() {
         _uiState.value = _uiState.value.copy(showLogoutDialog = false)
+    }
+
+    val isUploadingPhoto = MutableStateFlow(false)
+
+    fun updateProfilePhoto(downloadUrl: String, onComplete: ((Boolean, String?) -> Unit)? = null) {
+        viewModelScope.launch {
+            try {
+                isUploadingPhoto.value = true
+                val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                val uid = currentUser?.uid
+                if (uid != null) {
+                    val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                    db.collection("users").document(uid).update(
+                        mapOf(
+                            "photoUrl" to downloadUrl,
+                            "updatedAt" to com.google.firebase.firestore.FieldValue.serverTimestamp()
+                        )
+                    ).await()
+
+                    val profileUpdates = com.google.firebase.auth.UserProfileChangeRequest.Builder()
+                        .setPhotoUri(android.net.Uri.parse(downloadUrl))
+                        .build()
+                    currentUser.updateProfile(profileUpdates).await()
+                }
+
+                _uiState.value = _uiState.value.copy(
+                    profile = _uiState.value.profile?.copy(photoUrl = downloadUrl)
+                )
+                isUploadingPhoto.value = false
+                onComplete?.invoke(true, null)
+            } catch (e: Exception) {
+                isUploadingPhoto.value = false
+                onComplete?.invoke(false, e.localizedMessage ?: "Gagal memperbarui foto profil.")
+            }
+        }
     }
 
     fun onLogoutConfirm(onSuccess: (() -> Unit)? = null) {

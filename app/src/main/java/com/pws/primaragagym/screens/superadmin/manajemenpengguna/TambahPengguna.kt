@@ -79,6 +79,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.pws.primaragagym.domain.model.FirestoreUser
 import com.pws.primaragagym.ui.viewmodel.RoleListViewModel
 import com.pws.primaragagym.ui.viewmodel.UserListViewModel
+import com.pws.primaragagym.di.ServiceLocator
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.util.UUID
@@ -175,6 +176,10 @@ fun TambahPenggunaScreen(
     }
 
     var photoUri by remember { mutableStateOf<Uri?>(null) }
+    var photoUrl by remember { mutableStateOf<String?>(null) }
+    var isUploadingPhoto by remember { mutableStateOf(false) }
+    var photoUploadError by remember { mutableStateOf<String?>(null) }
+    val storageDataSource = remember { ServiceLocator.firebaseStorageDataSource }
     var fullName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var address by remember { mutableStateOf("") }
@@ -203,6 +208,9 @@ fun TambahPenggunaScreen(
             email = user.email
             address = user.address
             selectedRole = user.resolvedRole
+            if (!user.photoUrl.isNullOrBlank()) {
+                photoUrl = user.photoUrl
+            }
         }
     }
 
@@ -210,7 +218,20 @@ fun TambahPenggunaScreen(
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        uri?.let { photoUri = it }
+        if (uri != null) {
+            photoUri = uri
+            isUploadingPhoto = true
+            photoUploadError = null
+            coroutineScope.launch {
+                val uploadResult = storageDataSource.uploadUserPhoto(context, uri)
+                isUploadingPhoto = false
+                uploadResult.onSuccess { downloadUrl ->
+                    photoUrl = downloadUrl
+                }.onFailure { error ->
+                    photoUploadError = error.localizedMessage ?: "Gagal mengunggah foto profil"
+                }
+            }
+        }
     }
 
     Scaffold(
@@ -238,6 +259,9 @@ fun TambahPenggunaScreen(
                 // Photo Upload Section
                 PhotoUploadSection(
                     photoUri = photoUri,
+                    photoUrl = photoUrl,
+                    isUploading = isUploadingPhoto,
+                    uploadError = photoUploadError,
                     onUploadClick = { imagePickerLauncher.launch("image/*") }
                 )
 
@@ -446,7 +470,7 @@ fun TambahPenggunaScreen(
                                     address = address.trim(),
                                     role = roleVal,
                                     roleId = roleVal,
-                                    photoUrl = photoUri?.toString() ?: existingUser.photoUrl
+                                    photoUrl = photoUrl ?: existingUser.photoUrl
                                 )
                                 userViewModel.updateUser(updatedUser) { success, errorMsg ->
                                     isSubmitting = false
@@ -480,7 +504,7 @@ fun TambahPenggunaScreen(
                                         role = roleVal,
                                         roleId = roleVal,
                                         address = address.trim(),
-                                        photoUrl = photoUri?.toString(),
+                                        photoUrl = photoUrl,
                                         isActive = true,
                                         createdAt = java.util.Date()
                                     )
@@ -636,8 +660,13 @@ private fun AddUserTopBar(
 @Composable
 private fun PhotoUploadSection(
     photoUri: Uri?,
+    photoUrl: String?,
+    isUploading: Boolean,
+    uploadError: String?,
     onUploadClick: () -> Unit
 ) {
+    val previewModel: Any? = photoUri ?: photoUrl
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -651,12 +680,18 @@ private fun PhotoUploadSection(
                     color = GreenAccent.copy(alpha = 0.3f),
                     shape = CircleShape
                 )
-                .clickable { onUploadClick() },
+                .clickable { if (!isUploading) onUploadClick() },
             contentAlignment = Alignment.Center
         ) {
-            if (photoUri != null) {
+            if (isUploading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(36.dp),
+                    color = GreenAccent,
+                    strokeWidth = 3.dp
+                )
+            } else if (previewModel != null) {
                 AsyncImage(
-                    model = photoUri,
+                    model = previewModel,
                     contentDescription = "Foto Profil",
                     modifier = Modifier
                         .fillMaxSize()
@@ -677,6 +712,7 @@ private fun PhotoUploadSection(
 
         Button(
             onClick = onUploadClick,
+            enabled = !isUploading,
             shape = RoundedCornerShape(8.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = GreenAccent.copy(alpha = 0.1f),
@@ -687,16 +723,41 @@ private fun PhotoUploadSection(
                 vertical = 8.dp
             )
         ) {
-            Icon(
-                imageVector = Icons.Filled.AddAPhoto,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp)
-            )
-            Spacer(modifier = Modifier.width(6.dp))
+            if (isUploading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(16.dp),
+                    color = GreenAccent,
+                    strokeWidth = 2.dp
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "Mengunggah...",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Medium
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Filled.AddAPhoto,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = if (previewModel != null) "Ubah Foto" else "Tambah Foto",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+
+        if (uploadError != null) {
+            Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = if (photoUri != null) "Ubah Foto" else "Tambah Foto",
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Medium
+                text = uploadError,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color(0xFFE53935),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 16.dp)
             )
         }
     }

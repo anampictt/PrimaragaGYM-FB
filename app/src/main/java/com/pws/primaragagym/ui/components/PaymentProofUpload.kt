@@ -60,14 +60,16 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 
+import com.pws.primaragagym.di.ServiceLocator
+import androidx.compose.ui.text.style.TextAlign
+
 fun normalizeImageUrl(url: String?): String? {
     if (url.isNullOrBlank()) return null
     return url.trim()
 }
 
 /**
- * Menyimpan file gambar ke internal storage aplikasi dan mengembalikan URI string:
- * Contoh: file:///data/user/0/com.pws.primaragagym/files/member_images/img_1789109488706.jpg
+ * Menyimpan file gambar ke internal storage aplikasi dan mengembalikan URI string (fallback offline).
  */
 fun saveImageToInternalStorage(context: Context, uri: Uri, subDir: String, prefix: String = "img_"): String? {
     return try {
@@ -120,20 +122,31 @@ fun UploadBuktiPembayaranField(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var isProcessing by remember { mutableStateOf(false) }
+    var uploadErrorMessage by remember { mutableStateOf<String?>(null) }
+    val storageDataSource = remember { ServiceLocator.firebaseStorageDataSource }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         if (uri != null) {
             isProcessing = true
+            uploadErrorMessage = null
             scope.launch {
-                val savedFilePath = withContext(Dispatchers.IO) {
-                    saveImageToInternalStorage(context, uri, "payment_proofs", "proof_")
-                }
+                val uploadResult = storageDataSource.uploadPaymentProof(context, uri)
                 isProcessing = false
-                val finalPath = savedFilePath ?: uri.toString()
-                onImageSelected?.invoke(uri, finalPath)
-                onProofUrlChanged?.invoke(finalPath)
+                uploadResult.onSuccess { downloadUrl ->
+                    onImageSelected?.invoke(uri, downloadUrl)
+                    onProofUrlChanged?.invoke(downloadUrl)
+                }.onFailure { error ->
+                    val errorMsg = error.localizedMessage ?: "Gagal mengunggah bukti pembayaran ke Firebase Storage"
+                    uploadErrorMessage = errorMsg
+                    // Fallback to internal storage if network fails
+                    val localPath = withContext(Dispatchers.IO) {
+                        saveImageToInternalStorage(context, uri, "payment_proofs", "proof_")
+                    } ?: uri.toString()
+                    onImageSelected?.invoke(uri, localPath)
+                    onProofUrlChanged?.invoke(localPath)
+                }
             }
         }
     }
@@ -195,7 +208,7 @@ fun UploadBuktiPembayaranField(
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Upload Foto Bukti Transfer / QRIS",
+                            text = if (isProcessing) "Mengunggah ke Firebase Storage..." else "Upload Foto Bukti Transfer / QRIS",
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 fontWeight = FontWeight.SemiBold
                             ),
@@ -203,7 +216,7 @@ fun UploadBuktiPembayaranField(
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "Format JPG, PNG dari galeri",
+                            text = if (isProcessing) "Mohon tunggu sejenak..." else "Format JPG, PNG dari galeri",
                             style = MaterialTheme.typography.bodySmall,
                             color = TextSecondary
                         )
@@ -259,7 +272,7 @@ fun UploadBuktiPembayaranField(
                         }
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "Foto berhasil dipilih",
+                            text = if (proofUrl?.startsWith("http") == true) "Tersimpan di Firebase Storage" else "Foto berhasil dipilih",
                             style = MaterialTheme.typography.bodySmall,
                             color = TextMuted,
                             maxLines = 1
@@ -272,6 +285,7 @@ fun UploadBuktiPembayaranField(
                         onClick = {
                             onProofUrlChanged?.invoke("")
                             onImageSelected?.invoke(null, null)
+                            uploadErrorMessage = null
                         },
                         modifier = Modifier.size(32.dp)
                     ) {
@@ -284,6 +298,16 @@ fun UploadBuktiPembayaranField(
                     }
                 }
             }
+        }
+
+        if (uploadErrorMessage != null) {
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = uploadErrorMessage!!,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color(0xFFE53935),
+                modifier = Modifier.padding(horizontal = 4.dp)
+            )
         }
     }
 }
@@ -302,92 +326,120 @@ fun MemberPhotoUploadSection(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var isProcessing by remember { mutableStateOf(false) }
+    var uploadErrorMessage by remember { mutableStateOf<String?>(null) }
+    val storageDataSource = remember { ServiceLocator.firebaseStorageDataSource }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         if (uri != null) {
             isProcessing = true
+            uploadErrorMessage = null
             scope.launch {
-                val savedFilePath = withContext(Dispatchers.IO) {
-                    saveImageToInternalStorage(context, uri, "member_images", "img_")
-                }
+                val uploadResult = storageDataSource.uploadMemberPhoto(context, uri)
                 isProcessing = false
-                val finalPath = savedFilePath ?: uri.toString()
-                onPhotoUrlChanged(finalPath)
+                uploadResult.onSuccess { downloadUrl ->
+                    onPhotoUrlChanged(downloadUrl)
+                }.onFailure { error ->
+                    val errorMsg = error.localizedMessage ?: "Gagal mengunggah foto profil ke Firebase Storage"
+                    uploadErrorMessage = errorMsg
+                    val fallbackPath = withContext(Dispatchers.IO) {
+                        saveImageToInternalStorage(context, uri, "member_images", "img_")
+                    } ?: uri.toString()
+                    onPhotoUrlChanged(fallbackPath)
+                }
             }
         }
     }
 
-    Box(
+    Column(
         modifier = modifier.fillMaxWidth(),
-        contentAlignment = Alignment.Center
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Box(
-            modifier = Modifier
-                .size(100.dp)
-                .clip(CircleShape)
-                .border(2.dp, GreenAccent.copy(alpha = 0.6f), CircleShape)
-                .background(GreenLight)
-                .clickable { imagePickerLauncher.launch("image/*") },
+            modifier = Modifier.fillMaxWidth(),
             contentAlignment = Alignment.Center
         ) {
-            if (isProcessing) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(32.dp),
-                    color = GreenAccent,
-                    strokeWidth = 3.dp
-                )
-            } else if (photoUrl.isNotBlank()) {
-                AsyncImage(
-                    model = photoUrl,
-                    contentDescription = "Foto Profil Member",
-                    modifier = Modifier
-                        .size(100.dp)
-                        .clip(CircleShape),
-                    contentScale = ContentScale.Crop
-                )
-            } else {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        imageVector = Icons.Filled.AddAPhoto,
-                        contentDescription = "Upload Foto",
-                        tint = GreenAccent,
-                        modifier = Modifier.size(32.dp)
+            Box(
+                modifier = Modifier
+                    .size(100.dp)
+                    .clip(CircleShape)
+                    .border(2.dp, GreenAccent.copy(alpha = 0.6f), CircleShape)
+                    .background(GreenLight)
+                    .clickable { imagePickerLauncher.launch("image/*") },
+                contentAlignment = Alignment.Center
+            ) {
+                if (isProcessing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(32.dp),
+                        color = GreenAccent,
+                        strokeWidth = 3.dp
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Upload Foto",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = GreenAccent
+                } else if (photoUrl.isNotBlank()) {
+                    AsyncImage(
+                        model = normalizeImageUrl(photoUrl),
+                        contentDescription = "Foto Profil Member",
+                        modifier = Modifier
+                            .size(100.dp)
+                            .clip(CircleShape),
+                        contentScale = ContentScale.Crop
                     )
+                } else {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = Icons.Filled.AddAPhoto,
+                            contentDescription = "Upload Foto",
+                            tint = GreenAccent,
+                            modifier = Modifier.size(32.dp)
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Upload Foto",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = GreenAccent
+                        )
+                    }
+                }
+            }
+
+            // Jika foto sudah terpasang, sediakan tombol hapus kecil di sudut atas
+            if (photoUrl.isNotBlank()) {
+                Box(
+                    modifier = Modifier.size(100.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .size(26.dp)
+                            .clip(CircleShape)
+                            .background(Color.White)
+                            .border(1.dp, Color(0xFFE0E0E0), CircleShape)
+                            .clickable {
+                                onPhotoUrlChanged("")
+                                uploadErrorMessage = null
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Clear,
+                            contentDescription = "Hapus Foto",
+                            tint = Color(0xFFE53935),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                 }
             }
         }
 
-        // Jika foto sudah terpasang, sediakan tombol hapus kecil di sudut atas
-        if (photoUrl.isNotBlank()) {
-            Box(
-                modifier = Modifier.size(100.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .size(26.dp)
-                        .clip(CircleShape)
-                        .background(Color.White)
-                        .border(1.dp, Color(0xFFE0E0E0), CircleShape)
-                        .clickable { onPhotoUrlChanged("") },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Clear,
-                        contentDescription = "Hapus Foto",
-                        tint = Color(0xFFE53935),
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
+        if (uploadErrorMessage != null) {
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = uploadErrorMessage!!,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color(0xFFE53935),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
         }
     }
 }
