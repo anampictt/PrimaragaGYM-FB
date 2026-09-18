@@ -58,6 +58,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pws.primaragagym.ui.viewmodel.MemberListViewModel
 import com.pws.primaragagym.ui.viewmodel.AuthViewModel
 import com.pws.primaragagym.ui.viewmodel.ProfileViewModel
+import com.pws.primaragagym.ui.viewmodel.ChangePasswordViewModel
+import com.pws.primaragagym.screens.profile.UbahKataSandiScreen
 
 @Composable
 fun AppNavHost(
@@ -655,9 +657,21 @@ fun androidx.navigation.NavGraphBuilder.sharedAdminRoutes(
     }
 
     composable(AppScreen.UbahKataSandi.route) {
-        PlaceholderScreen(
-            title = "Ubah Kata Sandi",
+        val changePasswordViewModel: ChangePasswordViewModel = viewModel()
+        val authState by authViewModel.uiState.collectAsState()
+        val userEmail = authState.currentUser?.email
+            ?: com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.email
+            ?: ""
+
+        UbahKataSandiScreen(
+            viewModel = changePasswordViewModel,
+            userEmail = userEmail,
             onBackClick = {
+                if (navController.previousBackStackEntry != null) {
+                    navController.popBackStack()
+                }
+            },
+            onPasswordChanged = {
                 if (navController.previousBackStackEntry != null) {
                     navController.popBackStack()
                 }

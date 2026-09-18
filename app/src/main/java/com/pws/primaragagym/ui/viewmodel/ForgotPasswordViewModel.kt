@@ -39,14 +39,14 @@ class ForgotPasswordViewModel(
     }
 
     fun onSendResetLink() {
-        val email = _uiState.value.email
+        val email = _uiState.value.email.trim()
         if (email.isBlank()) {
             _uiState.value = _uiState.value.copy(emailError = "Email wajib diisi.")
             return
         }
 
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true)
+            _uiState.value = _uiState.value.copy(isLoading = true, emailError = null)
             val result = forgotPasswordUseCase(email)
             _uiState.value = _uiState.value.copy(isLoading = false)
 
@@ -56,11 +56,20 @@ class ForgotPasswordViewModel(
                     _events.emit(ForgotPasswordEvent.EmailSent)
                 },
                 onFailure = { exception ->
-                    _uiState.value = _uiState.value.copy(
-                        emailError = exception.message ?: "Gagal mengirim link reset."
-                    )
+                    val errorMsg = exception.message ?: "Gagal mengirim link reset."
+                    _uiState.value = _uiState.value.copy(emailError = errorMsg)
+                    _events.emit(ForgotPasswordEvent.Error(errorMsg))
                 }
             )
         }
+    }
+
+    fun resetState() {
+        _uiState.value = ForgotPasswordUiState()
+    }
+
+    fun resendResetLink() {
+        _uiState.value = _uiState.value.copy(isSent = false)
+        onSendResetLink()
     }
 }

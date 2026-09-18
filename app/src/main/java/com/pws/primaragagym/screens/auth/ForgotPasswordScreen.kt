@@ -83,6 +83,7 @@ fun ForgotPasswordScreen(
     val isMedium = screenWidthDp in 600..839
 
     LaunchedEffect(Unit) {
+        viewModel.resetState()
         viewModel.events.collectLatest { event ->
             when (event) {
                 is ForgotPasswordEvent.EmailSent -> { /* handled by isSent state */ }
@@ -151,6 +152,8 @@ fun ForgotPasswordScreen(
                         uiState = uiState,
                         onEmailChange = viewModel::onEmailChange,
                         onSendClick = viewModel::onSendResetLink,
+                        onResendClick = viewModel::resendResetLink,
+                        onEditEmailClick = viewModel::resetState,
                         onBackToLoginClick = onBackToLoginClick,
                         isCompact = false,
                         modifier = Modifier
@@ -215,6 +218,8 @@ fun ForgotPasswordScreen(
                         uiState = uiState,
                         onEmailChange = viewModel::onEmailChange,
                         onSendClick = viewModel::onSendResetLink,
+                        onResendClick = viewModel::resendResetLink,
+                        onEditEmailClick = viewModel::resetState,
                         onBackToLoginClick = onBackToLoginClick,
                         isCompact = true,
                         modifier = Modifier.fillMaxWidth()
@@ -231,6 +236,8 @@ private fun ForgotPasswordFormContent(
     uiState: ForgotPasswordUiState,
     onEmailChange: (String) -> Unit,
     onSendClick: () -> Unit,
+    onResendClick: () -> Unit,
+    onEditEmailClick: () -> Unit,
     onBackToLoginClick: () -> Unit,
     isCompact: Boolean,
     modifier: Modifier = Modifier
@@ -250,7 +257,7 @@ private fun ForgotPasswordFormContent(
                     .padding(bottom = Dimens.spacing_2)
             )
             Text(
-                text = "Masukkan email Anda. Kami akan mengirimkan\nlink untuk mereset password.",
+                text = "Masukkan email akun Anda. Kami akan mengirimkan tautan untuk mereset kata sandi.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = TextSecondaryDark,
                 textAlign = TextAlign.Start,
@@ -315,11 +322,14 @@ private fun ForgotPasswordFormContent(
         ) {
             SuccessContent(
                 email = uiState.email,
+                isLoading = uiState.isLoading,
+                onResendClick = onResendClick,
+                onEditEmailClick = onEditEmailClick,
                 onBackToLoginClick = onBackToLoginClick
             )
         }
 
-        if (!isCompact) {
+        if (!isCompact && !uiState.isSent) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -342,11 +352,14 @@ private fun ForgotPasswordFormContent(
 @Composable
 private fun SuccessContent(
     email: String,
+    isLoading: Boolean,
+    onResendClick: () -> Unit,
+    onEditEmailClick: () -> Unit,
     onBackToLoginClick: () -> Unit
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.padding(vertical = Dimens.spacing_8)
+        modifier = Modifier.padding(vertical = Dimens.spacing_4)
     ) {
         Box(
             modifier = Modifier
@@ -377,7 +390,7 @@ private fun SuccessContent(
         Spacer(modifier = Modifier.height(Dimens.spacing_3))
 
         Text(
-            text = "Kami telah mengirimkan link reset password\nke email:",
+            text = "Kami telah mengirimkan tautan reset password ke email:",
             style = MaterialTheme.typography.bodyMedium,
             color = TextSecondaryDark,
             textAlign = TextAlign.Center
@@ -395,7 +408,7 @@ private fun SuccessContent(
         Spacer(modifier = Modifier.height(Dimens.spacing_3))
 
         Text(
-            text = "Cek folder inbox atau spam email Anda.",
+            text = "Silakan periksa folder Kotak Masuk (Inbox) atau Spam email Anda.",
             style = MaterialTheme.typography.bodySmall,
             color = TextSecondaryDark,
             textAlign = TextAlign.Center
@@ -403,13 +416,46 @@ private fun SuccessContent(
 
         Spacer(modifier = Modifier.height(Dimens.spacing_8))
 
-        TextButton(onClick = onBackToLoginClick) {
+        AuthPrimaryButton(
+            text = "Kembali ke Login",
+            onClick = onBackToLoginClick,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(Dimens.spacing_4))
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            TextButton(
+                onClick = onResendClick,
+                enabled = !isLoading
+            ) {
+                Text(
+                    text = "Kirim Ulang Link",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = GreenPrimary,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
             Text(
-                text = "Kembali ke Login",
-                style = MaterialTheme.typography.labelLarge,
-                color = GreenPrimary,
-                fontWeight = FontWeight.SemiBold
+                text = "•",
+                color = TextSecondaryDark,
+                modifier = Modifier.padding(horizontal = 4.dp)
             )
+
+            TextButton(
+                onClick = onEditEmailClick,
+                enabled = !isLoading
+            ) {
+                Text(
+                    text = "Ganti Email",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondaryDark,
+                    fontWeight = FontWeight.Medium
+                )
+            }
         }
     }
 }

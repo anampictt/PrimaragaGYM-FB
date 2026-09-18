@@ -48,11 +48,13 @@ object ServiceLocator {
     val logoutUseCase: LogoutUseCase by lazy { LogoutUseCase(authRepository) }
     val getCurrentUserUseCase: GetCurrentUserUseCase by lazy { GetCurrentUserUseCase(authRepository) }
     val forgotPasswordUseCase: ForgotPasswordUseCase by lazy { ForgotPasswordUseCase(authRepository) }
+    val changePasswordUseCase: ChangePasswordUseCase by lazy { ChangePasswordUseCase(authRepository) }
 
     // ==================== VIEWMODELS ====================
     fun provideAuthViewModel(): AuthViewModel = AuthViewModel(getCurrentUserUseCase)
     fun provideLoginViewModel(): LoginViewModel = LoginViewModel(loginUseCase)
     fun provideForgotPasswordViewModel(): ForgotPasswordViewModel = ForgotPasswordViewModel(forgotPasswordUseCase)
+    fun provideChangePasswordViewModel(): ChangePasswordViewModel = ChangePasswordViewModel(changePasswordUseCase, forgotPasswordUseCase)
     fun provideProfileViewModel(): ProfileViewModel = ProfileViewModel(getCurrentUserUseCase, logoutUseCase)
 
     fun provideAdminDashboardViewModel(): AdminDashboardViewModel = AdminDashboardViewModel()

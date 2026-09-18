@@ -64,6 +64,10 @@ class AuthRepositoryImpl : AuthRepository {
         return authDataSource.sendPasswordResetEmail(email)
     }
 
+    override suspend fun changePassword(currentPassword: String, newPassword: String): Result<Unit> {
+        return authDataSource.changePassword(currentPassword, newPassword)
+    }
+
     override suspend fun getCurrentUser(): User? {
         val firebaseUser = authDataSource.currentUser ?: return null
         val uid = firebaseUser.uid
