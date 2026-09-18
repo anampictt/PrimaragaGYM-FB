@@ -61,6 +61,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.TextButton
+import com.pws.primaragagym.ui.components.common.AnimatedStatusPopup
+import com.pws.primaragagym.ui.components.common.StatusPopupType
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -200,6 +202,9 @@ fun ManajemenRoleScreen(
         14.dp
     }
 
+    var showDeleteSuccessPopup by remember { mutableStateOf(false) }
+    var deletedRoleName by remember { mutableStateOf("") }
+
     if (roleToDelete != null) {
         AlertDialog(
             onDismissRequest = { roleToDelete = null },
@@ -211,8 +216,10 @@ fun ManajemenRoleScreen(
                         val target = roleToDelete
                         roleToDelete = null
                         if (target != null) {
+                            deletedRoleName = target.name
                             viewModel.deleteRole(target.id)
                             onDeleteRole(target)
+                            showDeleteSuccessPopup = true
                         }
                     }
                 ) {
@@ -226,6 +233,15 @@ fun ManajemenRoleScreen(
             }
         )
     }
+
+    AnimatedStatusPopup(
+        visible = showDeleteSuccessPopup,
+        type = StatusPopupType.SUCCESS_DELETE,
+        title = "Role Berhasil Dihapus",
+        message = "Role \"$deletedRoleName\" telah berhasil dihapus dari sistem.",
+        confirmButtonText = "Selesai",
+        onDismiss = { showDeleteSuccessPopup = false }
+    )
 
     Scaffold(
         containerColor = BackgroundColor,

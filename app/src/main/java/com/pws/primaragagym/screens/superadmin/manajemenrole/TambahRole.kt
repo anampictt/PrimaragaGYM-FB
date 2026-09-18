@@ -36,6 +36,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pws.primaragagym.di.ServiceLocator
 import com.pws.primaragagym.domain.model.FirestoreRole
+import com.pws.primaragagym.ui.components.common.AnimatedStatusPopup
+import com.pws.primaragagym.ui.components.common.StatusPopupType
 import com.pws.primaragagym.ui.viewmodel.RoleListViewModel
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -147,6 +149,7 @@ fun TambahRoleScreen(
     var errors by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var isRoleNameFocused by remember { mutableStateOf(false) }
     var isDescriptionFocused by remember { mutableStateOf(false) }
+    var showSuccessDialog by remember { mutableStateOf(false) }
 
     val isEditMode = !roleId.isNullOrBlank()
 
@@ -330,7 +333,7 @@ fun TambahRoleScreen(
                             viewModel.updateRole(roleToSave) { success, errorMsg ->
                                 isSubmitting = false
                                 if (success) {
-                                    onSubmitSuccess()
+                                    showSuccessDialog = true
                                 } else {
                                     errors = mapOf("submit" to (errorMsg ?: "Gagal memperbarui role"))
                                 }
@@ -339,7 +342,7 @@ fun TambahRoleScreen(
                             viewModel.createRole(roleToSave) { success, errorMsg ->
                                 isSubmitting = false
                                 if (success) {
-                                    onSubmitSuccess()
+                                    showSuccessDialog = true
                                 } else {
                                     errors = mapOf("submit" to (errorMsg ?: "Gagal membuat role"))
                                 }
@@ -386,6 +389,18 @@ fun TambahRoleScreen(
             }
         }
     }
+
+    AnimatedStatusPopup(
+        visible = showSuccessDialog,
+        type = if (isEditMode) StatusPopupType.SUCCESS_EDIT else StatusPopupType.SUCCESS_ADD,
+        title = if (isEditMode) "Perubahan Role Disimpan!" else "Role Berhasil Ditambahkan!",
+        message = if (isEditMode) "Role \"${roleName.trim()}\" telah berhasil diperbarui." else "Role baru \"${roleName.trim()}\" telah ditambahkan ke sistem.",
+        confirmButtonText = "Selesai",
+        onDismiss = {
+            showSuccessDialog = false
+            onSubmitSuccess()
+        }
+    )
 }
 
 // ============================================================================

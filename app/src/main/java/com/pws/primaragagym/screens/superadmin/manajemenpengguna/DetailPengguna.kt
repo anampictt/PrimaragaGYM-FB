@@ -35,6 +35,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.pws.primaragagym.domain.model.FirestoreUser
+import com.pws.primaragagym.ui.components.common.AnimatedStatusPopup
+import com.pws.primaragagym.ui.components.common.StatusPopupType
 import com.pws.primaragagym.ui.viewmodel.UserListViewModel
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -119,58 +121,17 @@ fun DetailPenggunaScreen(
     }
 
     // Delete Success Dialog
-    if (showDeleteSuccessDialog) {
-        AlertDialog(
-            onDismissRequest = {
-                showDeleteSuccessDialog = false
-                onDeleteSuccess()
-            },
-            icon = {
-                Box(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clip(CircleShape)
-                        .background(GreenLight),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.CheckCircle,
-                        contentDescription = null,
-                        tint = GreenAccent,
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
-            },
-            title = {
-                Text(
-                    text = "Pengguna Berhasil Dihapus",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    textAlign = TextAlign.Center
-                )
-            },
-            text = {
-                Text(
-                    text = "Data pengguna \"${user?.displayName ?: ""}\" telah berhasil dihapus dari sistem.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showDeleteSuccessDialog = false
-                        onDeleteSuccess()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = GreenAccent),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Selesai", fontWeight = FontWeight.SemiBold)
-                }
-            }
-        )
-    }
+    AnimatedStatusPopup(
+        visible = showDeleteSuccessDialog,
+        type = StatusPopupType.SUCCESS_DELETE,
+        title = "Pengguna Berhasil Dihapus",
+        message = "Data pengguna \"${user?.displayName ?: ""}\" telah berhasil dihapus dari sistem.",
+        confirmButtonText = "Selesai",
+        onDismiss = {
+            showDeleteSuccessDialog = false
+            onDeleteSuccess()
+        }
+    )
 
     Scaffold(
         containerColor = BackgroundColor,

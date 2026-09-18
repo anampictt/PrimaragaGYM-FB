@@ -38,6 +38,8 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material3.AlertDialog
+import com.pws.primaragagym.ui.components.common.AnimatedStatusPopup
+import com.pws.primaragagym.ui.components.common.StatusPopupType
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -437,66 +439,17 @@ fun UbahKataSandiScreen(
         }
 
         // Success Dialog
-        if (showSuccessDialog) {
-            AlertDialog(
-                onDismissRequest = {
-                    showSuccessDialog = false
-                    onPasswordChanged()
-                },
-                icon = {
-                    Box(
-                        modifier = Modifier
-                            .size(64.dp)
-                            .clip(CircleShape)
-                            .background(GreenLight),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Check,
-                            contentDescription = null,
-                            tint = GreenAccent,
-                            modifier = Modifier.size(36.dp)
-                        )
-                    }
-                },
-                title = {
-                    Text(
-                        text = "Kata Sandi Berhasil Diubah!",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold
-                        ),
-                        textAlign = TextAlign.Center,
-                        color = TextPrimary
-                    )
-                },
-                text = {
-                    Text(
-                        text = "Kata sandi akun Anda telah diperbarui. Silakan gunakan kata sandi baru Anda saat login berikutnya.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        textAlign = TextAlign.Center,
-                        color = TextSecondary
-                    )
-                },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            showSuccessDialog = false
-                            onPasswordChanged()
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = GreenAccent),
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Text(
-                            text = "Kembali ke Profil",
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                },
-                containerColor = CardBackground,
-                shape = RoundedCornerShape(20.dp)
-            )
-        }
+        AnimatedStatusPopup(
+            visible = showSuccessDialog,
+            type = StatusPopupType.SUCCESS_EDIT,
+            title = "Kata Sandi Berhasil Diubah!",
+            message = "Kata sandi akun Anda telah diperbarui. Silakan gunakan kata sandi baru saat login berikutnya.",
+            confirmButtonText = "Kembali ke Profil",
+            onDismiss = {
+                showSuccessDialog = false
+                onPasswordChanged()
+            }
+        )
     }
 }
 

@@ -31,6 +31,8 @@ import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.AlertDialog
+import com.pws.primaragagym.ui.components.common.AnimatedStatusPopup
+import com.pws.primaragagym.ui.components.common.StatusPopupType
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -579,47 +581,17 @@ fun TambahMembershipPlanScreen(
         }
     }
 
-    if (showSuccessDialog) {
-        AlertDialog(
-            onDismissRequest = { },
-            confirmButton = {
-                TextButton(onClick = {
-                    showSuccessDialog = false
-                    onSubmitSuccess()
-                }) {
-                    Text("Tutup", color = GreenAccent)
-                }
-            },
-            icon = {
-                Box(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clip(CircleShape)
-                        .background(GreenLight),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Check,
-                        contentDescription = null,
-                        tint = GreenAccent,
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
-            },
-            title = {
-                Text(
-                    text = if (isEditMode) "Paket berhasil disimpan" else "Paket berhasil ditambahkan",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
-                )
-            },
-            text = {
-                Text(
-                    text = if (isEditMode) "Perubahan paket $name telah disimpan." else "Paket $name telah ditambahkan ke daftar membership plan.",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-        )
-    }
+    AnimatedStatusPopup(
+        visible = showSuccessDialog,
+        type = if (isEditMode) StatusPopupType.SUCCESS_EDIT else StatusPopupType.SUCCESS_ADD,
+        title = if (isEditMode) "Paket Berhasil Disimpan" else "Paket Berhasil Ditambahkan",
+        message = if (isEditMode) "Perubahan paket \"$name\" telah berhasil disimpan." else "Paket \"$name\" telah berhasil ditambahkan ke daftar membership plan.",
+        confirmButtonText = "Selesai",
+        onDismiss = {
+            showSuccessDialog = false
+            onSubmitSuccess()
+        }
+    )
 }
 
 @Composable

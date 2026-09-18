@@ -32,6 +32,8 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.AlertDialog
+import com.pws.primaragagym.ui.components.common.AnimatedStatusPopup
+import com.pws.primaragagym.ui.components.common.StatusPopupType
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -563,58 +565,17 @@ fun TambahPenggunaScreen(
         }
     }
 
-    if (showSuccessDialog) {
-        AlertDialog(
-            onDismissRequest = {
-                showSuccessDialog = false
-                onSubmitSuccess()
-            },
-            icon = {
-                Box(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clip(CircleShape)
-                        .background(GreenLight),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.CheckCircle,
-                        contentDescription = null,
-                        tint = GreenAccent,
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
-            },
-            title = {
-                Text(
-                    text = successDialogTitle,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    textAlign = TextAlign.Center
-                )
-            },
-            text = {
-                Text(
-                    text = successDialogMessage,
-                    style = MaterialTheme.typography.bodyMedium,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showSuccessDialog = false
-                        onSubmitSuccess()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = GreenAccent),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Selesai", fontWeight = FontWeight.SemiBold)
-                }
-            }
-        )
-    }
+    AnimatedStatusPopup(
+        visible = showSuccessDialog,
+        type = if (isEditMode) StatusPopupType.SUCCESS_EDIT else StatusPopupType.SUCCESS_ADD,
+        title = successDialogTitle.ifBlank { if (isEditMode) "Perubahan Berhasil Disimpan" else "Pengguna Berhasil Ditambahkan" },
+        message = successDialogMessage.ifBlank { "Data pengguna telah tersimpan di sistem." },
+        confirmButtonText = "Selesai",
+        onDismiss = {
+            showSuccessDialog = false
+            onSubmitSuccess()
+        }
+    )
 }
 
 // ============================================================================

@@ -28,6 +28,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.AccessTime
 import com.pws.primaragagym.commond.DateUtils
+import com.pws.primaragagym.ui.components.common.AnimatedStatusPopup
+import com.pws.primaragagym.ui.components.common.StatusPopupType
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Email
@@ -267,11 +269,14 @@ fun ProfileScreen(
         }
 
         // Logout Success Popup
-        if (showLogoutSuccess) {
-            LogoutSuccessPopup(
-                onDismiss = { viewModel.hideLogoutSuccess() }
-            )
-        }
+        AnimatedStatusPopup(
+            visible = showLogoutSuccess,
+            type = StatusPopupType.SUCCESS_LOGOUT,
+            title = "Logout Berhasil!",
+            message = "Sampai jumpa kembali di Primaraga Gym.",
+            autoDismissMs = 1300L,
+            onDismiss = { viewModel.hideLogoutSuccess() }
+        )
     }
 }
 
@@ -657,56 +662,3 @@ private fun LogoutConfirmationDialog(
 }
 
 // ============================================================================
-// LOGOUT SUCCESS POPUP
-// ============================================================================
-@Composable
-private fun LogoutSuccessPopup(onDismiss: () -> Unit) {
-    LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(1500)
-        onDismiss()
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.5f))
-            .clickable(onClick = onDismiss),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier
-                .background(Color.White, shape = RoundedCornerShape(24.dp))
-                .padding(32.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(80.dp)
-                    .clip(CircleShape)
-                    .background(GreenLight),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Check,
-                    contentDescription = "Success",
-                    tint = GreenAccent,
-                    modifier = Modifier.size(48.dp)
-                )
-            }
-            Spacer(modifier = Modifier.height(20.dp))
-            Text(
-                text = "Logout Berhasil!",
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                color = TextPrimary,
-                textAlign = TextAlign.Center
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "Sampai jumpa kembali",
-                style = MaterialTheme.typography.bodyMedium,
-                color = TextSecondary,
-                textAlign = TextAlign.Center
-            )
-        }
-    }
-}

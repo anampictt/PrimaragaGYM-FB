@@ -66,6 +66,8 @@ import com.pws.primaragagym.screens.admin.member.MemberColors.GreenLight
 import com.pws.primaragagym.screens.admin.member.MemberColors.TextMuted
 import com.pws.primaragagym.screens.admin.member.MemberColors.TextPrimary
 import com.pws.primaragagym.screens.admin.member.MemberColors.TextSecondary
+import com.pws.primaragagym.ui.components.common.AnimatedStatusPopup
+import com.pws.primaragagym.ui.components.common.StatusPopupType
 import com.pws.primaragagym.ui.theme.Dimens
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -699,46 +701,19 @@ fun UpgradeDowngradeScreen(
         }
     }
 
-    if (showSuccessDialog) {
-        AlertDialog(
-            onDismissRequest = { },
-            confirmButton = {
-                TextButton(onClick = {
-                    showSuccessDialog = false
-                    onSubmitSuccess()
-                }) {
-                    Text("Selesai", color = GreenAccent)
-                }
-            },
-            icon = {
-                Box(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clip(CircleShape)
-                        .background(GreenLight),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Check,
-                        contentDescription = null,
-                        tint = GreenAccent,
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
-            },
-            title = {
-                Text(
-                    text = "$actionTitle Berhasil",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
-                )
-            },
-            text = {
-                val memberName = member?.fullName ?: "Member"
-                val newPlan = selectedPlan?.name ?: "Paket Baru"
-                Text("Membership untuk $memberName telah berhasil $actionVerb ke paket $newPlan hingga $calculatedNewEndDate.")
-            }
-        )
-    }
+    val memberName = member?.fullName ?: "Member"
+    val newPlan = selectedPlan?.name ?: "Paket Baru"
+    AnimatedStatusPopup(
+        visible = showSuccessDialog,
+        type = StatusPopupType.SUCCESS_EDIT,
+        title = "$actionTitle Berhasil",
+        message = "Membership untuk $memberName telah berhasil $actionVerb ke paket $newPlan hingga $calculatedNewEndDate.",
+        confirmButtonText = "Selesai",
+        onDismiss = {
+            showSuccessDialog = false
+            onSubmitSuccess()
+        }
+    )
 }
 
 @OptIn(ExperimentalLayoutApi::class)

@@ -38,6 +38,8 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.pws.primaragagym.screens.auth.ForgotPasswordScreen
 import com.pws.primaragagym.screens.auth.LoginScreen
+import com.pws.primaragagym.ui.components.common.AnimatedStatusPopup
+import com.pws.primaragagym.ui.components.common.StatusPopupType
 import com.pws.primaragagym.ui.viewmodel.AuthViewModel
 import com.pws.primaragagym.ui.viewmodel.ForgotPasswordViewModel
 import com.pws.primaragagym.ui.viewmodel.LoginEvent
@@ -109,59 +111,22 @@ fun LoginNavHost(
         }
 
         // Success Popup Overlay
-        AnimatedVisibility(
+        AnimatedStatusPopup(
             visible = showLoginSuccess,
-            enter = fadeIn(tween(300)) + scaleIn(tween(300), initialScale = 0.8f),
-            exit = fadeOut(tween(300)) + scaleOut(tween(300), targetScale = 0.8f),
-            modifier = Modifier.fillMaxSize()
-        ) {
-            LoginSuccessPopup()
-        }
-    }
-}
-
-@Composable
-private fun LoginSuccessPopup() {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.5f)),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier
-                .background(Color.White, shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp))
-                .padding(32.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(80.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFFE8F5E9)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Check,
-                    contentDescription = "Success",
-                    tint = Color(0xFF32A060),
-                    modifier = Modifier.size(48.dp)
-                )
+            type = StatusPopupType.SUCCESS_LOGIN,
+            title = "Login Berhasil!",
+            message = "Selamat datang di Primaraga Gym.",
+            autoDismissMs = 1300L,
+            onDismiss = {
+                val destination = pendingDestination
+                pendingDestination = null
+                showLoginSuccess = false
+                if (destination != null) {
+                    navController.navigate(destination) {
+                        popUpTo(AppScreen.Login.route) { inclusive = true }
+                    }
+                }
             }
-            Spacer(modifier = Modifier.height(20.dp))
-            Text(
-                text = "Login Berhasil!",
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                color = Color(0xFF1A1A1A),
-                textAlign = TextAlign.Center
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "Selamat datang di Primaraga GYM",
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFF6B6B6B),
-                textAlign = TextAlign.Center
-            )
-        }
+        )
     }
 }
