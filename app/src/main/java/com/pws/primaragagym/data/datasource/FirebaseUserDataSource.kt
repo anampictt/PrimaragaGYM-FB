@@ -3,6 +3,7 @@ package com.pws.primaragagym.data.datasource
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
+import com.pws.primaragagym.commond.DateUtils
 import com.pws.primaragagym.domain.model.User
 import com.pws.primaragagym.domain.model.UserRole
 import kotlinx.coroutines.tasks.await
@@ -34,7 +35,8 @@ class FirebaseUserDataSource {
                 val phone = (data["phone"] as? String)
                     ?: (data["phoneNumber"] as? String)
                     ?: ""
-                val lastLogin = (data["lastLogin"] ?: data["lastLoginAt"])?.toString() ?: ""
+                val rawLastLogin = data["lastLogin"] ?: data["lastLoginAt"]
+                val lastLogin = DateUtils.formatLastLogin(rawLastLogin, fallback = "")
 
                 val parsedRole = UserRole.fromString(roleStr)
                 val resolvedRoleTitle = roleStr.ifBlank { parsedRole.displayName }
@@ -64,7 +66,8 @@ class FirebaseUserDataSource {
     suspend fun updateLastLogin(uid: String): Result<Unit> {
         return try {
             val updates = mapOf(
-                "lastLogin" to FieldValue.serverTimestamp()
+                "lastLogin" to FieldValue.serverTimestamp(),
+                "lastLoginAt" to FieldValue.serverTimestamp()
             )
             withTimeoutOrNull(3000L) {
                 usersCollection.document(uid).set(updates, SetOptions.merge()).await()

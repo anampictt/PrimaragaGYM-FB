@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.Cake
 import androidx.compose.material.icons.filled.FitnessCenter
+import com.pws.primaragagym.commond.DateUtils
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Chat
@@ -265,7 +266,9 @@ fun SuperAdminDashboardContent(
         totalMember = uiState.totalMembers,
         pendapatan = uiState.todayRevenue.ifBlank { "Rp 0" },
         systemStatus = "Sistem aman dan terproteksi",
-        lastLogin = authState.currentUser?.lastLogin?.ifBlank { null } ?: "Baru saja"
+        lastLogin = authState.currentUser?.lastLogin?.ifBlank { null }?.let {
+            DateUtils.formatLastLogin(it, fallback = "Baru saja")
+        } ?: "Baru saja"
     )
 
     LazyColumn(

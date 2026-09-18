@@ -43,14 +43,14 @@ service cloud.firestore {
       // Users can update their own profile (except role/branch)
       allow update: if isOwner(userId) && (
         request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['fullName', 'phoneNumber', 'address', 'photoUrl', 'lastLoginAt', 'updatedAt'])
+          .hasOnly(['fullName', 'phoneNumber', 'address', 'photoUrl', 'lastLogin', 'lastLoginAt', 'updatedAt'])
       );
 
       // Only Super Admin can create/update users with role/branch changes
       allow create: if isSuperAdmin() || isActive();
       allow update: if isSuperAdmin() ||
         (isOwner(userId) && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['fullName', 'phoneNumber', 'address', 'photoUrl', 'lastLoginAt', 'updatedAt']));
+          .hasOnly(['fullName', 'phoneNumber', 'address', 'photoUrl', 'lastLogin', 'lastLoginAt', 'updatedAt']));
 
       // Only Super Admin can delete users
       allow delete: if isSuperAdmin();

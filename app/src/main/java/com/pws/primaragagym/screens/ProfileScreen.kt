@@ -27,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.AccessTime
+import com.pws.primaragagym.commond.DateUtils
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Email
@@ -242,7 +243,10 @@ fun ProfileScreen(
                     SectionTitle(text = "Aktivitas")
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    ActivityCard(lastLogin = profile?.lastLogin ?: "-")
+                    val formattedLastLogin = profile?.lastLogin?.ifBlank { null }?.let {
+                        DateUtils.formatLastLogin(it, fallback = "-")
+                    } ?: "-"
+                    ActivityCard(lastLogin = formattedLastLogin)
 
                     Spacer(modifier = Modifier.height(32.dp))
 
@@ -529,6 +533,9 @@ private fun SecurityCard(onChangePasswordClick: () -> Unit) {
 // ============================================================================
 @Composable
 private fun ActivityCard(lastLogin: String) {
+    val displayLastLogin = remember(lastLogin) {
+        if (lastLogin.isBlank() || lastLogin == "-") "-" else DateUtils.formatLastLogin(lastLogin, fallback = "-")
+    }
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -560,7 +567,7 @@ private fun ActivityCard(lastLogin: String) {
                 Text(text = "Terakhir Login", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = lastLogin,
+                    text = displayLastLogin,
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
                     color = TextPrimary
