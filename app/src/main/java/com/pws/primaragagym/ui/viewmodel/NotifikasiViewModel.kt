@@ -61,14 +61,39 @@ class NotifikasiViewModel : ViewModel() {
 
     fun markAsRead(notificationId: String) {
         viewModelScope.launch {
+            // Optimistic update agar UI langsung responsif
+            _uiState.update { current ->
+                current.copy(
+                    notifications = current.notifications.map {
+                        if (it.notificationId == notificationId) it.copy(isRead = true) else it
+                    }
+                )
+            }
             repository.markAsRead(notificationId)
-            // UI akan auto-refresh via snapshot listener
         }
     }
 
     fun markAllAsRead(branchId: String? = null) {
         viewModelScope.launch {
-            repository.markAllAsRead(branchId = branchId)
+            val unreadList = _uiState.value.notifications.filter { !it.isRead }
+            val unreadIds = unreadList.map { it.notificationId }.filter { it.isNotBlank() }
+
+            // 1. Optimistic UI update: langsung ubah semua notifikasi di layar menjadi dibaca
+            _uiState.update { current ->
+                current.copy(
+                    notifications = current.notifications.map {
+                        if (!it.isRead) it.copy(isRead = true) else it
+                    }
+                )
+            }
+
+            // 2. Simpan ke Firestore via batch by IDs
+            if (unreadIds.isNotEmpty()) {
+                repository.markMultipleAsRead(unreadIds)
+            }
+
+            // 3. Query Firestore untuk notifikasi lain yang belum termuat
+            repository.markAllAsRead(branchId = branchId?.ifBlank { null })
         }
     }
 

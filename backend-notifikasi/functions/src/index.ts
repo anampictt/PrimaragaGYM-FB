@@ -57,7 +57,7 @@ async function sendFcmNotification(
       notification: {title, body},
       android: {
         notification: {
-          channelId: "primaraga_gym_channel",
+          channelId: "primaraga_gym_channel_v2",
           priority: "high",
           sound: "default",
           icon: "logogym",
@@ -109,6 +109,95 @@ async function saveNotification(
 }
 
 // ---------------------------------------------------------------------------
+// Helper: Parse MM-DD from any date format (YYYY-MM-DD, DD-MM-YYYY, DD MMMM YYYY, Timestamp)
+// ---------------------------------------------------------------------------
+function parseMmDd(dobRaw: unknown): string | null {
+  if (!dobRaw) return null;
+  if (typeof dobRaw === "object" && dobRaw !== null && "toDate" in (dobRaw as any)) {
+    const d = (dobRaw as any).toDate();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${m}-${day}`;
+  }
+
+  const str = String(dobRaw).trim();
+  if (!str || str === "-") return null;
+
+  // If already MM-DD
+  if (/^\d{2}-\d{2}$/.test(str)) {
+    return str;
+  }
+
+  // YYYY-MM-DD or YYYY/MM/DD
+  const ymdMatch = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (ymdMatch) {
+    const m = ymdMatch[2].padStart(2, "0");
+    const d = ymdMatch[3].padStart(2, "0");
+    return `${m}-${d}`;
+  }
+
+  // DD-MM-YYYY or DD/MM/YYYY
+  const dmyMatch = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+  if (dmyMatch) {
+    const d = dmyMatch[1].padStart(2, "0");
+    const m = dmyMatch[2].padStart(2, "0");
+    return `${m}-${d}`;
+  }
+
+  // Text month e.g. "18 September 2003", "18 Sep 2001", "18 Sep"
+  const monthMap: Record<string, string> = {
+    jan: "01", januari: "01", january: "01",
+    feb: "02", februari: "02", february: "02",
+    mar: "03", maret: "03", march: "03",
+    apr: "04", april: "04",
+    mei: "05", may: "05",
+    jun: "06", juni: "06", june: "06",
+    jul: "07", juli: "07", july: "07",
+    agu: "08", agustus: "08", aug: "08", august: "08",
+    sep: "09", september: "09",
+    okt: "10", oktober: "10", oct: "10", october: "10",
+    nov: "11", november: "11",
+    des: "12", desember: "12", dec: "12", december: "12",
+  };
+
+  const textMatch = str.match(/^(\d{1,2})\s+([a-zA-Z]+)/);
+  if (textMatch) {
+    const d = textMatch[1].padStart(2, "0");
+    const mKey = textMatch[2].toLowerCase();
+    const m = monthMap[mKey] || monthMap[mKey.substring(0, 3)];
+    if (m) {
+      return `${m}-${d}`;
+    }
+  }
+
+  return null;
+}
+
+function getTodayMmDdJakarta(targetDateStr?: string): string {
+  if (targetDateStr) {
+    if (targetDateStr.length >= 10 && targetDateStr.includes("-")) {
+      const parts = targetDateStr.split("-");
+      if (parts[0].length === 4) {
+        return `${parts[1].padStart(2, "0")}-${parts[2].padStart(2, "0")}`;
+      } else {
+        return `${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
+      }
+    }
+    return targetDateStr;
+  }
+  const now = new Date();
+  const options: Intl.DateTimeFormatOptions = {
+    timeZone: "Asia/Jakarta",
+    month: "2-digit",
+    day: "2-digit",
+  };
+  const parts = new Intl.DateTimeFormat("en-US", options).formatToParts(now);
+  const m = parts.find((p) => p.type === "month")?.value || String(now.getMonth() + 1).padStart(2, "0");
+  const d = parts.find((p) => p.type === "day")?.value || String(now.getDate()).padStart(2, "0");
+  return `${m}-${d}`;
+}
+
+// ---------------------------------------------------------------------------
 // 1. RUNNER: CHECK MEMBER BIRTHDAYS
 // ---------------------------------------------------------------------------
 export async function runMemberBirthdaysCheck(
@@ -116,45 +205,27 @@ export async function runMemberBirthdaysCheck(
 ): Promise<{ checked: number; birthdayCount: number }> {
   logger.info("=== runMemberBirthdaysCheck START ===");
 
-  const now = new Date();
-  let todayMmDd = "";
-
-  if (targetDateStr) {
-    todayMmDd = targetDateStr.length >= 10 ? targetDateStr.substring(5, 10) : targetDateStr;
-  } else {
-    const month = String(now.getUTCMonth() + 1).padStart(2, "0");
-    const day = String(now.getUTCDate()).padStart(2, "0");
-    todayMmDd = `${month}-${day}`;
-  }
-
-  logger.info(`Mengecek ulang tahun untuk tanggal (MM-dd): ${todayMmDd}`);
+  const todayMmDd = getTodayMmDdJakarta(targetDateStr);
+  logger.info(`Mengecek ulang tahun untuk tanggal Asia/Jakarta (MM-dd): ${todayMmDd}`);
 
   let birthdayCount = 0;
   let checked = 0;
 
   try {
-    const membersSnap = await db
-      .collection("members")
-      .where("status", "==", "ACTIVE")
-      .get();
-
+    const membersSnap = await db.collection("members").get();
     checked = membersSnap.size;
     const tokens = await getAdminFcmTokens();
 
     for (const doc of membersSnap.docs) {
       const member = doc.data();
-      const dateOfBirth: string = member.dateOfBirth ?? "";
+      const status = String(member.status || "ACTIVE").toUpperCase();
+      if (status !== "ACTIVE") continue;
 
-      let memberMmDd = "";
-      if (dateOfBirth.length >= 10) {
-        memberMmDd = dateOfBirth.substring(5, 10);
-      } else if (dateOfBirth.length === 5) {
-        memberMmDd = dateOfBirth;
-      }
+      const memberMmDd = parseMmDd(member.dateOfBirth);
 
       if (memberMmDd === todayMmDd) {
         birthdayCount++;
-        const memberName: string = member.fullName ?? "Member";
+        const memberName: string = member.fullName || member.name || "Member";
         const branchId: string = member.branchId ?? null;
         const memberId: string = doc.id;
 
@@ -168,7 +239,7 @@ export async function runMemberBirthdaysCheck(
           memberName,
         });
 
-        logger.info(`Birthday notification sent for: ${memberName}`);
+        logger.info(`Birthday notification sent for: ${memberName} (DOB: ${member.dateOfBirth})`);
       }
     }
 

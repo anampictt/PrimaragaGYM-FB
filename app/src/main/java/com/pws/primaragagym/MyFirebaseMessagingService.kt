@@ -58,6 +58,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             null
         }
 
+        val defaultSoundUri = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_NOTIFICATION)
+
         val notificationBuilder = NotificationCompat.Builder(this, FcmTokenManager.CHANNEL_ID)
             .setSmallIcon(R.drawable.logogym)
             .apply {
@@ -70,7 +72,10 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setAutoCancel(true)
+            .setSound(defaultSoundUri)
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setVibrate(longArrayOf(0, 300, 200, 300))
             .setContentIntent(pendingIntent)
 
         val notificationManager =

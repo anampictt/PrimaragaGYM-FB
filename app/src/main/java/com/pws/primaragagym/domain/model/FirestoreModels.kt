@@ -1,7 +1,7 @@
 package com.pws.primaragagym.domain.model
 
-import com.google.firebase.Timestamp
 import com.google.firebase.firestore.DocumentId
+import com.google.firebase.firestore.PropertyName
 import com.google.firebase.firestore.ServerTimestamp
 import java.util.Date
 
@@ -189,7 +189,7 @@ data class FirestorePayment(
 )
 
 data class FirestoreNotification(
-    @DocumentId
+    @get:DocumentId
     val notificationId: String = "",
     val userId: String? = null,
     val memberId: String? = null,
@@ -197,6 +197,7 @@ data class FirestoreNotification(
     val type: String = "SYSTEM", // MEMBERSHIP_EXPIRING, MEMBER_INACTIVE, MEMBER_BIRTHDAY, SYSTEM
     val title: String = "",
     val message: String = "",
+    @get:PropertyName("isRead")
     val isRead: Boolean = false,
     @ServerTimestamp
     val createdAt: Date? = null

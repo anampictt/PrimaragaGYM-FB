@@ -171,8 +171,11 @@ service cloud.firestore {
       // Users can mark their own notifications as read
       // Admins can update notifications in their branch
       allow update: if isSuperAdmin() ||
-        (resource.data.userId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead'])) ||
-        (isAdmin() && resource.data.branchId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.branchId);
+        (request.auth != null && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead'])) ||
+        (isAdmin() && (
+          resource.data.branchId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.branchId ||
+          resource.data.branchId == null
+        ));
 
       // Users can delete their own notifications
       // Admins can delete notifications in their branch

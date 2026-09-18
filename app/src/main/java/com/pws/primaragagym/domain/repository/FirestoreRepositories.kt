@@ -135,6 +135,7 @@ interface NotificationRepository {
     suspend fun getUnreadCount(userId: String? = null, branchId: String? = null): Result<Int>
     suspend fun createNotification(userId: String? = null, memberId: String? = null, branchId: String? = null, type: String, title: String, message: String): Result<String>
     suspend fun markAsRead(notificationId: String): Result<Unit>
+    suspend fun markMultipleAsRead(notificationIds: List<String>): Result<Unit>
     suspend fun markAllAsRead(userId: String? = null, branchId: String? = null): Result<Unit>
     suspend fun deleteNotification(notificationId: String): Result<Unit>
 }

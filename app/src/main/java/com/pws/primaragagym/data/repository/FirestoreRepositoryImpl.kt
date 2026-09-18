@@ -289,6 +289,9 @@ class NotificationRepositoryImpl : NotificationRepository {
     override suspend fun markAsRead(notificationId: String): Result<Unit> =
         dataSource.markAsRead(notificationId)
 
+    override suspend fun markMultipleAsRead(notificationIds: List<String>): Result<Unit> =
+        dataSource.markMultipleAsRead(notificationIds)
+
     override suspend fun markAllAsRead(userId: String?, branchId: String?): Result<Unit> =
         dataSource.markAllAsRead(userId, branchId)
 
