@@ -107,13 +107,14 @@ fun CheckinMemberDetailScreen(
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         containerColor = BackgroundColor
     ) { paddingValues ->
         if (isSearching) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(paddingValues),
+                    .padding(top = paddingValues.calculateTopPadding()),
                 contentAlignment = Alignment.Center
             ) {
                 CircularProgressIndicator(color = GreenAccent)
@@ -122,7 +123,7 @@ fun CheckinMemberDetailScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(paddingValues),
+                    .padding(top = paddingValues.calculateTopPadding()),
                 contentAlignment = Alignment.Center
             ) {
                 Column(
@@ -171,7 +172,7 @@ fun CheckinMemberDetailScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(paddingValues)
+                    .padding(top = paddingValues.calculateTopPadding())
                     .verticalScroll(rememberScrollState())
                     .padding(16.dp)
             ) {

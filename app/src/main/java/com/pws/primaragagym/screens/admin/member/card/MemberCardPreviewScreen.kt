@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -345,6 +346,7 @@ Selamat berlatih dan raih tubuh sehat bersama kami! 🔥💪
 
     Scaffold(
         containerColor = bgColor,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
                 title = {
@@ -379,7 +381,7 @@ Selamat berlatih dan raih tubuh sehat bersama kami! 🔥💪
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(paddingValues),
+                    .padding(top = paddingValues.calculateTopPadding()),
                 contentAlignment = Alignment.Center
             ) {
                 CircularProgressIndicator(color = greenAccent)
@@ -388,7 +390,7 @@ Selamat berlatih dan raih tubuh sehat bersama kami! 🔥💪
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(paddingValues),
+                    .padding(top = paddingValues.calculateTopPadding()),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -402,7 +404,7 @@ Selamat berlatih dan raih tubuh sehat bersama kami! 🔥💪
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(paddingValues)
+                    .padding(top = paddingValues.calculateTopPadding())
                     .verticalScroll(rememberScrollState())
                     .padding(vertical = Dimens.spacing_5),
                 horizontalAlignment = Alignment.CenterHorizontally

@@ -135,6 +135,7 @@ fun DetailPenggunaScreen(
 
     Scaffold(
         containerColor = BackgroundColor,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
                 title = {
@@ -161,7 +162,7 @@ fun DetailPenggunaScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(paddingValues),
+                    .padding(top = paddingValues.calculateTopPadding()),
                 contentAlignment = Alignment.Center
             ) {
                 CircularProgressIndicator(color = GreenAccent)
@@ -170,7 +171,7 @@ fun DetailPenggunaScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(paddingValues),
+                    .padding(top = paddingValues.calculateTopPadding()),
                 contentAlignment = Alignment.Center
             ) {
                 Column(
@@ -227,7 +228,7 @@ fun DetailPenggunaScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(paddingValues)
+                    .padding(top = paddingValues.calculateTopPadding())
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = if (isTablet) 32.dp else 16.dp, vertical = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)

@@ -6,12 +6,15 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -132,14 +135,15 @@ fun NotifikasiScreen(
     val filteredNotifications = uiState.notifications.filter { notif ->
         when (selectedFilter) {
             NotifikasiFilter.ALL -> true
-            NotifikasiFilter.MEMBERSHIP -> notif.type == "MEMBERSHIP_EXPIRING"
-            NotifikasiFilter.MEMBER -> notif.type == "MEMBER_INACTIVE" || notif.type == "MEMBER_BIRTHDAY"
-            NotifikasiFilter.SISTEM -> notif.type == "SYSTEM" || notif.type.isBlank()
+            NotifikasiFilter.MEMBERSHIP -> NotificationDisplayMapper.getCategoryLabel(notif.type).equals("Membership", ignoreCase = true)
+            NotifikasiFilter.MEMBER -> NotificationDisplayMapper.getCategoryLabel(notif.type).equals("Member", ignoreCase = true)
+            NotifikasiFilter.SISTEM -> NotificationDisplayMapper.getCategoryLabel(notif.type).equals("Sistem", ignoreCase = true)
         }
     }
 
     Scaffold(
         containerColor = BackgroundColor,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
                 title = {
@@ -195,17 +199,19 @@ fun NotifikasiScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues),
+                .padding(top = paddingValues.calculateTopPadding()),
             contentPadding = PaddingValues(
                 horizontal = if (isTablet) 32.dp else Dimens.screen_padding_horizontal,
                 vertical = Dimens.spacing_4
             ),
             verticalArrangement = Arrangement.spacedBy(Dimens.spacing_3)
         ) {
-            // Filter Chips
+            // Filter Chips (Scrollable for full phone responsiveness)
             item {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(Dimens.spacing_2)
                 ) {
                     NotifikasiFilter.entries.forEach { filter ->

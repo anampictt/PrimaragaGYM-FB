@@ -96,6 +96,7 @@ fun InvoiceDetailScreen(
 
     Scaffold(
         containerColor = BackgroundColor,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
                 title = {
@@ -132,7 +133,7 @@ fun InvoiceDetailScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(paddingValues),
+                    .padding(top = paddingValues.calculateTopPadding()),
                 contentAlignment = Alignment.Center
             ) {
                 CircularProgressIndicator(color = GreenAccent)
@@ -142,7 +143,7 @@ fun InvoiceDetailScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(paddingValues),
+                    .padding(top = paddingValues.calculateTopPadding()),
                 contentAlignment = Alignment.Center
             ) {
                 Column(
@@ -211,7 +212,7 @@ fun InvoiceDetailScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(paddingValues)
+                    .padding(top = paddingValues.calculateTopPadding())
                     .verticalScroll(rememberScrollState())
                     .padding(
                         horizontal = if (isTablet) 32.dp else Dimens.screen_padding_horizontal,

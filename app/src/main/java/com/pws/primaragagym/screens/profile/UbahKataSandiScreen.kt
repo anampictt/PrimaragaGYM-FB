@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -127,6 +128,7 @@ fun UbahKataSandiScreen(
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             containerColor = BackgroundColor,
+            contentWindowInsets = WindowInsets(0, 0, 0, 0),
             topBar = {
                 TopAppBar(
                     title = {
@@ -160,11 +162,10 @@ fun UbahKataSandiScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(paddingValues)
+                    .padding(top = paddingValues.calculateTopPadding())
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = if (isTablet) 32.dp else 16.dp)
                     .padding(vertical = 20.dp)
-                    .navigationBarsPadding()
                     .imePadding(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {

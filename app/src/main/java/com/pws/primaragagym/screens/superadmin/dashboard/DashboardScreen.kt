@@ -1751,8 +1751,7 @@ fun BottomNavigationBar(
 ) {
     NavigationBar(
         containerColor = Color.White,
-        tonalElevation = 8.dp,
-        modifier = Modifier.navigationBarsPadding()
+        tonalElevation = 8.dp
     ) {
         items.forEach { item ->
             val isSelected = selectedItem == item

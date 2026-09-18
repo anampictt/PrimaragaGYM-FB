@@ -114,18 +114,18 @@ object NotificationDisplayMapper {
             Color,  // iconBackground
             Color   // iconColor
             > {
-        return when (type) {
+        return when (type.uppercase().trim()) {
             "MEMBER_BIRTHDAY" -> Triple(
                 Icons.Filled.Cake,
                 Color(0xFFFCE4EC),
                 Color(0xFFF44336)
             )
-            "MEMBER_INACTIVE" -> Triple(
+            "MEMBER_INACTIVE", "NEVER_CHECKIN", "MEMBER_NEVER_CHECKIN" -> Triple(
                 Icons.Filled.PersonOff,
                 Color(0xFFE3F2FD),
                 Color(0xFFF44336)
             )
-            "MEMBERSHIP_EXPIRING" -> Triple(
+            "MEMBERSHIP_EXPIRING", "MEMBERSHIP_EXPIRED", "EXPIRING_SOON" -> Triple(
                 Icons.Filled.Warning,
                 Color(0xFFFFF3E0),
                 Color(0xFFFF9800)
@@ -138,10 +138,9 @@ object NotificationDisplayMapper {
         }
     }
 
-    fun getCategoryLabel(type: String): String = when (type) {
-        "MEMBER_BIRTHDAY" -> "Member"
-        "MEMBER_INACTIVE" -> "Member"
-        "MEMBERSHIP_EXPIRING" -> "Membership"
+    fun getCategoryLabel(type: String): String = when (type.uppercase().trim()) {
+        "MEMBER_BIRTHDAY", "MEMBER_INACTIVE", "MEMBER", "NEVER_CHECKIN", "MEMBER_NEVER_CHECKIN" -> "Member"
+        "MEMBERSHIP_EXPIRING", "MEMBERSHIP", "MEMBERSHIP_EXPIRED", "EXPIRING_SOON" -> "Membership"
         else -> "Sistem"
     }
 

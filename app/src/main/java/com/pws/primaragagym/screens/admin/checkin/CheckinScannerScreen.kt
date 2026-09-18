@@ -113,6 +113,7 @@ fun CheckinScannerScreen(
 
     Scaffold(
         containerColor = BackgroundColor,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
                 title = {
@@ -177,7 +178,7 @@ fun CheckinScannerScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .padding(top = paddingValues.calculateTopPadding())
         ) {
             if (hasCameraPermission && cameraError == null) {
                 // Live Camera View

@@ -115,12 +115,13 @@ fun CheckinCheckoutScreen(
                 )
             )
         },
-        containerColor = BackgroundColor
+        containerColor = BackgroundColor,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .padding(top = paddingValues.calculateTopPadding())
         ) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),

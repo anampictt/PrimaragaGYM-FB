@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -36,11 +37,16 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
+import androidx.compose.ui.text.style.TextOverflow
+import com.pws.primaragagym.ui.components.common.AnimatedStatusPopup
+import com.pws.primaragagym.ui.components.common.StatusPopupType
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -124,6 +130,9 @@ fun MembershipPlanScreen(
         }
     }
 
+    var showDeleteSuccessPopup by remember { mutableStateOf(false) }
+    var deletedPlanName by remember { mutableStateOf("") }
+
     if (planToDelete != null) {
         AlertDialog(
             onDismissRequest = { planToDelete = null },
@@ -135,7 +144,9 @@ fun MembershipPlanScreen(
                         val target = planToDelete
                         planToDelete = null
                         if (target != null) {
+                            deletedPlanName = target.name
                             viewModel.deletePlan(target.id)
+                            showDeleteSuccessPopup = true
                         }
                     }
                 ) {
@@ -150,8 +161,18 @@ fun MembershipPlanScreen(
         )
     }
 
+    AnimatedStatusPopup(
+        visible = showDeleteSuccessPopup,
+        type = StatusPopupType.SUCCESS_DELETE,
+        title = "Paket Berhasil Dihapus",
+        message = "Paket \"$deletedPlanName\" telah berhasil dihapus dari sistem.",
+        confirmButtonText = "Selesai",
+        onDismiss = { showDeleteSuccessPopup = false }
+    )
+
     Scaffold(
         containerColor = BackgroundColor,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
                 title = {
@@ -189,13 +210,14 @@ fun MembershipPlanScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .padding(top = paddingValues.calculateTopPadding())
         ) {
-            // Tabs
-            TabRow(
+            // Tabs (Scrollable for phone responsiveness)
+            ScrollableTabRow(
                 selectedTabIndex = selectedTab,
                 containerColor = CardBackground,
                 contentColor = GreenAccent,
+                edgePadding = 16.dp,
                 indicator = { tabPositions ->
                     if (selectedTab in tabPositions.indices) {
                         TabRowDefaults.SecondaryIndicator(
@@ -262,7 +284,7 @@ fun MembershipPlanScreen(
                         start = horizontalPadding,
                         end = horizontalPadding,
                         top = Dimens.spacing_5,
-                        bottom = 80.dp
+                        bottom = 96.dp
                     )
                 ) {
                     if (filteredPlans.isEmpty()) {
@@ -307,6 +329,7 @@ fun MembershipPlanScreen(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun MembershipPlanCard(
     plan: MembershipPlanUiModel,
@@ -315,105 +338,124 @@ private fun MembershipPlanCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = CardBackground),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(Dimens.spacing_4),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(14.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(GreenLight),
-                contentAlignment = Alignment.Center
+            // Top Section: Avatar, Title, Price, Duration, and Action Buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = plan.name.take(2).uppercase(),
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                    color = GreenAccent
-                )
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = plan.name,
-                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
-                    color = TextPrimary
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(GreenLight),
+                    contentAlignment = Alignment.Center
+                ) {
                     Text(
-                        text = plan.price,
-                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                        text = plan.name.take(2).uppercase(),
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                         color = GreenAccent
                     )
-                    Text(
-                        text = "-",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextMuted
-                    )
-                    Text(
-                        text = plan.duration,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextSecondary
-                    )
                 }
-                Spacer(modifier = Modifier.height(4.dp))
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = plan.name,
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = TextPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = plan.price,
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                            color = GreenAccent
+                        )
+                        Text(
+                            text = "•",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextMuted
+                        )
+                        Text(
+                            text = plan.duration,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextSecondary
+                        )
+                    }
+                }
+
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
-                    PlanTypeBadge(type = plan.type)
-                    PlanStatusBadge(isActive = plan.isActive)
-                    if (plan.maxMembers > 0) {
-                        PlanQuotaBadge(maxMembers = plan.maxMembers)
+                    IconButton(
+                        onClick = onEditClick,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Edit,
+                            contentDescription = "Edit",
+                            tint = TextSecondary,
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
-                }
 
-                if (plan.createdAt != null) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    val dateStr = remember(plan.createdAt) {
-                        val sdf = SimpleDateFormat("dd MMM yyyy, HH:mm 'WIB'", Locale("id", "ID")).apply {
-                            timeZone = TimeZone.getTimeZone("Asia/Jakarta")
-                        }
-                        sdf.format(plan.createdAt)
+                    IconButton(
+                        onClick = onDeleteClick,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Delete,
+                            contentDescription = "Hapus",
+                            tint = Color(0xFFEF5350),
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
-                    Text(
-                        text = "Dibuat: $dateStr",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = TextMuted
-                    )
                 }
             }
 
-            IconButton(
-                onClick = onEditClick,
-                modifier = Modifier.size(36.dp)
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Badges Section (Uses full width and wraps naturally on any phone screen)
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Filled.Edit,
-                    contentDescription = "Edit",
-                    tint = TextSecondary,
-                    modifier = Modifier.size(20.dp)
-                )
+                PlanTypeBadge(type = plan.type)
+                PlanStatusBadge(isActive = plan.isActive)
+                if (plan.maxMembers > 0) {
+                    PlanQuotaBadge(maxMembers = plan.maxMembers)
+                }
             }
 
-            IconButton(
-                onClick = onDeleteClick,
-                modifier = Modifier.size(36.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Delete,
-                    contentDescription = "Hapus",
-                    tint = Color(0xFFF44336),
-                    modifier = Modifier.size(20.dp)
+            if (plan.createdAt != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                val dateStr = remember(plan.createdAt) {
+                    val sdf = SimpleDateFormat("dd MMM yyyy, HH:mm 'WIB'", Locale("id", "ID")).apply {
+                        timeZone = TimeZone.getTimeZone("Asia/Jakarta")
+                    }
+                    sdf.format(plan.createdAt)
+                }
+                Text(
+                    text = "Dibuat: $dateStr",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TextMuted
                 )
             }
         }
@@ -476,7 +518,8 @@ private fun PlanQuotaBadge(maxMembers: Int) {
         Text(
             text = "Maks $maxMembers Member",
             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
-            color = Color(0xFF673AB7)
+            color = Color(0xFF673AB7),
+            maxLines = 1
         )
     }
 }

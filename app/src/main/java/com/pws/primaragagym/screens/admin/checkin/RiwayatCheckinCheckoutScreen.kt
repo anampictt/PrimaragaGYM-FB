@@ -231,7 +231,8 @@ fun RiwayatCheckinCheckoutScreen(
                 )
             )
         },
-        containerColor = BackgroundColor
+        containerColor = BackgroundColor,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { paddingValues ->
         val contentPadding = if (isTablet) 24.dp else 16.dp
 
@@ -239,7 +240,7 @@ fun RiwayatCheckinCheckoutScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(paddingValues),
+                    .padding(top = paddingValues.calculateTopPadding()),
                 contentAlignment = Alignment.Center
             ) {
                 CircularProgressIndicator(color = GreenAccent)
@@ -251,7 +252,7 @@ fun RiwayatCheckinCheckoutScreen(
                     columns = GridCells.Fixed(2),
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(paddingValues),
+                        .padding(top = paddingValues.calculateTopPadding()),
                     contentPadding = PaddingValues(contentPadding),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -318,7 +319,7 @@ fun RiwayatCheckinCheckoutScreen(
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(paddingValues),
+                        .padding(top = paddingValues.calculateTopPadding()),
                     contentPadding = PaddingValues(contentPadding),
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {

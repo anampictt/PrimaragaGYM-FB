@@ -128,6 +128,7 @@ fun InvoiceScreen(
 
     Scaffold(
         containerColor = BackgroundColor,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
                 title = {
@@ -177,7 +178,7 @@ fun InvoiceScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .padding(top = paddingValues.calculateTopPadding())
         ) {
             // ==================== SEARCH BAR WITH SCANNER BUTTON ====================
             Card(
