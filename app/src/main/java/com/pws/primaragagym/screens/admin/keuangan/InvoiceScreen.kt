@@ -126,6 +126,14 @@ fun InvoiceScreen(
         }
     }
 
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val paginatedInvoices = com.pws.primaragagym.ui.components.common.rememberPaginatedList(
+        items = filteredInvoices,
+        pageSize = 12,
+        resetKey = searchQuery
+    )
+    com.pws.primaragagym.ui.components.common.BindPagination(listState, paginatedInvoices)
+
     Scaffold(
         containerColor = BackgroundColor,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -280,6 +288,7 @@ fun InvoiceScreen(
                 )
             } else {
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(
                         horizontal = if (isTablet) 32.dp else Dimens.screen_padding_horizontal,
@@ -287,7 +296,7 @@ fun InvoiceScreen(
                     ),
                     verticalArrangement = Arrangement.spacedBy(Dimens.spacing_3)
                 ) {
-                    items(filteredInvoices, key = { it.paymentId }) { invoice ->
+                    items(paginatedInvoices.visibleItems, key = { it.paymentId }) { invoice ->
                         ResponsiveInvoiceCard(
                             invoice = invoice,
                             onClick = {
@@ -295,6 +304,16 @@ fun InvoiceScreen(
                                 onInvoiceClick(targetId)
                             }
                         )
+                    }
+
+                    if (paginatedInvoices.isLoadingMore) {
+                        item(key = "pagination_loading") {
+                            com.pws.primaragagym.ui.components.common.PaginationLoadingItem()
+                        }
+                    } else if (!paginatedInvoices.hasMore && paginatedInvoices.totalCount > 12) {
+                        item(key = "pagination_end") {
+                            com.pws.primaragagym.ui.components.common.PaginationEndOfListItem(totalCount = paginatedInvoices.totalCount)
+                        }
                     }
                 }
             }

@@ -1137,18 +1137,27 @@ private fun MemberInsightDetailDialog(
                             it.member.fullName.contains(searchQuery, ignoreCase = true) ||
                             it.member.memberCode.contains(searchQuery, ignoreCase = true)
                         }
+                        val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+                        val paginated = com.pws.primaragagym.ui.components.common.rememberPaginatedList(
+                            items = filtered,
+                            pageSize = 8,
+                            resetKey = searchQuery
+                        )
+                        com.pws.primaragagym.ui.components.common.BindPagination(listState, paginated)
+
                         if (filtered.isEmpty()) {
                             EmptyInsightState(
                                 message = if (searchQuery.isNotEmpty()) "Tidak ada member yang cocok dengan pencarian." else "Tidak ada member yang berulang tahun dalam 7 hari ke depan 🎉"
                             )
                         } else {
                             LazyColumn(
+                                state = listState,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .heightIn(max = if (isTablet) 460.dp else 400.dp),
                                 verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                items(filtered, key = { it.member.memberId.ifBlank { it.member.memberCode } }) { item ->
+                                items(paginated.visibleItems, key = { it.member.memberId.ifBlank { it.member.memberCode } }) { item ->
                                     val bdayCountdown = formatBirthdayCountdown(item.daysRemaining)
                                     val isToday = item.daysRemaining == 0
                                     val bdayMsg = formatChatTemplateMessage(
@@ -1176,6 +1185,16 @@ private fun MemberInsightDetailDialog(
                                         actionLabel = "Kirim Ucapan"
                                     )
                                 }
+
+                                if (paginated.isLoadingMore) {
+                                    item(key = "pagination_loading_bday") {
+                                        com.pws.primaragagym.ui.components.common.PaginationLoadingItem()
+                                    }
+                                } else if (!paginated.hasMore && paginated.totalCount > 8) {
+                                    item(key = "pagination_end_bday") {
+                                        com.pws.primaragagym.ui.components.common.PaginationEndOfListItem(totalCount = paginated.totalCount)
+                                    }
+                                }
                             }
                         }
                     }
@@ -1185,18 +1204,27 @@ private fun MemberInsightDetailDialog(
                             it.member.fullName.contains(searchQuery, ignoreCase = true) ||
                             it.member.memberCode.contains(searchQuery, ignoreCase = true)
                         }
+                        val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+                        val paginated = com.pws.primaragagym.ui.components.common.rememberPaginatedList(
+                            items = filtered,
+                            pageSize = 8,
+                            resetKey = searchQuery
+                        )
+                        com.pws.primaragagym.ui.components.common.BindPagination(listState, paginated)
+
                         if (filtered.isEmpty()) {
                             EmptyInsightState(
                                 message = if (searchQuery.isNotEmpty()) "Tidak ada member yang cocok dengan pencarian." else "Hebat! Semua member aktif sudah pernah check-in latihan 💪"
                             )
                         } else {
                             LazyColumn(
+                                state = listState,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .heightIn(max = if (isTablet) 460.dp else 400.dp),
                                 verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                items(filtered, key = { it.member.memberId.ifBlank { it.member.memberCode } }) { item ->
+                                items(paginated.visibleItems, key = { it.member.memberId.ifBlank { it.member.memberCode } }) { item ->
                                     val checkinMsg = formatChatTemplateMessage(
                                         template = neverCheckinTemplateMsg,
                                         memberName = item.member.fullName,
@@ -1221,6 +1249,16 @@ private fun MemberInsightDetailDialog(
                                         actionLabel = "Sapa Member"
                                     )
                                 }
+
+                                if (paginated.isLoadingMore) {
+                                    item(key = "pagination_loading_never") {
+                                        com.pws.primaragagym.ui.components.common.PaginationLoadingItem()
+                                    }
+                                } else if (!paginated.hasMore && paginated.totalCount > 8) {
+                                    item(key = "pagination_end_never") {
+                                        com.pws.primaragagym.ui.components.common.PaginationEndOfListItem(totalCount = paginated.totalCount)
+                                    }
+                                }
                             }
                         }
                     }
@@ -1230,18 +1268,27 @@ private fun MemberInsightDetailDialog(
                             it.member.fullName.contains(searchQuery, ignoreCase = true) ||
                             it.member.memberCode.contains(searchQuery, ignoreCase = true)
                         }
+                        val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+                        val paginated = com.pws.primaragagym.ui.components.common.rememberPaginatedList(
+                            items = filtered,
+                            pageSize = 8,
+                            resetKey = searchQuery
+                        )
+                        com.pws.primaragagym.ui.components.common.BindPagination(listState, paginated)
+
                         if (filtered.isEmpty()) {
                             EmptyInsightState(
                                 message = if (searchQuery.isNotEmpty()) "Tidak ada member yang cocok dengan pencarian." else "Tidak ada member yang tidak aktif ✨"
                             )
                         } else {
                             LazyColumn(
+                                state = listState,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .heightIn(max = if (isTablet) 460.dp else 400.dp),
                                 verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                items(filtered, key = { it.member.memberId.ifBlank { it.member.memberCode } }) { item ->
+                                items(paginated.visibleItems, key = { it.member.memberId.ifBlank { it.member.memberCode } }) { item ->
                                     val winbackMsg = formatChatTemplateMessage(
                                         template = inactiveTemplateMsg,
                                         memberName = item.member.fullName,
@@ -1266,6 +1313,16 @@ private fun MemberInsightDetailDialog(
                                         },
                                         actionLabel = "Tawarkan Promo"
                                     )
+                                }
+
+                                if (paginated.isLoadingMore) {
+                                    item(key = "pagination_loading_inactive") {
+                                        com.pws.primaragagym.ui.components.common.PaginationLoadingItem()
+                                    }
+                                } else if (!paginated.hasMore && paginated.totalCount > 8) {
+                                    item(key = "pagination_end_inactive") {
+                                        com.pws.primaragagym.ui.components.common.PaginationEndOfListItem(totalCount = paginated.totalCount)
+                                    }
                                 }
                             }
                         }

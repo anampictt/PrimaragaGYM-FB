@@ -140,6 +140,13 @@ fun NotifikasiScreen(
             NotifikasiFilter.SISTEM -> NotificationDisplayMapper.getCategoryLabel(notif.type).equals("Sistem", ignoreCase = true)
         }
     }
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val paginatedNotifications = com.pws.primaragagym.ui.components.common.rememberPaginatedList(
+        items = filteredNotifications,
+        pageSize = 10,
+        resetKey = selectedFilter
+    )
+    com.pws.primaragagym.ui.components.common.BindPagination(listState, paginatedNotifications)
 
     Scaffold(
         containerColor = BackgroundColor,
@@ -197,6 +204,7 @@ fun NotifikasiScreen(
         }
     ) { paddingValues ->
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(top = paddingValues.calculateTopPadding()),
@@ -252,7 +260,7 @@ fun NotifikasiScreen(
                     EmptyNotificationState()
                 }
             } else {
-                items(filteredNotifications, key = { it.notificationId }) { notification ->
+                items(paginatedNotifications.visibleItems, key = { it.notificationId }) { notification ->
                     RealNotificationCard(
                         notification = notification,
                         isActionLoading = processingNotificationId == notification.notificationId,
@@ -279,6 +287,16 @@ fun NotifikasiScreen(
                             )
                         }
                     )
+                }
+
+                if (paginatedNotifications.isLoadingMore) {
+                    item(key = "pagination_loading") {
+                        com.pws.primaragagym.ui.components.common.PaginationLoadingItem()
+                    }
+                } else if (!paginatedNotifications.hasMore && paginatedNotifications.totalCount > 10) {
+                    item(key = "pagination_end") {
+                        com.pws.primaragagym.ui.components.common.PaginationEndOfListItem(totalCount = paginatedNotifications.totalCount)
+                    }
                 }
             }
 

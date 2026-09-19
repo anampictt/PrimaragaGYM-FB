@@ -129,6 +129,14 @@ fun LaporanPemasukanScreen(
         viewModel.loadPayments(branchId)
     }
 
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val paginatedTransactions = com.pws.primaragagym.ui.components.common.rememberPaginatedList(
+        items = uiState.displayedTransactions,
+        pageSize = 12,
+        resetKey = Triple(uiState.selectedPeriod, uiState.selectedTypeFilter, uiState.searchQuery)
+    )
+    com.pws.primaragagym.ui.components.common.BindPagination(listState, paginatedTransactions)
+
     Scaffold(
         containerColor = BackgroundColor,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -186,6 +194,7 @@ fun LaporanPemasukanScreen(
             }
         } else {
             LazyColumn(
+                state = listState,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(top = paddingValues.calculateTopPadding()),
@@ -538,10 +547,20 @@ fun LaporanPemasukanScreen(
                     }
                 } else {
                     items(
-                        items = uiState.displayedTransactions,
+                        items = paginatedTransactions.visibleItems,
                         key = { it.paymentId.ifBlank { it.invoiceNumber } }
                     ) { payment ->
                         PaymentTransactionCard(payment = payment)
+                    }
+
+                    if (paginatedTransactions.isLoadingMore) {
+                        item(key = "pagination_loading") {
+                            com.pws.primaragagym.ui.components.common.PaginationLoadingItem()
+                        }
+                    } else if (!paginatedTransactions.hasMore && paginatedTransactions.totalCount > 12) {
+                        item(key = "pagination_end") {
+                            com.pws.primaragagym.ui.components.common.PaginationEndOfListItem(totalCount = paginatedTransactions.totalCount)
+                        }
                     }
                 }
 

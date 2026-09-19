@@ -80,6 +80,14 @@ fun MembershipManagementScreen(
         }
     }
 
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val paginatedMembers = com.pws.primaragagym.ui.components.common.rememberPaginatedList(
+        items = filteredMembers,
+        pageSize = 12,
+        resetKey = searchQuery
+    )
+    com.pws.primaragagym.ui.components.common.BindPagination(listState, paginatedMembers)
+
     Scaffold(
         containerColor = BackgroundColor,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -130,6 +138,7 @@ fun MembershipManagementScreen(
             )
 
             LazyColumn(
+                state = listState,
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(
@@ -145,13 +154,23 @@ fun MembershipManagementScreen(
                     }
                 } else {
                     items(
-                        items = filteredMembers,
+                        items = paginatedMembers.visibleItems,
                         key = { it.id }
                     ) { member ->
                         MembershipMemberCard(
                             member = member,
                             onClick = { onMembershipClick(member.id) }
                         )
+                    }
+
+                    if (paginatedMembers.isLoadingMore) {
+                        item(key = "pagination_loading") {
+                            com.pws.primaragagym.ui.components.common.PaginationLoadingItem()
+                        }
+                    } else if (!paginatedMembers.hasMore && paginatedMembers.totalCount > 12) {
+                        item(key = "pagination_end") {
+                            com.pws.primaragagym.ui.components.common.PaginationEndOfListItem(totalCount = paginatedMembers.totalCount)
+                        }
                     }
                 }
             }

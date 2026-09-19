@@ -207,6 +207,34 @@ fun RiwayatCheckinCheckoutScreen(
     val totalActiveNow = rawCheckins.count { it.status.equals("CHECKED_IN", ignoreCase = true) }
     val totalCheckedOut = rawCheckins.count { it.status.equals("CHECKED_OUT", ignoreCase = true) }
 
+    val tabletGridState = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
+    val phoneListState = androidx.compose.foundation.lazy.rememberLazyListState()
+
+    val paginatedCheckins = com.pws.primaragagym.ui.components.common.rememberPaginatedList(
+        items = filteredCheckins,
+        pageSize = 12,
+        resetKey = selectedFilter to searchQuery
+    )
+    val paginatedNeverCheckins = com.pws.primaragagym.ui.components.common.rememberPaginatedList(
+        items = filteredNeverCheckedIn,
+        pageSize = 12,
+        resetKey = selectedFilter to searchQuery
+    )
+
+    if (isTablet) {
+        if (isNeverCheckedInFilter) {
+            com.pws.primaragagym.ui.components.common.BindPagination(tabletGridState, paginatedNeverCheckins)
+        } else {
+            com.pws.primaragagym.ui.components.common.BindPagination(tabletGridState, paginatedCheckins)
+        }
+    } else {
+        if (isNeverCheckedInFilter) {
+            com.pws.primaragagym.ui.components.common.BindPagination(phoneListState, paginatedNeverCheckins)
+        } else {
+            com.pws.primaragagym.ui.components.common.BindPagination(phoneListState, paginatedCheckins)
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -250,6 +278,7 @@ fun RiwayatCheckinCheckoutScreen(
                 // TABLET LAYOUT: 2-Column Grid
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(2),
+                    state = tabletGridState,
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(top = paddingValues.calculateTopPadding()),
@@ -283,7 +312,7 @@ fun RiwayatCheckinCheckoutScreen(
                                 EmptyHistoryCard(searchQuery = searchQuery, selectedFilter = selectedFilter)
                             }
                         } else {
-                            items(filteredNeverCheckedIn, key = { it.memberId }) { member ->
+                            items(paginatedNeverCheckins.visibleItems, key = { it.memberId }) { member ->
                                 MemberTanpaCheckinCard(
                                     member = member,
                                     onClick = {
@@ -295,6 +324,16 @@ fun RiwayatCheckinCheckoutScreen(
                                     }
                                 )
                             }
+
+                            if (paginatedNeverCheckins.isLoadingMore) {
+                                item(span = { GridItemSpan(2) }, key = "loading_never_checkin") {
+                                    com.pws.primaragagym.ui.components.common.PaginationLoadingItem()
+                                }
+                            } else if (!paginatedNeverCheckins.hasMore && paginatedNeverCheckins.totalCount > 12) {
+                                item(span = { GridItemSpan(2) }, key = "end_never_checkin") {
+                                    com.pws.primaragagym.ui.components.common.PaginationEndOfListItem(totalCount = paginatedNeverCheckins.totalCount)
+                                }
+                            }
                         }
                     } else {
                         if (filteredCheckins.isEmpty()) {
@@ -302,7 +341,7 @@ fun RiwayatCheckinCheckoutScreen(
                                 EmptyHistoryCard(searchQuery = searchQuery, selectedFilter = selectedFilter)
                             }
                         } else {
-                            items(filteredCheckins, key = { it.checkinId }) { checkin ->
+                            items(paginatedCheckins.visibleItems, key = { it.checkinId }) { checkin ->
                                 RiwayatVisitCard(
                                     checkin = checkin,
                                     onClick = {
@@ -311,12 +350,23 @@ fun RiwayatCheckinCheckoutScreen(
                                     }
                                 )
                             }
+
+                            if (paginatedCheckins.isLoadingMore) {
+                                item(span = { GridItemSpan(2) }, key = "loading_checkin") {
+                                    com.pws.primaragagym.ui.components.common.PaginationLoadingItem()
+                                }
+                            } else if (!paginatedCheckins.hasMore && paginatedCheckins.totalCount > 12) {
+                                item(span = { GridItemSpan(2) }, key = "end_checkin") {
+                                    com.pws.primaragagym.ui.components.common.PaginationEndOfListItem(totalCount = paginatedCheckins.totalCount)
+                                }
+                            }
                         }
                     }
                 }
             } else {
                 // PHONE LAYOUT: Single Column
                 LazyColumn(
+                    state = phoneListState,
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(top = paddingValues.calculateTopPadding()),
@@ -348,7 +398,7 @@ fun RiwayatCheckinCheckoutScreen(
                                 EmptyHistoryCard(searchQuery = searchQuery, selectedFilter = selectedFilter)
                             }
                         } else {
-                            items(filteredNeverCheckedIn, key = { it.memberId }) { member ->
+                            items(paginatedNeverCheckins.visibleItems, key = { it.memberId }) { member ->
                                 MemberTanpaCheckinCard(
                                     member = member,
                                     onClick = {
@@ -360,6 +410,16 @@ fun RiwayatCheckinCheckoutScreen(
                                     }
                                 )
                             }
+
+                            if (paginatedNeverCheckins.isLoadingMore) {
+                                item(key = "loading_phone_never") {
+                                    com.pws.primaragagym.ui.components.common.PaginationLoadingItem()
+                                }
+                            } else if (!paginatedNeverCheckins.hasMore && paginatedNeverCheckins.totalCount > 12) {
+                                item(key = "end_phone_never") {
+                                    com.pws.primaragagym.ui.components.common.PaginationEndOfListItem(totalCount = paginatedNeverCheckins.totalCount)
+                                }
+                            }
                         }
                     } else {
                         if (filteredCheckins.isEmpty()) {
@@ -367,7 +427,7 @@ fun RiwayatCheckinCheckoutScreen(
                                 EmptyHistoryCard(searchQuery = searchQuery, selectedFilter = selectedFilter)
                             }
                         } else {
-                            items(filteredCheckins, key = { it.checkinId }) { checkin ->
+                            items(paginatedCheckins.visibleItems, key = { it.checkinId }) { checkin ->
                                 RiwayatVisitCard(
                                     checkin = checkin,
                                     onClick = {
@@ -375,6 +435,16 @@ fun RiwayatCheckinCheckoutScreen(
                                         if (idToOpen.isNotBlank()) onMemberClick(idToOpen)
                                     }
                                 )
+                            }
+
+                            if (paginatedCheckins.isLoadingMore) {
+                                item(key = "loading_phone_checkin") {
+                                    com.pws.primaragagym.ui.components.common.PaginationLoadingItem()
+                                }
+                            } else if (!paginatedCheckins.hasMore && paginatedCheckins.totalCount > 12) {
+                                item(key = "end_phone_checkin") {
+                                    com.pws.primaragagym.ui.components.common.PaginationEndOfListItem(totalCount = paginatedCheckins.totalCount)
+                                }
                             }
                         }
                     }

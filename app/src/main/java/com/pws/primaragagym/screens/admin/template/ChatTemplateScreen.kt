@@ -139,6 +139,14 @@ fun ChatTemplateScreen(
         }
     }
 
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val paginatedTemplates = com.pws.primaragagym.ui.components.common.rememberPaginatedList(
+        items = filteredTemplates,
+        pageSize = 10,
+        resetKey = selectedTab
+    )
+    com.pws.primaragagym.ui.components.common.BindPagination(listState, paginatedTemplates)
+
     if (templateToDelete != null) {
         AlertDialog(
             onDismissRequest = { templateToDelete = null },
@@ -312,13 +320,14 @@ fun ChatTemplateScreen(
                 }
             } else {
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(horizontal = if (isTablet) 32.dp else 16.dp, vertical = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                     if (isTablet) {
-                        val chunks = filteredTemplates.chunked(2)
+                        val chunks = paginatedTemplates.visibleItems.chunked(2)
                         items(chunks) { rowTemplates ->
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -343,7 +352,7 @@ fun ChatTemplateScreen(
                             }
                         }
                     } else {
-                        items(filteredTemplates, key = { it.id }) { template ->
+                        items(paginatedTemplates.visibleItems, key = { it.id }) { template ->
                             ChatTemplateCard(
                                 template = template,
                                 onSendToMember = { templateToSend = template },
@@ -354,6 +363,16 @@ fun ChatTemplateScreen(
                                     Toast.makeText(context, "Disetel sebagai template default", Toast.LENGTH_SHORT).show()
                                 }
                             )
+                        }
+                    }
+
+                    if (paginatedTemplates.isLoadingMore) {
+                        item(key = "pagination_loading") {
+                            com.pws.primaragagym.ui.components.common.PaginationLoadingItem()
+                        }
+                    } else if (!paginatedTemplates.hasMore && paginatedTemplates.totalCount > 10) {
+                        item(key = "pagination_end") {
+                            com.pws.primaragagym.ui.components.common.PaginationEndOfListItem(totalCount = paginatedTemplates.totalCount)
                         }
                     }
                 }

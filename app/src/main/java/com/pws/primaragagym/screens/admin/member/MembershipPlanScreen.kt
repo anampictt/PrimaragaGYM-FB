@@ -130,6 +130,14 @@ fun MembershipPlanScreen(
         }
     }
 
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val paginatedPlans = com.pws.primaragagym.ui.components.common.rememberPaginatedList(
+        items = filteredPlans,
+        pageSize = 8,
+        resetKey = selectedTab
+    )
+    com.pws.primaragagym.ui.components.common.BindPagination(listState, paginatedPlans)
+
     var showDeleteSuccessPopup by remember { mutableStateOf(false) }
     var deletedPlanName by remember { mutableStateOf("") }
 
@@ -278,6 +286,7 @@ fun MembershipPlanScreen(
                 }
             } else {
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     contentPadding = PaddingValues(
@@ -315,12 +324,22 @@ fun MembershipPlanScreen(
                             }
                         }
                     } else {
-                        items(filteredPlans, key = { it.id }) { plan ->
+                        items(paginatedPlans.visibleItems, key = { it.id }) { plan ->
                             MembershipPlanCard(
                                 plan = plan,
                                 onEditClick = { onEditPlan(plan.id) },
                                 onDeleteClick = { planToDelete = plan }
                             )
+                        }
+
+                        if (paginatedPlans.isLoadingMore) {
+                            item(key = "pagination_loading") {
+                                com.pws.primaragagym.ui.components.common.PaginationLoadingItem()
+                            }
+                        } else if (!paginatedPlans.hasMore && paginatedPlans.totalCount > 8) {
+                            item(key = "pagination_end") {
+                                com.pws.primaragagym.ui.components.common.PaginationEndOfListItem(totalCount = paginatedPlans.totalCount)
+                            }
                         }
                     }
                 }

@@ -203,6 +203,14 @@ fun ManajemenRoleScreen(
         14.dp
     }
 
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val paginatedRoles = com.pws.primaragagym.ui.components.common.rememberPaginatedList(
+        items = filteredRoles,
+        pageSize = 10,
+        resetKey = searchQuery
+    )
+    com.pws.primaragagym.ui.components.common.BindPagination(listState, paginatedRoles)
+
     var showDeleteSuccessPopup by remember { mutableStateOf(false) }
     var deletedRoleName by remember { mutableStateOf("") }
 
@@ -302,6 +310,7 @@ fun ManajemenRoleScreen(
                 )
             } else {
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     contentPadding = PaddingValues(
@@ -311,7 +320,7 @@ fun ManajemenRoleScreen(
                     )
                 ) {
                     items(
-                        items = filteredRoles,
+                        items = paginatedRoles.visibleItems,
                         key = { it.id }
                     ) { role ->
                         RoleCard(
@@ -320,6 +329,16 @@ fun ManajemenRoleScreen(
                             onDeleteClick = { roleToDelete = role },
                             onAccessClick = { onAccessClick(role) }
                         )
+                    }
+
+                    if (paginatedRoles.isLoadingMore) {
+                        item(key = "pagination_loading") {
+                            com.pws.primaragagym.ui.components.common.PaginationLoadingItem()
+                        }
+                    } else if (!paginatedRoles.hasMore && paginatedRoles.totalCount > 10) {
+                        item(key = "pagination_end") {
+                            com.pws.primaragagym.ui.components.common.PaginationEndOfListItem(totalCount = paginatedRoles.totalCount)
+                        }
                     }
                 }
             }

@@ -230,6 +230,14 @@ fun ManajemenPenggunaScreen(
         }
     }
 
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val paginatedUsers = com.pws.primaragagym.ui.components.common.rememberPaginatedList(
+        items = filteredUsers,
+        pageSize = 10,
+        resetKey = searchQuery
+    )
+    com.pws.primaragagym.ui.components.common.BindPagination(listState, paginatedUsers)
+
     // Determine horizontal padding for tablet
     val horizontalPadding = if (isTablet) {
         24.dp
@@ -336,6 +344,7 @@ fun ManajemenPenggunaScreen(
                 )
             } else {
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     contentPadding = PaddingValues(
@@ -345,7 +354,7 @@ fun ManajemenPenggunaScreen(
                     )
                 ) {
                     items(
-                        items = filteredUsers,
+                        items = paginatedUsers.visibleItems,
                         key = { it.id }
                     ) { user ->
                         UserCard(
@@ -354,6 +363,16 @@ fun ManajemenPenggunaScreen(
                             onEditClick = { onEditUser(user) },
                             onDeleteClick = { userToDelete = user }
                         )
+                    }
+
+                    if (paginatedUsers.isLoadingMore) {
+                        item(key = "pagination_loading") {
+                            com.pws.primaragagym.ui.components.common.PaginationLoadingItem()
+                        }
+                    } else if (!paginatedUsers.hasMore && paginatedUsers.totalCount > 10) {
+                        item(key = "pagination_end") {
+                            com.pws.primaragagym.ui.components.common.PaginationEndOfListItem(totalCount = paginatedUsers.totalCount)
+                        }
                     }
                 }
             }

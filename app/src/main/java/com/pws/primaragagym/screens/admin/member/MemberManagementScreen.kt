@@ -197,6 +197,15 @@ fun MemberManagementScreen(
     val searchQuery = uiState.searchQuery
     val selectedFilter = uiState.selectedFilter
 
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val paginatedMembers = com.pws.primaragagym.ui.components.common.rememberPaginatedList(
+        items = filteredMembers,
+        pageSize = 12,
+        onLoadMoreFromSource = { viewModel.loadMore() },
+        resetKey = searchQuery to selectedFilter
+    )
+    com.pws.primaragagym.ui.components.common.BindPagination(listState, paginatedMembers)
+
     val horizontalPadding = if (isTablet) 32.dp else Dimens.screen_padding_horizontal
 
     fun shareMemberCard(member: MemberUiModel) {
@@ -363,6 +372,7 @@ fun MemberManagementScreen(
                 )
             } else {
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     contentPadding = PaddingValues(
@@ -372,7 +382,7 @@ fun MemberManagementScreen(
                     )
                 ) {
                     items(
-                        items = filteredMembers,
+                        items = paginatedMembers.visibleItems,
                         key = { it.id }
                     ) { member ->
                         MemberManagementCard(
@@ -384,6 +394,16 @@ fun MemberManagementScreen(
                             onEditClick = { onEditMemberClick(member.id) },
                             onDeleteClick = { memberToDelete = member }
                         )
+                    }
+
+                    if (paginatedMembers.isLoadingMore) {
+                        item(key = "pagination_loading") {
+                            com.pws.primaragagym.ui.components.common.PaginationLoadingItem()
+                        }
+                    } else if (!paginatedMembers.hasMore && paginatedMembers.totalCount > 12) {
+                        item(key = "pagination_end") {
+                            com.pws.primaragagym.ui.components.common.PaginationEndOfListItem(totalCount = paginatedMembers.totalCount)
+                        }
                     }
                 }
             }

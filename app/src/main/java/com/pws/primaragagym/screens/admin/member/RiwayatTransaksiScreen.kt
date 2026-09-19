@@ -300,7 +300,16 @@ fun RiwayatTransaksiScreen(
                         }
                     }
                 } else {
+                    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+                    val paginatedTransactions = com.pws.primaragagym.ui.components.common.rememberPaginatedList(
+                        items = transactions,
+                        pageSize = 10,
+                        resetKey = memberId to transactions.size
+                    )
+                    com.pws.primaragagym.ui.components.common.BindPagination(listState, paginatedTransactions)
+
                     LazyColumn(
+                        state = listState,
                         modifier = Modifier.fillMaxSize(),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                         contentPadding = PaddingValues(
@@ -310,8 +319,18 @@ fun RiwayatTransaksiScreen(
                             bottom = Dimens.spacing_5
                         )
                     ) {
-                        items(transactions) { payment ->
+                        items(paginatedTransactions.visibleItems) { payment ->
                             PaymentTransactionCard(payment = payment)
+                        }
+
+                        if (paginatedTransactions.isLoadingMore) {
+                            item(key = "pagination_loading") {
+                                com.pws.primaragagym.ui.components.common.PaginationLoadingItem()
+                            }
+                        } else if (!paginatedTransactions.hasMore && paginatedTransactions.totalCount > 10) {
+                            item(key = "pagination_end") {
+                                com.pws.primaragagym.ui.components.common.PaginationEndOfListItem(totalCount = paginatedTransactions.totalCount)
+                            }
                         }
                     }
                 }
